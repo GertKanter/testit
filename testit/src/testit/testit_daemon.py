@@ -245,7 +245,7 @@ class TestItDaemon:
                 # running detached, run oracle to assess test pass/fail
                 # execute oracle in TestIt docker
                 rospy.loginfo("[%s] Executing oracle..." % pipeline)
-                if subprocess.call("docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && " + self.tests[test]['oracle'] + "\'", shell=True) == 0:
+                if subprocess.call("docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'", shell=True) == 0:
                     # oracle reports test pass
                     rospy.loginfo("[%s] TEST PASS!" % pipeline)
                     return True
