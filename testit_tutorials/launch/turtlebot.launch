@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find testit)/launch/testit.launch">
+    <arg name="config" value="$(find testit_tutorials)/tutorials/turtlebot/cfg/config.yaml"/>
+  </include>
+</launch>

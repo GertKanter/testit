@@ -1,0 +1,4 @@
+string pipeline # Optional pipeline tag as string, if empty("") then executes command on all pipelines
+---
+bool result # True if success
+string message # Information message

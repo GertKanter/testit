@@ -1,0 +1,17 @@
+tests:
+  - tag: "scenario tag" # identifier for reporting
+    pipeline: "" # leave empty for any
+    source: "" # test scenario source directory (SMACH state machine, UPPAAL model etc)
+    launch: "" # how to execute this test (run command) in TestIt container
+    timeout: 0 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: "fail" # if timeout occurs, declare the test as this
+configuration:
+  - bringup: "" # how to bring up a pipeline server/docker (SUT + TestIt)
+    teardown: "" # how to clean up after completing (shut down server/docker)
+    noSSH: ["127.0.0.1"] # do not use SSH to connect to these IPs (useful for running TestIt and SUT on localhost)
+pipelines:
+  - tag: "example" # identifier for reporting
+    masterIP: "127.0.0.1" # where SUT roscore is running
+    testitIP: "127.0.0.1" # where TestIt docker container is running
+    bringup: "" # custom bringup for this pipeline
+    teardown: "" # custom teardown for this pipeline
