@@ -42,8 +42,8 @@ import testit_common
 import threading
 import time
 import sys
-import os
 import re
+import subprocess
 
 class TestItDaemon:
     def __init__(self):
@@ -108,20 +108,29 @@ class TestItDaemon:
     def thread_worker(self, tag, prefix):
         rospy.loginfo('[%s] Starter thread started!' % tag)
         rospy.loginfo('[%s] Executing %s SUT...' % (tag, prefix))
-        os.system(self.pipelines[tag][prefix + 'SUT'])
-        rospy.loginfo('[%s] Done!' % tag)
-        rospy.loginfo('[%s] Executing %s TestIt...' % (tag, prefix))
-        os.system(self.pipelines[tag][prefix + 'TestIt'])
-        rospy.loginfo('[%s] Done!' % tag)
-        rospy.loginfo('[%s] Waiting for the %s to finish...' % (tag, prefix))
-        start_time = rospy.Time.now()
-        while self.pipelines[tag][prefix + 'SUTDelay'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + 'SUTDelay']:
-            if self.pipelines[tag][prefix + 'SUTFinishTrigger'] != '-':
-                # TODO using timeout + trigger
-                pass
-            time.sleep(1.0) 
-        rospy.loginfo('[%s] Done!' % tag)
-        self.threads[tag]['result'] = True
+        if subprocess.call(self.pipelines[tag][prefix + 'SUT'], shell=True) == 0:
+            rospy.loginfo('[%s] Done!' % tag)
+            rospy.loginfo('[%s] Executing %s TestIt...' % (tag, prefix))
+            if subprocess.call(self.pipelines[tag][prefix + 'TestIt'], shell=True) == 0:
+                #os.system(self.pipelines[tag][prefix + 'TestIt'])
+                rospy.loginfo('[%s] Done!' % tag)
+                rospy.loginfo('[%s] Waiting for the %s to finish...' % (tag, prefix))
+                start_time = rospy.Time.now()
+                while self.pipelines[tag][prefix + 'SUTDelay'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + 'SUTDelay']:
+                    if self.pipelines[tag][prefix + 'SUTFinishTrigger'] != '-':
+                        # TODO using timeout + trigger
+                        pass
+                    time.sleep(1.0) 
+                rospy.loginfo('[%s] Done!' % tag)
+                self.threads[tag]['result'] = True
+            else:
+                rospy.logerr("[%s] Failed to execute TestIt!" % tag)
+                self.threads[tag]['result'] = False
+                return False
+        else:
+            rospy.logerr("[%s] Failed to execute SUT!" % tag)
+            self.threads[tag]['result'] = False
+            return False
         return True
 
     def multithreaded_command(self, verb, req, prefix):
@@ -199,23 +208,52 @@ class TestItDaemon:
         Returns:
         true -- if successful, false otherwise
         """
-        rospy.loginfo("Executing...")
-        os.system(self.pipelines[pipeline][mode + system])
-        start_time = rospy.Time.now()
-        while self.pipelines[pipeline][mode + system + 'Delay'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Delay']:
-            if self.pipelines[pipeline][mode + system + 'FinishTrigger'] != '-':
-                # TODO using timeout + trigger
-                pass
-            time.sleep(1.0) 
-        rospy.loginfo('Execution done!')
-        return True
+        rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
+        #TODO refactor to use subprocess
+        if subprocess.call(self.pipelines[pipeline][mode + system], shell=True) == 0:
+            start_time = rospy.Time.now()
+            while self.pipelines[pipeline][mode + system + 'Delay'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Delay']:
+                if self.pipelines[pipeline][mode + system + 'FinishTrigger'] != '-':
+                    # TODO using timeout + trigger
+                    pass
+                time.sleep(1.0) 
+            rospy.loginfo('[%s] Execution done!' % pipeline)
+            return True
+        else:
+            rospy.logerr('[%s] Execution failed!' % pipeline)
+        return False
 
-    def execute_in_testit_container(self):
+    def execute_in_testit_container(self, pipeline, test):
         """
         Returns:
         True if test successful, False otherwise
         """
-        return True
+        #TODO support ssh wrapping (currently only runs on localhost)
+        # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
+        detached = ""
+        if self.tests[test]['oracle'] != "":
+            # run in detached
+            detached = " -d "
+        rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
+        if subprocess.call("docker exec " + detached + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && " + self.tests[test]['launch'] + "\'", shell=True) == 0:
+            # command returned success
+            if detached == "":
+                # test success, because we didn't run in detached
+                rospy.loginfo("[%s] Test success!" % pipeline)
+                return True
+            else:
+                # running detached, run oracle to assess test pass/fail
+                # execute oracle in TestIt docker
+                rospy.loginfo("[%s] Executing oracle..." % pipeline)
+                if subprocess.call("docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && " + self.tests[test]['oracle'] + "\'", shell=True) == 0:
+                    # oracle reports test pass
+                    rospy.loginfo("[%s] TEST PASS!" % pipeline)
+                    return True
+                else:
+                    # oracle reports test failed
+                    rospy.logwarn("[%s] TEST FAIL!" % pipeline)
+                    return True
+        return False
 
     def test_thread_worker(self, tag):
         """
@@ -231,10 +269,8 @@ class TestItDaemon:
             # runTestIt
             rospy.loginfo("Running TestIt...")
             if self.execute_system(pipeline, 'TestIt', 'run'):
-                # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
-                # execute oracle in TestIt docker in new thread (if specified)
                 rospy.loginfo("Executing tests in TestIt container...")
-                self.test_threads[tag]['result'] = self.execute_in_testit_container()
+                self.test_threads[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
                 # stopTestIt
                 rospy.loginfo("Stopping TestIt container...")
                 self.execute_system(pipeline, 'TestIt', 'stop')

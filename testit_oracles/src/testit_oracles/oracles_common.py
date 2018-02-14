@@ -38,7 +38,8 @@ import rospy
 
 class BaseOracle(object):
     def __init__(self):
-        pass
+        self.robot_pose = {position: {x: 0.0, y: 0.0, z: 0.0},
+                           orientation: {w: 1.0, x: 0.0, y: 0.0, z: 0.0}}
 
     def callback(self):
         raise NotImplementedError

@@ -9,4 +9,9 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y ros-lunar-desktop-full && \
     rosdep init && \
-    rosdep update
+    rosdep update && \
+    mkdir -p /catkin_ws/src && \
+    /bin/bash -c "source /opt/ros/lunar/setup.bash && cd /catkin_ws/src && catkin_init_workspace" && \
+    cd /catkin_ws/src && \
+    git clone https://github.com/GertKanter/testit.git && \
+    /bin/bash -c "source /opt/ros/lunar/setup.bash && cd /catkin_ws && catkin_make"
