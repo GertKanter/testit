@@ -47,6 +47,7 @@ class GazeboOracle(oracles_common.BaseOracle):
         super(GazeboOracle, self).__init__()
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.callback)
         self.model_name = model_name
+        self.robot = oracles_common.Robot()
 
     def callback(self, data):
         print data
