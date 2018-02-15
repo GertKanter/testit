@@ -43,7 +43,7 @@ class Robot:
 
 class BaseOracle(object):
     def __init__(self):
-        pass
+        self.callback_received = False
 
     def callback(self):
         raise NotImplementedError

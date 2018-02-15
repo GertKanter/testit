@@ -63,3 +63,4 @@ class GazeboOracle(oracles_common.BaseOracle):
             self.robot.pose['orientation']['z'] = data.pose[i].orientation.z
             self.robot.pose['orientation']['w'] = data.pose[i].orientation.w
             rospy.loginfo_throttle(1.0, self.robot.pose)
+            self.callback_received = True

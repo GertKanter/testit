@@ -36,11 +36,13 @@
 
 import rospy
 import testit_oracles.testit_gazebo
+import sys
 
 if __name__ == "__main__":
     rospy.init_node("testit_tb_tutorial")
     oracle = testit_oracles.testit_gazebo.GazeboOracle("mobile_base")
     rate = rospy.Rate(2) # 2 Hz
     while not rospy.is_shutdown():
-        rospy.loginfo("yo")
+        if oracle.callback_received and oracle.robot.pose['position']['x'] < 22.0:
+            sys.exit(0) # success
         rate.sleep()
