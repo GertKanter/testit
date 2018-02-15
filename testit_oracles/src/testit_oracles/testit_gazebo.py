@@ -50,4 +50,16 @@ class GazeboOracle(oracles_common.BaseOracle):
         self.robot = oracles_common.Robot()
 
     def callback(self, data):
-        print data
+        index = -1
+        for i, name in enumerate(data.name):
+            if name == self.model_name:
+                index = i
+        if index >= 0:
+            self.robot.pose['position']['x'] = data.pose[i].position.x
+            self.robot.pose['position']['y'] = data.pose[i].position.y
+            self.robot.pose['position']['z'] = data.pose[i].position.z
+            self.robot.pose['orientation']['x'] = data.pose[i].orientation.x
+            self.robot.pose['orientation']['y'] = data.pose[i].orientation.y
+            self.robot.pose['orientation']['z'] = data.pose[i].orientation.z
+            self.robot.pose['orientation']['w'] = data.pose[i].orientation.w
+            rospy.loginfo_throttle(1.0, self.robot.pose)

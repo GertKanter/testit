@@ -58,6 +58,7 @@ class TestItDaemon:
         self.threads = {}
         self.test_threads = {}
         self.testing = False
+        self.call_result = {}
         self.tests = self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag')
         if self.tests is None:
             rospy.logerror("No tests defined in configuration!")
@@ -223,6 +224,10 @@ class TestItDaemon:
             rospy.logerr('[%s] Execution failed!' % pipeline)
         return False
 
+    def thread_call(self, tag, command):
+        self.call_result[tag] = -1 # -1 means timeout
+        self.call_result[tag] = subprocess.call(command, shell=True)
+
     def execute_in_testit_container(self, pipeline, test):
         """
         Returns:
@@ -235,24 +240,41 @@ class TestItDaemon:
             # run in detached
             detached = " -d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
-        if subprocess.call("docker exec " + detached + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && " + self.tests[test]['launch'] + "\'", shell=True) == 0:
+        thread = threading.Thread(target=self.thread_call, args=('launch', "docker exec " + detached + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && " + self.tests[test]['launch'] + "\'"))
+        start_time = rospy.Time.now()
+        thread.start()
+        thread.join(self.tests[test]['timeout'])
+        if self.call_result['launch'] == 0:
             # command returned success
             if detached == "":
                 # test success, because we didn't run in detached
-                rospy.loginfo("[%s] Test success!" % pipeline)
+                rospy.loginfo("[%s] TEST PASS!" % pipeline)
                 return True
             else:
                 # running detached, run oracle to assess test pass/fail
                 # execute oracle in TestIt docker
                 rospy.loginfo("[%s] Executing oracle..." % pipeline)
-                if subprocess.call("docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'", shell=True) == 0:
+                thread = threading.Thread(target=self.thread_call, args=('oracle', "docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'"))
+                thread.start()
+                thread.join(max(0.1, self.tests[test]['timeout'] - (rospy.Time.now() - start_time).to_sec()))
+                if self.call_result['oracle'] == 0:
                     # oracle reports test pass
                     rospy.loginfo("[%s] TEST PASS!" % pipeline)
                     return True
+                elif self.call_result['oracle'] == -1:
+                    rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
+                    if self.tests[test]['timeoutVerdict']:
+                        return True
                 else:
                     # oracle reports test failed
-                    rospy.logwarn("[%s] TEST FAIL!" % pipeline)
+                    rospy.logerr("[%s] TEST FAIL!" % pipeline)
                     return True
+        elif self.call_result['launch'] == -1:
+            rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
+            if self.tests[test]['timeoutVerdict']:
+                return True
+        else:
+            rospy.logerr("[%s] Test FAIL!" % pipeline)
         return False
 
     def test_thread_worker(self, tag):

@@ -10,8 +10,8 @@ configuration:
   bringupSUT: "" # how to bring up a pipeline server/docker SUT (general case), you can use "[[]]" for replacing
   bringupSUTDelay: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
   bringupSUTFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
-  runSUT: "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=[[masterHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[masterHost]] -dt testit_tb_sut:noautorun /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosrun mission_control start_move_base_in_docker.sh && tail -f /dev/null\"" # run SUT 
-  runSUTDelay: 5
+  runSUT: "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=[[masterHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[masterHost]] -dt testit_tb_sut:latest /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosrun mission_control run_example_in_docker.sh && tail -f /dev/null\"" # run SUT 
+  runSUTDelay: 150
   runSUTFinishTrigger: "-"
   stopSUT: "docker kill [[masterHost]]"
   stopSUTDelay: 5

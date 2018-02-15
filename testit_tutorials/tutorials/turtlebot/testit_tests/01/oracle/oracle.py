@@ -39,7 +39,7 @@ import testit_oracles.testit_gazebo
 
 if __name__ == "__main__":
     rospy.init_node("testit_tb_tutorial")
-    oracle = testit_oracles.testit_gazebo.GazeboOracle("somename")
+    oracle = testit_oracles.testit_gazebo.GazeboOracle("mobile_base")
     rate = rospy.Rate(2) # 2 Hz
     while not rospy.is_shutdown():
         rospy.loginfo("yo")
