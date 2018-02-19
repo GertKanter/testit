@@ -51,6 +51,7 @@ class TestItDaemon:
         rospy.Service('testit/teardown', testit.srv.Command, self.handle_teardown)
         rospy.Service('testit/status', testit.srv.Command, self.handle_status)
         rospy.Service('testit/test', testit.srv.Command, self.handle_test)
+        rospy.Service('testit/results', testit.srv.Command, self.handle_results)
         self.initialize()
 
     def initialize(self):
@@ -292,14 +293,14 @@ class TestItDaemon:
             rospy.loginfo("Running TestIt...")
             if self.execute_system(pipeline, 'TestIt', 'run'):
                 rospy.loginfo("Executing tests in TestIt container...")
-                self.test_threads[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
+                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
+                self.test_threads[tag]['result'] = self.tests[tag]['result']
                 # stopTestIt
                 rospy.loginfo("Stopping TestIt container...")
                 self.execute_system(pipeline, 'TestIt', 'stop')
             else:
                 # unable to run TestIt
                 rospy.logerr("Unable to run TestIt!")
-                pass
             # stopSUT
             rospy.loginfo("Stopping SUT...")
             self.execute_system(pipeline, 'SUT', 'stop')
@@ -311,7 +312,6 @@ class TestItDaemon:
         self.pipelines[pipeline]['busy'] = False
 
     def nonblocking_test_monitor(self):
-        rospy.loginfo("i am going to set self.testing false sometime soon")
         while True:
             sleep = True
             for thread in self.test_threads:
@@ -332,6 +332,7 @@ class TestItDaemon:
         if not self.testing:
             self.testing = True
             for test in self.tests: # key
+                self.tests[test]['result'] = None
                 #rospy.loginfo(pipe['tag'] + " " + verb.lower() + "ing...")
                 thread = threading.Thread(target=self.test_thread_worker, args=(test,))
                 self.test_threads[test] = {'thread': thread, 'result': None}
@@ -341,6 +342,16 @@ class TestItDaemon:
         else:
             rospy.logerr("Unable to start tests! Tests are already executing!")
         #result = self.multithreaded_command("", req, "test")
+        return testit.srv.CommandResponse(result, message)
+
+    def handle_results(self, req):
+        result = True
+        message = ""
+        for test in self.tests:
+            for test in self.tests:
+                message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
+                if not self.tests[test].get('result', None):
+                    result = False
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":

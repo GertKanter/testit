@@ -47,10 +47,12 @@ class TestIt:
         rospy.wait_for_service('testit/teardown')
         rospy.wait_for_service('testit/status')
         rospy.wait_for_service('testit/test')
+        rospy.wait_for_service('testit/results')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
         self.status_service = rospy.ServiceProxy('testit/status', testit.srv.Command)
         self.test_service = rospy.ServiceProxy('testit/test', testit.srv.Command)
+        self.results_service = rospy.ServiceProxy('testit/results', testit.srv.Command)
 
     def execute(self, command):
         """Execute the command.
@@ -84,12 +86,15 @@ class TestIt:
     def test(self):
         self.call_service(self.test_service)
 
+    def results(self):
+        self.call_service(self.results_service)
+
 
 if __name__ == '__main__':
     rospy.init_node('testit_cmdline', anonymous=True, disable_signals=True)
     rospack = rospkg.RosPack()
     parser = argparse.ArgumentParser(description="TestIt Command Line Interface")
-    parser.add_argument("command", choices=["bringup", "test", "teardown", "status", "log", "bag", "reload"])
+    parser.add_argument("command", choices=["bringup", "test", "teardown", "status", "results", "log", "bag", "reload"])
     parser.add_argument("-c", "--config", action="store", default=rospack.get_path('testit')+'/cfg/config.yaml',
                     help="Configuration file location")
     parser.add_argument("-d", "--docker", action="store", default='testitros/testit:latest',
