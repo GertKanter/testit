@@ -8,28 +8,36 @@ tests:
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
 configuration:
   bringupSUT: "" # how to bring up a pipeline server/docker SUT (general case), you can use "[[]]" for replacing
-  bringupSUTDelay: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
+  bringupSUTDelay: 0 # duration to wait after command
+  bringupSUTTimeout: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
   bringupSUTFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
   runSUT: "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=[[masterHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[masterHost]] -dt testit_tb_sut:latest /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosrun mission_control run_example_in_docker.sh && tail -f /dev/null\"" # run SUT 
-  runSUTDelay: 150
+  runSUTDelay: 10 # duration to wait for SUT to come up (roscore initialization)
+  runSUTTimeout: 150
   runSUTFinishTrigger: "-"
   stopSUT: "docker kill [[masterHost]]"
-  stopSUTDelay: 5
+  stopSUTDelay: 0 # duration to wait after stopping the SUT
+  stopSUTTimeout: 5
   stopSUTFinishTrigger: "-"
   teardownSUT: "" # how to clean up after finishing (shut down server/docker) (general case)
-  teardownSUTDelay: 5
+  teardownSUTDelay: 0 # duration to wait after teardown
+  teardownSUTTimeout: 5
   teardownSUTFinishTrigger: "-"
   bringupTestIt: "" # bring up the pipeline server (in the cloud for example)
-  bringupTestItDelay: 1
+  bringupTestItDelay: 0 # duration to wait after command
+  bringupTestItTimeout: 1
   bringupTestItFinishTrigger: "-"
   runTestIt: "docker run --rm --volume=$(rospack find testit_tutorials)/tutorials/turtlebot/testit_tests/:/testit_tests --net=rosnetwork --env ROS_VERSION=[[rosVersion]] --env ROS_HOSTNAME=[[testitHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testitHost]] -dt testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
-  runTestItDelay: 5
+  runTestItDelay: 0 # duration to wait after command
+  runTestItTimeout: 5
   runTestItFinishTrigger: "-"
   stopTestIt: "docker kill [[testitHost]]" # general case pipeline stopping
-  stopTestItDelay: 5
+  stopTestItDelay: 0 # duration to wait after command
+  stopTestItTimeout: 5
   stopTestItFinishTrigger: "-"
   teardownTestIt: ""
-  teardownTestItDelay: 5 # empty string = use default
+  teardownTestItDelay: 0 # duration to wait after command
+  teardownTestItTimeout: 5 # empty string = use default
   teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
 pipelines:
   - tag: "Pipeline #1" # identifier for reporting
@@ -40,26 +48,34 @@ pipelines:
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
     bringupSUT: "" # empty string = use default
-    bringupSUTDelay: "" # empty string = use default
+    bringupSUTDelay: ""
+    bringupSUTTimeout: "" # empty string = use default
     bringupSUTFinishTrigger: "" # empty string = use default
     runSUT: "" # empty string = use default
     runSUTDelay: ""
+    runSUTTimeout: ""
     runSUTFinishTrigger: ""
     stopSUT: ""
     stopSUTDelay: ""
+    stopSUTTimeout: ""
     stopSUTFinishTrigger: ""
     teardownSUT: "" # custom teardown for this pipeline
-    teardownSUTDelay: "" # empty string = use default
+    teardownSUTDelay: ""
+    teardownSUTTimeout: "" # empty string = use default
     teardownSUTFinishTrigger: "" # empty string = use default
     bringupTestIt: "" # empty string = use default
-    bringupTestItDelay: "" # empty string = use default
+    bringupTestItDelay: ""
+    bringupTestItTimeout: "" # empty string = use default
     bringupTestItFinishTrigger: "" # empty string = use default
     runTestIt: "" # empty string = use default
     runTestItDelay: ""
+    runTestItTimeout: ""
     runTestItFinishTrigger: ""
     stopTestIt: ""
     stopTestItDelay: ""
+    stopTestItTimeout: ""
     stopTestItFinishTrigger: ""
     teardownTestIt: "" # custom teardown for this pipeline
-    teardownTestItDelay: "" # empty string = use default
+    teardownTestItDelay: "" # duration to wait after command
+    teardownTestItTimeout: "" # empty string = use default
     teardownTestItFinishTrigger: "" # empty string = use default

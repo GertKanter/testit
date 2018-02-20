@@ -112,13 +112,16 @@ class TestItDaemon:
         rospy.loginfo('[%s] Executing %s SUT...' % (tag, prefix))
         if subprocess.call(self.pipelines[tag][prefix + 'SUT'], shell=True) == 0:
             rospy.loginfo('[%s] Done!' % tag)
+            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + 'SUTDelay']))
+            time.sleep(self.pipelines[tag][prefix + 'SUTDelay'])
             rospy.loginfo('[%s] Executing %s TestIt...' % (tag, prefix))
             if subprocess.call(self.pipelines[tag][prefix + 'TestIt'], shell=True) == 0:
-                #os.system(self.pipelines[tag][prefix + 'TestIt'])
                 rospy.loginfo('[%s] Done!' % tag)
+                rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + 'TestItDelay']))
+                time.sleep(self.pipelines[tag][prefix + 'TestItDelay'])
                 rospy.loginfo('[%s] Waiting for the %s to finish...' % (tag, prefix))
                 start_time = rospy.Time.now()
-                while self.pipelines[tag][prefix + 'SUTDelay'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + 'SUTDelay']:
+                while self.pipelines[tag][prefix + 'SUTTimeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + 'SUTTimeout']:
                     if self.pipelines[tag][prefix + 'SUTFinishTrigger'] != '-':
                         # TODO using timeout + trigger
                         pass
@@ -143,6 +146,10 @@ class TestItDaemon:
             rospy.loginfo(verb + "ing " + req.pipeline + "...")
         for pipe in rospy.get_param('testit/pipelines', []):
             if req.pipeline == '' or req.pipeline == pipe['tag']:
+                if prefix == "teardown":
+                    # run stop just in case
+                    self.execute_system(pipe['tag'], 'SUT', 'stop')
+                    self.execute_system(pipe['tag'], 'TestIt', 'stop')
                 rospy.loginfo(pipe['tag'] + " " + verb.lower() + "ing...")
                 thread = threading.Thread(target=self.thread_worker, args=(pipe['tag'], prefix))
                 self.threads[pipe['tag']] = {'thread': thread, 'result': None}
@@ -173,6 +180,7 @@ class TestItDaemon:
         return testit.srv.CommandResponse(result[0], result[1])
 
     def handle_teardown(self, req):
+        self.testing = False
         result = self.multithreaded_command("Stop", req, "teardown")
         return testit.srv.CommandResponse(result[0], result[1])
 
@@ -213,11 +221,14 @@ class TestItDaemon:
         rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
         #TODO refactor to use subprocess
         if subprocess.call(self.pipelines[pipeline][mode + system], shell=True) == 0:
+            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
+            time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
             start_time = rospy.Time.now()
-            while self.pipelines[pipeline][mode + system + 'Delay'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Delay']:
+            while self.pipelines[pipeline][mode + system + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Timeout']:
                 if self.pipelines[pipeline][mode + system + 'FinishTrigger'] != '-':
                     # TODO using timeout + trigger
                     pass
+                rospy.loginfo_throttle(15.0, '[%s] ..' % pipeline)
                 time.sleep(1.0) 
             rospy.loginfo('[%s] Execution done!' % pipeline)
             return True
@@ -333,7 +344,6 @@ class TestItDaemon:
             self.testing = True
             for test in self.tests: # key
                 self.tests[test]['result'] = None
-                #rospy.loginfo(pipe['tag'] + " " + verb.lower() + "ing...")
                 thread = threading.Thread(target=self.test_thread_worker, args=(test,))
                 self.test_threads[test] = {'thread': thread, 'result': None}
                 thread.start()
@@ -341,7 +351,6 @@ class TestItDaemon:
             thread.start()
         else:
             rospy.logerr("Unable to start tests! Tests are already executing!")
-        #result = self.multithreaded_command("", req, "test")
         return testit.srv.CommandResponse(result, message)
 
     def handle_results(self, req):
