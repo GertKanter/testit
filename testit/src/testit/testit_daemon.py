@@ -60,7 +60,11 @@ class TestItDaemon:
         self.test_threads = {}
         self.testing = False
         self.call_result = {}
-        self.tests = self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag')
+        self.configuration = rospy.get_param('testit/configuration', None)
+        if self.configuration is None:
+            rospy.logerror("No configuration defaults defined in configuration!")
+            sys.exit(-1)
+        self.tests = self.set_defaults(self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag'), self.configuration)
         if self.tests is None:
             rospy.logerror("No tests defined in configuration!")
             sys.exit(-1)
@@ -68,12 +72,9 @@ class TestItDaemon:
         if self.pipelines is None:
             rospy.logerror("No pipelines defined in configuration!")
             sys.exit(-1)
-        if rospy.get_param('testit/configuration', None) is None:
-            rospy.logerror("No configuration defaults defined in configuration!")
-            sys.exit(-1)
         self.pipelines = self.substitute_config_values(
                            self.set_defaults(self.pipelines, 
-                                             rospy.get_param('testit/configuration')))
+                                             self.configuration))
 
     def substitute_config_values(self, params):
         for param in params:
@@ -88,9 +89,12 @@ class TestItDaemon:
     def set_defaults(self, params, defaults):
         for param in params:
             for key in params[param]:
-                if params[param][key] == '':
-                    # set default
-                    params[param][key] = defaults[key]
+                try:
+                    if params[param][key] == '' and defaults[key] != '':
+                        # set default
+                        params[param][key] = defaults[key]
+                except:
+                    pass
         return params
 
     def rosparam_list_to_dict(self, param, key):
@@ -219,7 +223,6 @@ class TestItDaemon:
         true -- if successful, false otherwise
         """
         rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
-        #TODO refactor to use subprocess
         if subprocess.call(self.pipelines[pipeline][mode + system], shell=True) == 0:
             rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
             time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
@@ -247,6 +250,10 @@ class TestItDaemon:
         """
         #TODO support ssh wrapping (currently only runs on localhost)
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
+        if self.configuration.get('bagEnabled', False):
+            rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
+            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + "\'", shell=True)
+            rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
         if self.tests[test]['oracle'] != "":
             # run in detached
@@ -256,12 +263,13 @@ class TestItDaemon:
         start_time = rospy.Time.now()
         thread.start()
         thread.join(self.tests[test]['timeout'])
+        return_value = False
         if self.call_result['launch'] == 0:
             # command returned success
             if detached == "":
                 # test success, because we didn't run in detached
                 rospy.loginfo("[%s] TEST PASS!" % pipeline)
-                return True
+                return_value = True
             else:
                 # running detached, run oracle to assess test pass/fail
                 # execute oracle in TestIt docker
@@ -272,52 +280,55 @@ class TestItDaemon:
                 if self.call_result['oracle'] == 0:
                     # oracle reports test pass
                     rospy.loginfo("[%s] TEST PASS!" % pipeline)
-                    return True
+                    return_value = True
                 elif self.call_result['oracle'] == -1:
                     rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
                     if self.tests[test]['timeoutVerdict']:
-                        return True
+                        return_value = True
                 else:
                     # oracle reports test failed
                     rospy.logerr("[%s] TEST FAIL!" % pipeline)
-                    return True
+                    return_value = True
         elif self.call_result['launch'] == -1:
             rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
             if self.tests[test]['timeoutVerdict']:
-                return True
+                return_value = True
         else:
             rospy.logerr("[%s] Test FAIL!" % pipeline)
-        return False
+
+        if return_value and self.configuration.get('bagEnabled', False):
+            rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
+            subprocess.call( "docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'pkill -SIGINT record\'", shell=True)
+        return return_value
 
     def test_thread_worker(self, tag):
         """
         Arguments:
             tag -- test tag (string)
         """
-        rospy.loginfo("%s tag testthreadwork start" % tag)
         pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
         rospy.loginfo("Acquired pipeline %s" % pipeline)
         # runSUT
-        rospy.loginfo("Running SUT...")
+        rospy.loginfo("[%s] Running SUT..." % pipeline)
         if self.execute_system(pipeline, 'SUT', 'run'):
             # runTestIt
-            rospy.loginfo("Running TestIt...")
+            rospy.loginfo("[%s] Running TestIt..." % pipeline)
             if self.execute_system(pipeline, 'TestIt', 'run'):
-                rospy.loginfo("Executing tests in TestIt container...")
+                rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
                 self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
                 self.test_threads[tag]['result'] = self.tests[tag]['result']
                 # stopTestIt
-                rospy.loginfo("Stopping TestIt container...")
+                rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
                 self.execute_system(pipeline, 'TestIt', 'stop')
             else:
                 # unable to run TestIt
-                rospy.logerr("Unable to run TestIt!")
+                rospy.logerr("[%s] Unable to run TestIt!" % pipeline)
             # stopSUT
-            rospy.loginfo("Stopping SUT...")
+            rospy.loginfo("[%s] Stopping SUT..." % pipeline)
             self.execute_system(pipeline, 'SUT', 'stop')
         else:
             # Unable to run SUT
-            rospy.logerr("Unable to run SUT!")
+            rospy.logerr("[%s] Unable to run SUT!" % pipeline)
             pass
         rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
         self.pipelines[pipeline]['busy'] = False
