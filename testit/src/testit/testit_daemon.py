@@ -52,6 +52,7 @@ class TestItDaemon:
         rospy.Service('testit/status', testit.srv.Command, self.handle_status)
         rospy.Service('testit/test', testit.srv.Command, self.handle_test)
         rospy.Service('testit/results', testit.srv.Command, self.handle_results)
+        rospy.Service('testit/bag', testit.srv.Command, self.handle_bag)
         self.initialize()
 
     def initialize(self):
@@ -372,6 +373,11 @@ class TestItDaemon:
                 message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
                 if not self.tests[test].get('result', None):
                     result = False
+        return testit.srv.CommandResponse(result, message)
+
+    def handle_bag(self, req):
+        result = False
+        message = "not implemented yet"
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":
