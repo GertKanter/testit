@@ -252,7 +252,7 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         if self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
-            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + "\'", shell=True)
+            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " __name:=testit_rosbag_recorder\'", shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
         if self.tests[test]['oracle'] != "":
@@ -298,7 +298,7 @@ class TestItDaemon:
 
         if return_value and self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            subprocess.call( "docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'pkill -SIGINT record\'", shell=True)
+            subprocess.call( "docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
         return return_value
 
     def test_thread_worker(self, tag):
