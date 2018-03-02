@@ -253,7 +253,7 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         if self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
-            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " __name:=testit_rosbag_recorder\'", shell=True)
+            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
         if self.tests[test]['oracle'] != "":
@@ -384,6 +384,5 @@ if __name__ == "__main__":
     rospy.init_node('testit_daemon')
     testit_daemon = TestItDaemon()
     rospy.loginfo("TestIt daemon started...")
-    while not rospy.is_shutdown():
-        pass
+    rospy.spin()
     rospy.loginfo("Shut down everything!")
