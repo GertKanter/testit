@@ -43,6 +43,6 @@ if __name__ == "__main__":
     oracle = testit_oracles.testit_gazebo.GazeboOracle("mobile_base")
     rate = rospy.Rate(2) # 2 Hz
     while not rospy.is_shutdown():
-        if oracle.callback_received and oracle.robot.pose['position']['x'] < 22.0:
+        if oracle.callback_received and oracle.robot.pose['position']['x'] < 11.0:
             sys.exit(0) # success
         rate.sleep()

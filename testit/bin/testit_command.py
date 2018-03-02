@@ -99,7 +99,7 @@ if __name__ == '__main__':
     rospy.init_node('testit_cmdline', anonymous=True, disable_signals=True)
     rospack = rospkg.RosPack()
     parser = argparse.ArgumentParser(description="TestIt Command Line Interface")
-    parser.add_argument("command", choices=["bringup", "test", "teardown", "status", "results", "log", "bag", "reload"])
+    parser.add_argument("command", choices=["bringup", "test", "teardown", "status", "results", "log", "bag", "reload", "report"])
     parser.add_argument("-c", "--config", action="store", default=rospack.get_path('testit')+'/cfg/config.yaml',
                     help="Configuration file location")
     parser.add_argument("-d", "--docker", action="store", default='testitros/testit:latest',

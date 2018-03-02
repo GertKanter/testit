@@ -4,7 +4,7 @@ tests:
     source: "/testit_tests/01" # test scenario source directory (SMACH state machine, UPPAAL model etc) inside TestIt docker container
     launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
     oracle: "./testit_tests/01/oracle/oracle.py" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
-    timeout: 30 # time in seconds for timeout (0 for no timeout)
+    timeout: 60 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
     bagMaxSplits: "" # empty = use default
     bagDuration: "" # empty = use default
@@ -29,7 +29,7 @@ configuration:
   bringupTestItDelay: 0 # duration to wait after command
   bringupTestItTimeout: 1
   bringupTestItFinishTrigger: "-"
-  runTestIt: "docker run --rm --volume=$(rospack find testit_tutorials)/tutorials/turtlebot/testit_tests/:/testit_tests --net=rosnetwork --env ROS_VERSION=[[rosVersion]] --env ROS_HOSTNAME=[[testitHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testitHost]] -dt testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
+  runTestIt: "docker run --rm --volume=[[testItVolume]]:/testit_tests --net=rosnetwork --env ROS_VERSION=[[rosVersion]] --env ROS_HOSTNAME=[[testitHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testitHost]] -dt testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
   runTestItDelay: 0 # duration to wait after command
   runTestItTimeout: 5
   runTestItFinishTrigger: "-"
@@ -43,7 +43,7 @@ configuration:
   teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
   bagEnabled: True # True=rosbag record, False=don't bag
   bagMaxSplits: 5 # total bag duration = maxsplits*duration
-  bagDuration: 60 # seconds
+  bagDuration: 15 # seconds
 pipelines:
   - tag: "Pipeline #1" # identifier for reporting
     rosVersion: "lunar"
@@ -52,6 +52,7 @@ pipelines:
     testitHost: "testit1"
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
+    testItVolume: "$(rospack find testit_tutorials)/tutorials/turtlebot/testit_tests/" # where TestIt volume is located in the pipeline (test scenarios + bags are stored there)
     bringupSUT: "" # empty string = use default
     bringupSUTDelay: ""
     bringupSUTTimeout: "" # empty string = use default

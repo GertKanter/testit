@@ -213,6 +213,7 @@ class TestItDaemon:
             for pipeline in self.pipelines:
                 if self.pipelines[pipeline].get('bringup', False) and not self.pipelines[pipeline].get('busy', False):
                     self.pipelines[pipeline]['busy'] = True
+                    self.tests[tag]['pipeline'] = pipeline
                     return pipeline
             time.sleep(0.5)
             rospy.logwarn_throttle(30.0, 'Test \'%s\' waiting for a free pipeline...' % tag)
@@ -224,6 +225,7 @@ class TestItDaemon:
         true -- if successful, false otherwise
         """
         rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
+        rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, self.pipelines[pipeline][mode + system]))
         if subprocess.call(self.pipelines[pipeline][mode + system], shell=True) == 0:
             rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
             time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
@@ -356,6 +358,7 @@ class TestItDaemon:
             self.testing = True
             for test in self.tests: # key
                 self.tests[test]['result'] = None
+                self.tests[test]['pipeline'] = None
                 thread = threading.Thread(target=self.test_thread_worker, args=(test,))
                 self.test_threads[test] = {'thread': thread, 'result': None}
                 thread.start()
@@ -377,7 +380,8 @@ class TestItDaemon:
 
     def handle_bag(self, req):
         result = False
-        message = "not implemented yet"
+        message = ""
+        #bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":
