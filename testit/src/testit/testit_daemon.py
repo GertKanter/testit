@@ -112,38 +112,45 @@ class TestItDaemon:
         rospy.loginfo("Loading configuration from " + filename + "...")
         testit_common.load_config_to_rosparam(testit_common.parse_yaml(filename))
 
-    def thread_worker(self, tag, prefix):
-        rospy.loginfo('[%s] Starter thread started!' % tag)
-        rospy.loginfo('[%s] Executing %s SUT...' % (tag, prefix))
-        if subprocess.call(self.pipelines[tag][prefix + 'SUT'], shell=True) == 0:
+    def execution_sleep(self, tag, prefix, instance):
+        start_time = rospy.Time.now()
+	while self.pipelines[tag]['state'] != "TEARDOWN" and (self.pipelines[tag][prefix + instance + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + instance + 'Timeout']):
+	    if self.pipelines[tag][prefix + instance + 'FinishTrigger'] != '-':
+		# TODO using timeout + trigger
+		pass
+	    time.sleep(1.0)
+        rospy.loginfo('[%s] Done!' % tag)
+
+    def instance_execution(self, tag, prefix, instance, set_result):
+        rospy.loginfo('[%s] Executing %s %s...' % (tag, prefix, instance))
+        if subprocess.call(self.pipelines[tag][prefix + instance], shell=True) == 0:
             rospy.loginfo('[%s] Done!' % tag)
-            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + 'SUTDelay']))
-            time.sleep(self.pipelines[tag][prefix + 'SUTDelay'])
-            rospy.loginfo('[%s] Executing %s TestIt...' % (tag, prefix))
-            if subprocess.call(self.pipelines[tag][prefix + 'TestIt'], shell=True) == 0:
-                rospy.loginfo('[%s] Done!' % tag)
-                rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + 'TestItDelay']))
-                time.sleep(self.pipelines[tag][prefix + 'TestItDelay'])
-                rospy.loginfo('[%s] Waiting for the %s to finish...' % (tag, prefix))
-                start_time = rospy.Time.now()
-                while self.pipelines[tag][prefix + 'SUTTimeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + 'SUTTimeout']:
-                    if self.pipelines[tag][prefix + 'SUTFinishTrigger'] != '-':
-                        # TODO using timeout + trigger
-                        pass
-                    time.sleep(1.0) 
-                rospy.loginfo('[%s] Done!' % tag)
-                self.threads[tag]['result'] = True
+            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + instance + 'Delay']))
+            time.sleep(self.pipelines[tag][prefix + instance + 'Delay'])
+            rospy.loginfo('[%s] Waiting for the %s to finish...' % (tag, prefix))
+            self.execution_sleep(tag, prefix, instance)
+            if self.pipelines[tag].get('state', "OFFLINE") != "TEARDOWN":
+                if set_result:
+                    self.threads[tag]['result'] = True
+                return True
             else:
-                rospy.logerr("[%s] Failed to execute TestIt!" % tag)
+                rospy.logerr("Pipeline in TEARDOWN state!")
                 self.threads[tag]['result'] = False
                 return False
         else:
-            rospy.logerr("[%s] Failed to execute SUT!" % tag)
+            rospy.logerr("[%s] Failed to execute %s!" % (tag, instance))
             self.threads[tag]['result'] = False
             return False
-        return True
 
-    def multithreaded_command(self, verb, req, prefix):
+    def thread_worker(self, tag, prefix, post_states):
+        rospy.logdebug('[%s] thread_worker started!' % tag)
+        if self.instance_execution(tag, prefix, "SUT", False):
+            if self.instance_execution(tag, prefix, "TestIt", True):
+                self.pipelines[tag]['state'] = post_states['True']
+                return True
+        self.pipelines[tag]['state'] = post_states['False']
+
+    def multithreaded_command(self, verb, req, prefix, pre_state, post_states, extra_commands=[]):
         rospy.logdebug(verb + " requested")
 	if req.pipeline == "":
             rospy.loginfo(verb + " all pipelines...")
@@ -151,12 +158,17 @@ class TestItDaemon:
             rospy.loginfo(verb + "ing " + req.pipeline + "...")
         for pipe in rospy.get_param('testit/pipelines', []):
             if req.pipeline == '' or req.pipeline == pipe['tag']:
+                rospy.loginfo("[%s] Setting state to %s" % (pipe['tag'], pre_state))
+                self.pipelines[pipe['tag']]['state'] = pre_state
                 if prefix == "teardown":
                     # run stop just in case
                     self.execute_system(pipe['tag'], 'SUT', 'stop')
                     self.execute_system(pipe['tag'], 'TestIt', 'stop')
+                # Run extra_commands before executing the main command
+                for command in extra_commands:
+                    command(pipe['tag'])
                 rospy.loginfo(pipe['tag'] + " " + verb.lower() + "ing...")
-                thread = threading.Thread(target=self.thread_worker, args=(pipe['tag'], prefix))
+                thread = threading.Thread(target=self.thread_worker, args=(pipe['tag'], prefix, post_states))
                 self.threads[pipe['tag']] = {'thread': thread, 'result': None}
                 thread.start()
         result = True
@@ -180,13 +192,16 @@ class TestItDaemon:
             rospy.loginfo_throttle(15.0, '...')
         return (result, message)
 
+    def remove_bags(self, tag):
+        rospy.loginfo("removing da shizz tag = %s" % tag)
+
     def handle_bringup(self, req):
-        result = self.multithreaded_command("Start", req, "bringup")
+        result = self.multithreaded_command("Start", req, "bringup", "BRINGUP", {'True': "READY", 'False': "FAILED"})
         return testit.srv.CommandResponse(result[0], result[1])
 
     def handle_teardown(self, req):
         self.testing = False
-        result = self.multithreaded_command("Stop", req, "teardown")
+        result = self.multithreaded_command("Stop", req, "teardown", "TEARDOWN", {'True': "OFFLINE", 'False': "OFFLINE"}, extra_commands=[self.remove_bags])
         return testit.srv.CommandResponse(result[0], result[1])
 
     def handle_status(self, req):
@@ -195,10 +210,7 @@ class TestItDaemon:
         result = True
         try:
             for pipeline in self.pipelines: # dict
-                if self.pipelines[pipeline].get('bringup', False):
-                    message += "[%s] ONLINE\n" % self.pipelines[pipeline]['tag']
-                else:
-                    message += "[%s] OFFLINE\n" % self.pipelines[pipeline]['tag']
+                message += "[%s] %s\n" % (self.pipelines[pipeline]['tag'], self.pipelines[pipeline].get('state', "OFFLINE"))
         except:
             result = False
         return testit.srv.CommandResponse(result, message)
@@ -211,8 +223,8 @@ class TestItDaemon:
         rospy.loginfo("Acquiring pipeline for test \'%s\'" % tag)
         while True:
             for pipeline in self.pipelines:
-                if self.pipelines[pipeline].get('bringup', False) and not self.pipelines[pipeline].get('busy', False):
-                    self.pipelines[pipeline]['busy'] = True
+                if self.pipelines[pipeline].get('state', "OFFLINE") == "READY":
+                    self.pipelines[pipeline]['state'] = "BUSY"
                     self.tests[tag]['pipeline'] = pipeline
                     return pipeline
             time.sleep(0.5)
@@ -230,14 +242,15 @@ class TestItDaemon:
             rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
             time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
             start_time = rospy.Time.now()
-            while self.pipelines[pipeline][mode + system + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Timeout']:
+            while self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"] and (self.pipelines[pipeline][mode + system + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Timeout']):
                 if self.pipelines[pipeline][mode + system + 'FinishTrigger'] != '-':
                     # TODO using timeout + trigger
                     pass
-                rospy.loginfo_throttle(15.0, '[%s] ..' % pipeline)
+                rospy.loginfo_throttle(15.0, '[%s] (%s) ..' % (pipeline, mode))
                 time.sleep(1.0) 
             rospy.loginfo('[%s] Execution done!' % pipeline)
-            return True
+            if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"]:
+                return True
         else:
             rospy.logerr('[%s] Execution failed!' % pipeline)
         return False
@@ -332,9 +345,9 @@ class TestItDaemon:
         else:
             # Unable to run SUT
             rospy.logerr("[%s] Unable to run SUT!" % pipeline)
-            pass
-        rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
-        self.pipelines[pipeline]['busy'] = False
+        if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "OFFLINE", "FAILED"]:
+            rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
+            self.pipelines[pipeline]['state'] = "READY"
 
     def nonblocking_test_monitor(self):
         while True:
@@ -369,6 +382,7 @@ class TestItDaemon:
         return testit.srv.CommandResponse(result, message)
 
     def handle_results(self, req):
+        rospy.logdebug("Results requested")
         result = True
         message = ""
         for test in self.tests:
@@ -379,6 +393,9 @@ class TestItDaemon:
         return testit.srv.CommandResponse(result, message)
 
     def handle_bag(self, req):
+        """
+        Use rosbag_merge to combine individual bag files and copy the file into working dir
+        """
         result = False
         message = ""
         #bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
