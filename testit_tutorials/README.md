@@ -36,7 +36,7 @@ then you can run TestIt CLI commands to run the tests. To execute the tests, we 
 ```
 rosrun testit testit_command.py bringup
 ```
-And you should see
+And you should see the following at the console
 ```
 [INFO] [1521626468.757544]: Start all pipelines...
 [INFO] [1521626468.761876]: [Pipeline #1] Setting state to BRINGUP
@@ -54,7 +54,7 @@ And you should see
 [INFO] [1521626470.783518]: [Pipeline #1] Done!
 [INFO] [1521626471.771646]: Pipeline #1 finished with True
 ```
-at the daemon console. Next, we can run the tests by using.
+Next, we can run the tests by using
 ```
 rosrun testit testit_command.py test
 ```
