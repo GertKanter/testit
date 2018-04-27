@@ -44,6 +44,8 @@ import time
 import sys
 import re
 import subprocess
+import testit.junit
+import cStringIO
 
 class TestItDaemon:
     def __init__(self):
@@ -383,13 +385,20 @@ class TestItDaemon:
 
     def handle_results(self, req):
         rospy.logdebug("Results requested")
-        result = True
         message = ""
+        result = True
+        testsuite = testit.junit.testsuite(tests=len(self.tests))
+        output = cStringIO.StringIO()
         for test in self.tests:
             for test in self.tests:
-                message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
+                # message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
+                testcase = testit.junit.testcase(classname=test, name=test)
                 if not self.tests[test].get('result', None):
+                    testcase.add_failure(testit.junit.failure(type_="Type", message="FAILURE"))
                     result = False
+                testsuite.add_testcase(testcase)
+        testsuite.export(output, 2, pretty_print=False)
+        message = output.getvalue()
         return testit.srv.CommandResponse(result, message)
 
     def handle_bag(self, req):
