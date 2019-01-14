@@ -55,6 +55,7 @@ class TestItDaemon:
         rospy.Service('testit/test', testit.srv.Command, self.handle_test)
         rospy.Service('testit/results', testit.srv.Command, self.handle_results)
         rospy.Service('testit/bag', testit.srv.Command, self.handle_bag)
+        rospy.Service('testit/coverage', testit.srv.Command, self.handle_coverage)
         self.initialize()
 
     def initialize(self):
@@ -408,6 +409,12 @@ class TestItDaemon:
         result = False
         message = ""
         #bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
+        return testit.srv.CommandResponse(result, message)
+
+    def handle_coverage(self, req):
+        rospy.logdebug("Coverage results requested")
+        message = "coverage message"
+        result = True
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":
