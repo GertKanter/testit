@@ -11,7 +11,6 @@ add_service_files(
   Command.srv
   Status.srv
 )
-
 catkin_python_setup()
 
 generate_messages(
@@ -22,5 +21,5 @@ catkin_package(
   CATKIN_DEPENDS message_runtime
 )
 
-install(PROGRAMS bin/${PROJECT_NAME}.py
+install(PROGRAMS bin/testit_command.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

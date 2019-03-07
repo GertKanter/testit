@@ -56,6 +56,7 @@ class TestItDaemon:
         rospy.Service('testit/results', testit.srv.Command, self.handle_results)
         rospy.Service('testit/bag', testit.srv.Command, self.handle_bag)
         rospy.Service('testit/coverage', testit.srv.Command, self.handle_coverage)
+        rospy.Service('testit/uppaal/annotate/coverage', testit.srv.Command, self.handle_uppaal_annotate_coverage)
         self.initialize()
 
     def initialize(self):
@@ -117,11 +118,11 @@ class TestItDaemon:
 
     def execution_sleep(self, tag, prefix, instance):
         start_time = rospy.Time.now()
-	while self.pipelines[tag]['state'] != "TEARDOWN" and (self.pipelines[tag][prefix + instance + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + instance + 'Timeout']):
-	    if self.pipelines[tag][prefix + instance + 'FinishTrigger'] != '-':
-		# TODO using timeout + trigger
-		pass
-	    time.sleep(1.0)
+        while self.pipelines[tag]['state'] != "TEARDOWN" and (self.pipelines[tag][prefix + instance + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + instance + 'Timeout']):
+            if self.pipelines[tag][prefix + instance + 'FinishTrigger'] != '-':
+                # TODO using timeout + trigger
+                pass
+            time.sleep(1.0)
         rospy.loginfo('[%s] Done!' % tag)
 
     def instance_execution(self, tag, prefix, instance, set_result):
@@ -155,7 +156,7 @@ class TestItDaemon:
 
     def multithreaded_command(self, verb, req, prefix, pre_state, post_states, extra_commands=[]):
         rospy.logdebug(verb + " requested")
-	if req.pipeline == "":
+        if req.pipeline == "":
             rospy.loginfo(verb + " all pipelines...")
         else:
             rospy.loginfo(verb + "ing " + req.pipeline + "...")
@@ -228,7 +229,6 @@ class TestItDaemon:
             for pipeline in self.pipelines:
                 if self.pipelines[pipeline].get('state', "OFFLINE") == "READY":
                     self.pipelines[pipeline]['state'] = "BUSY"
-                    self.tests[tag]['pipeline'] = pipeline
                     return pipeline
             time.sleep(0.5)
             rospy.logwarn_throttle(30.0, 'Test \'%s\' waiting for a free pipeline...' % tag)
@@ -271,7 +271,7 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         if self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
-            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['source']) + " && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
+            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['source']) + " && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
         if self.tests[test]['oracle'] != "":
@@ -280,7 +280,7 @@ class TestItDaemon:
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
         if self.tests[test]['verbose']:
           rospy.loginfo("[%s] launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
-        thread = threading.Thread(target=self.thread_call, args=('launch', "docker exec " + detached + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"))
+        thread = threading.Thread(target=self.thread_call, args=('launch', "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"))
         start_time = rospy.Time.now()
         thread.start()
         thread.join(self.tests[test]['timeout'])
@@ -295,7 +295,7 @@ class TestItDaemon:
                 # running detached, run oracle to assess test pass/fail
                 # execute oracle in TestIt docker
                 rospy.loginfo("[%s] Executing oracle..." % pipeline)
-                thread = threading.Thread(target=self.thread_call, args=('oracle', "docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'"))
+                thread = threading.Thread(target=self.thread_call, args=('oracle', "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'"))
                 thread.start()
                 thread.join(max(0.1, self.tests[test]['timeout'] - (rospy.Time.now() - start_time).to_sec()))
                 if self.call_result['oracle'] == 0:
@@ -319,7 +319,7 @@ class TestItDaemon:
 
         if return_value and self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            subprocess.call( "docker exec " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
+            subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
         return return_value
 
     def test_thread_worker(self, tag):
@@ -327,6 +327,7 @@ class TestItDaemon:
         Arguments:
             tag -- test tag (string)
         """
+        #TODO if specific pipeline is specified for a test, acquire that specific pipeline
         pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
         rospy.loginfo("Acquired pipeline %s" % pipeline)
         # runSUT
@@ -337,6 +338,7 @@ class TestItDaemon:
             if self.execute_system(pipeline, 'TestIt', 'run'):
                 rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
                 self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
+                self.tests[tag]['executor_pipeline'] = pipeline
                 self.test_threads[tag]['result'] = self.tests[tag]['result']
                 # stopTestIt
                 rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
@@ -393,13 +395,12 @@ class TestItDaemon:
         testsuite = testit.junit.testsuite(tests=len(self.tests))
         output = cStringIO.StringIO()
         for test in self.tests:
-            for test in self.tests:
-                # message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
-                testcase = testit.junit.testcase(classname=test, name=test)
-                if not self.tests[test].get('result', None):
-                    testcase.add_failure(testit.junit.failure(type_="Type", message="FAILURE"))
-                    result = False
-                testsuite.add_testcase(testcase)
+            # message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
+            testcase = testit.junit.testcase(classname=test, name=test)
+            if not self.tests[test].get('result', None):
+                testcase.add_failure(testit.junit.failure(type_="Type", message="FAILURE"))
+                result = False
+            testsuite.add_testcase(testcase)
         testsuite.export(output, 2, pretty_print=False)
         message = output.getvalue()
         return testit.srv.CommandResponse(result, message)
@@ -417,6 +418,21 @@ class TestItDaemon:
         rospy.logdebug("Coverage results requested")
         message = "coverage message"
         result = True
+        return testit.srv.CommandResponse(result, message)
+
+    def handle_uppaal_annotate_coverage(self, req):
+        """
+        Annotate Uppaal TA model (xml file) with coverage info.
+        """
+        message = "annotate message"
+        result = True
+        for test in self.tests:
+            model = self.tests[test].get('uppaalModel', None)
+            if model is not None:
+                rospy.loginfo("Uppaal model is %s" % model)
+                #TODO annotate model
+                
+        
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":

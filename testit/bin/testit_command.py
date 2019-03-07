@@ -2,7 +2,7 @@
 
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2018 Gert Kanter.
+# Copyright (c) 2018,2019 Gert Kanter.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -41,71 +41,92 @@ import testit.testit_common
 import testit.srv
 
 class TestIt:
-    def __init__(self, opt):
-        self.opt = opt
+    def __init__(self):
         rospy.wait_for_service('testit/bringup')
         rospy.wait_for_service('testit/teardown')
         rospy.wait_for_service('testit/status')
         rospy.wait_for_service('testit/test')
         rospy.wait_for_service('testit/results')
         rospy.wait_for_service('testit/bag')
+        rospy.wait_for_service('testit/uppaal/annotate/coverage')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
         self.status_service = rospy.ServiceProxy('testit/status', testit.srv.Command)
         self.test_service = rospy.ServiceProxy('testit/test', testit.srv.Command)
         self.results_service = rospy.ServiceProxy('testit/results', testit.srv.Command)
         self.bag_service = rospy.ServiceProxy('testit/bag', testit.srv.Command)
+        self.uppaal_annotate_coverage_service = rospy.ServiceProxy('testit/uppaal/annotate/coverage', testit.srv.Command)
 
-    def execute(self, command):
-        """Execute the command.
-
-        command - start runs the pipeline(s) bringup(s)
-        """
-        getattr(self, command)()
-
-    def call_service(self, service):
+    def call_service(self, service, args):
         try:
-            response = service("".join(self.opt.pipeline))
+            if "pipeline" not in args:
+                args.pipeline = []
+            response = service("".join(args.pipeline))
             print response
         except rospy.ServiceException, e:
             rospy.logerr("Calling service failed: %s" % e)
 
-    def bringup(self):
+    def bringup(self, args):
         rospy.loginfo("Bringing up pipeline(s)...")
-        self.call_service(self.bringup_service)
+        self.call_service(self.bringup_service, args)
 
-    def teardown(self):
+    def teardown(self, args):
         rospy.loginfo("Tearing down pipeline(s)...")
-        self.call_service(self.teardown_service)
+        self.call_service(self.teardown_service, args)
 
-    def reload(self):
+    def reload(self, args):
         rospy.loginfo("Reloading configuration to ROS parameter server...")
-        testit_common.load_config_to_rosparam(testit_common.parse_yaml(opt.config))
+        testit.testit_common.load_config_to_rosparam(testit.testit_common.parse_yaml(args.config))
 
-    def status(self):
-        self.call_service(self.status_service)
+    def status(self, args):
+        self.call_service(self.status_service, args)
 
-    def test(self):
-        self.call_service(self.test_service)
+    def test(self, args):
+        self.call_service(self.test_service, args)
 
-    def results(self):
-        self.call_service(self.results_service)
+    def log(self, args):
+        rospy.loginfo("Log")
 
-    def bag(self):
-        self.call_service(self.bag_service)
+    def results(self, args):
+        self.call_service(self.results_service, args)
+
+    def bag(self, args):
+        self.call_service(self.bag_service, args)
+
+    def uppaal(self, args):
+        # Uppaal subcommands handling here
+        self.call_service(self.uppaal_annotate_coverage_service, args)
 
 
 if __name__ == '__main__':
     rospy.init_node('testit_cmdline', anonymous=True, disable_signals=True)
     rospack = rospkg.RosPack()
+    testit_instance = TestIt()
     parser = argparse.ArgumentParser(description="TestIt Command Line Interface")
-    parser.add_argument("command", choices=["bringup", "test", "teardown", "status", "results", "log", "bag", "reload", "report"])
-    parser.add_argument("-c", "--config", action="store", default=rospack.get_path('testit')+'/cfg/config.yaml',
-                    help="Configuration file location")
-    parser.add_argument("-d", "--docker", action="store", default='testitros/testit:latest',
-                    help="TestIt docker image tag")
-    parser.add_argument("pipeline", nargs="*")
-    opt = parser.parse_args(rospy.myargv()[1:])
+    subparsers = parser.add_subparsers(help="sub-command help")
     
-    testit = TestIt(opt)
-    testit.execute(opt.command)
+    parser_reload = subparsers.add_parser("reload", help="reload help")
+    parser_reload.add_argument("-c", "--config", action="store", default=rospack.get_path('testit')+'/cfg/config.yaml',
+                    help="Configuration file location")
+    parser_reload.set_defaults(func=testit_instance.reload)
+    parser_bringup = subparsers.add_parser("bringup", help="bringup help")
+    parser_bringup.add_argument("pipeline", nargs="*")
+    parser_bringup.set_defaults(func=testit_instance.bringup)
+    parser_test = subparsers.add_parser("test", help="test help")
+    parser_test.set_defaults(func=testit_instance.test)
+    parser_teardown = subparsers.add_parser("teardown", help="teardown help")
+    parser_teardown.add_argument("pipeline", nargs="*")
+    parser_teardown.set_defaults(func=testit_instance.teardown)
+    parser_status = subparsers.add_parser("status", help="status help")
+    parser_status.set_defaults(func=testit_instance.status)
+    parser_results = subparsers.add_parser("results", help="results help")
+    parser_results.set_defaults(func=testit_instance.results)
+    parser_log = subparsers.add_parser("log", help="log help")
+    parser_log.set_defaults(func=testit_instance.log)
+    parser_bag = subparsers.add_parser("bag", help="bag help")
+    parser_bag.set_defaults(func=testit_instance.bag)
+    parser_uppaal = subparsers.add_parser("uppaal", help="uppaal help")
+    parser_uppaal.set_defaults(func=testit_instance.uppaal)
+    testit.opt = parser.parse_args(rospy.myargv()[1:])
+    testit.opt.func(testit.opt)
+

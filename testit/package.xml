@@ -4,7 +4,7 @@
   <version>0.0.0</version>
   <description>Scalable Long-Term Autonomy Testing toolkit</description>
 
-  <maintainer email="gert.kanter@ttu.ee">Gert Kanter</maintainer>
+  <maintainer email="gert.kanter@taltech.ee">Gert Kanter</maintainer>
 
   <license>BSD</license>
 
@@ -13,7 +13,7 @@
   <url type="repository">https://github.com/GertKanter/testit</url>
 
 
-  <author email="gert.kanter@ttu.ee">Gert Kanter</author>
+  <author email="gert.kanter@taltech.ee">Gert Kanter</author>
 
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>message_generation</build_depend>

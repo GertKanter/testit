@@ -1,6 +1,6 @@
 # VERSION 0.0.1
 FROM ubuntu:xenial
-MAINTAINER Gert Kanter <gert.kanter@ttu.ee>
+MAINTAINER Gert Kanter <gert.kanter@taltech.ee>
 LABEL Description="TestIt! ROS Testing toolkit base docker image"
 RUN apt-get update && \
     apt-get install -y wget vim git && \
@@ -14,4 +14,5 @@ RUN apt-get update && \
     /bin/bash -c "source /opt/ros/lunar/setup.bash && cd /catkin_ws/src && catkin_init_workspace" && \
     cd /catkin_ws/src && \
     git clone https://github.com/GertKanter/testit.git && \
+    git clone https://github.com/GertKanter/testit_msgs.git && \
     /bin/bash -c "source /opt/ros/lunar/setup.bash && cd /catkin_ws && catkin_make"

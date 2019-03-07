@@ -1,5 +1,5 @@
 FROM ros:kinetic-robot-xenial
-MAINTAINER Gert Kanter <gert.kanter@ttu.ee>
+MAINTAINER Gert Kanter <gert.kanter@taltech.ee>
 LABEL Description="TestIt! ROS Testing toolkit tutorial SUT image"
 RUN apt-get update && \
     apt-get install -y ros-kinetic-turtlebot-navigation ros-kinetic-turtlebot-gazebo wget xvfb && \
