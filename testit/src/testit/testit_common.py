@@ -48,5 +48,15 @@ def parse_yaml(filename):
         traceback.print_exc()
         sys.exit(-1)
 
+def write_yaml_to_file(data, filename):
+    try:
+        with open(filename, 'w') as outfile:
+            yaml.dump(data, outfile, default_flow_style=False)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return False
+    return True
+
 def load_config_to_rosparam(config):
     rosparam.upload_params('testit', config)

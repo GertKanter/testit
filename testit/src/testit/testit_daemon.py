@@ -46,6 +46,7 @@ import re
 import subprocess
 import testit.junit
 import cStringIO
+import xml.etree.ElementTree
 
 class TestItDaemon:
     def __init__(self):
@@ -111,7 +112,6 @@ class TestItDaemon:
         return return_value
 
     def load_config_from_file(self):
-        rospack = rospkg.RosPack()
         filename = rospy.get_param('~config')
         rospy.loginfo("Loading configuration from " + filename + "...")
         testit_common.load_config_to_rosparam(testit_common.parse_yaml(filename))
@@ -156,12 +156,12 @@ class TestItDaemon:
 
     def multithreaded_command(self, verb, req, prefix, pre_state, post_states, extra_commands=[]):
         rospy.logdebug(verb + " requested")
-        if req.pipeline == "":
+        if req.args == "":
             rospy.loginfo(verb + " all pipelines...")
         else:
-            rospy.loginfo(verb + "ing " + req.pipeline + "...")
+            rospy.loginfo(verb + "ing " + req.args + "...")
         for pipe in rospy.get_param('testit/pipelines', []):
-            if req.pipeline == '' or req.pipeline == pipe['tag']:
+            if req.args == '' or req.args == pipe['tag']:
                 rospy.loginfo("[%s] Setting state to %s" % (pipe['tag'], pre_state))
                 self.pipelines[pipe['tag']]['state'] = pre_state
                 if prefix == "teardown":
@@ -420,17 +420,98 @@ class TestItDaemon:
         result = True
         return testit.srv.CommandResponse(result, message)
 
+    def ground_path(self, command):
+        """
+        Process paths with bash commands.
+        E.g., '$(rospack find testit)/data/' to '/home/user/catkin_ws/src/testit/testit/data/'
+        """
+        process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command + ''], stdout=subprocess.PIPE)
+        out, err = process.communicate()
+        out = out.replace("\n", "")
+        return out
+
     def handle_uppaal_annotate_coverage(self, req):
         """
         Annotate Uppaal TA model (xml file) with coverage info.
         """
         message = "annotate message"
         result = True
+        #TODO check req.args for specific test to process
         for test in self.tests:
+            rospy.loginfo("Processing '%s'..." % test)
             model = self.tests[test].get('uppaalModel', None)
             if model is not None:
+
+                # Read previous processed log entries
+                data_directory = self.ground_path(self.configuration['dataDirectory'])
+                rospy.loginfo("Data directory path is '%s'" % data_directory)
+                coverage = []
+                daemon_coverage_fullname = data_directory + "testit_coverage.log"
+                try:
+                    coverage = testit_common.parse_yaml(daemon_coverage_fullname)
+                except:
+                    rospy.logwarn("Could not open previous coverage file '%s'!" % daemon_coverage_fullname)
+
                 rospy.loginfo("Uppaal model is %s" % model)
-                #TODO annotate model
+                pipeline = self.tests[test].get('executor_pipeline', None)
+                if not pipeline:
+                    rospy.logwarn("Test has not been executed during this runtime, unable to match data to pipeline!")
+                else:
+                    rospy.loginfo("Ran in %s " % pipeline)
+                    # Get coverage log file from pipeline
+                    #TODO support finding the log file in case it has been remapped in test adapter launch file
+                    filename = "testit_tests/results/testit_coverage.log"
+                    if self.pipelines[pipeline]['testItConnection'] != "-":
+                        #TODO add support for remote testit pipeline (scp to temp file then read)
+                        # command_prefix = "scp "
+                        pass
+                    # ground testItVolume path
+                    path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
+                    fullname = path + filename
+                    # Read the file
+                    rospy.loginfo("Reading coverage log from file '%s'" % fullname)
+                    data = None
+                    try:
+                        data = testit_common.parse_yaml(fullname)
+                        rospy.loginfo("Read %s log entries!" % len(data))
+                        # Add model info to daemon coverage log file (combined from all pipelines and over runs)
+                        for entry in data:
+                            entry['model'] = path + 'testit_tests/' + model
+                        coverage += data
+                    except:
+                        rospy.logerr("Unable to open log file '%s'!" % fullname)
+                    if data is not None:
+                        # Remove the processed log file so we don't process it again
+                        rospy.loginfo("Removing log file '%s'" % result)
+                        result = subprocess.call("rm -f " + fullname, shell=True)
+                        if result != 0:
+                            rospy.logerr("Unable to remove log file '%s'!" % fullname)
+
+                if len(coverage) > 0:
+                    rospy.loginfo("Processing %s coverage entries..." % len(coverage))
+                    rospy.loginfo(coverage[0])
+                    # Create pruned list (keep only relevant model entries)
+                    entries = []
+                    for entry in coverage:
+                        if model in entry['model']:
+                            entries.append(entry)
+                    rospy.loginfo("Pruned list is %s entries!" % len(entries))
+                    # Parse Uppaal model
+                    rospy.loginfo("Parsing Uppaal model...")
+                    try:
+                        tree = xml.etree.ElementTree.parse(entries[0]['model'])
+                        root = tree.getroot()
+                        print root.tag
+                    except Exception as e:
+                        rospy.logerr("Unable to parse Uppaal model!")
+                        import traceback
+                        traceback.print_exc()
+
+
+                    # Save coverage list to file
+                    rospy.loginfo("Saving coverage list to file...")
+                    testit_common.write_yaml_to_file(coverage, daemon_coverage_fullname)
+                
                 
         
         return testit.srv.CommandResponse(result, message)
