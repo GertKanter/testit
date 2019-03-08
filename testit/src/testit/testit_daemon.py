@@ -2,7 +2,7 @@
 
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2018 Gert Kanter.
+# Copyright (c) 2019 Gert Kanter.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -430,6 +430,35 @@ class TestItDaemon:
         out = out.replace("\n", "")
         return out
 
+    def annotate_uppaal_transition(self, tree, entry):
+        """
+        Annotate a single uppaal transition.
+        
+        Only updates if entry lines
+
+        Arguments:
+        tee -- the xml.etree.ElementTree tree
+        entry -- a single testit coverage entry
+
+        Returns:
+        Annotated xml.etree.ElementTree
+        """
+        assignments = tree.findall("./template/transition//*[@kind='assignment']")
+        for assignment in assignments:
+            failed = False
+            for i, variable_dict in enumerate(entry['state']):
+                for variable in variable_dict:
+                    match = "i_" + entry['name'] + "_" + variable + "=" + str(entry['state'][i][variable])
+                    if match not in assignment.text:
+                        failed = True
+                        break
+                if failed:
+                    break
+            if not failed:
+                if "V=" not in assignment.text:
+                    assignment.text += ", V=" + str(entry['sum'])
+        return tree
+
     def handle_uppaal_annotate_coverage(self, req):
         """
         Annotate Uppaal TA model (xml file) with coverage info.
@@ -489,28 +518,60 @@ class TestItDaemon:
 
                 if len(coverage) > 0:
                     rospy.loginfo("Processing %s coverage entries..." % len(coverage))
-                    rospy.loginfo(coverage[0])
                     # Create pruned list (keep only relevant model entries)
                     entries = []
+                    rospy.loginfo("Filtering '%s' file entries..." % req.args)
                     for entry in coverage:
                         if model in entry['model']:
-                            entries.append(entry)
+                            #TODO add PRE events, but only for advanced annotation algorithm
+                            if req.args in entry['file'] and entry['event'] == "POST":
+                                entries.append(entry)
                     rospy.loginfo("Pruned list is %s entries!" % len(entries))
-                    # Parse Uppaal model
-                    rospy.loginfo("Parsing Uppaal model...")
-                    try:
-                        tree = xml.etree.ElementTree.parse(entries[0]['model'])
-                        root = tree.getroot()
-                        print root.tag
-                    except Exception as e:
-                        rospy.logerr("Unable to parse Uppaal model!")
-                        import traceback
-                        traceback.print_exc()
+                    if len(entries) > 0:
+                        # Parse Uppaal model
+                        rospy.loginfo("Parsing Uppaal model...")
+                        root = None
+                        try:
+                            tree = xml.etree.ElementTree.parse(entries[0]['model'])
+                            root = tree.getroot()
+                        except Exception as e:
+                            rospy.logerr("Unable to parse Uppaal model!")
+                            import traceback
+                            traceback.print_exc()
 
+                        #TODO consider nondeterminism in traces
+                        trace = []
+                        for entry in entries:
+                            if entry['traceStartTimestamp'] == entries[-1]['traceStartTimestamp']:
+                                trace.append(entry)
+                        rospy.loginfo("Annotating model with trace size %s..." % len(trace))
+                        maxV = 0
+                        for entry in trace:
+                            if entry['sum'] > maxV:
+                                maxV = entry['sum']
+                            tree = self.annotate_uppaal_transition(tree, entry)
+                        # Add variable V and add variable "maxV" as constant to model
+                        declaration = tree.findall("./declaration")
+                        if len(declaration) > 0:
+                            declaration[0].text += " int V; const int maxV=" + str(maxV) + ";"
+                        else:
+                            rospy.logerr("Unable to find '<declaration>' tag in XML tree!")
+                    
+                        # Save annotated Uppaal model to file
+                        annotated_file = data_directory + "annotated_models/" + model
+                        annotated_directory = "/".join(annotated_file.split("/")[:-1])
+                        result = subprocess.call("mkdir -p " + annotated_directory, shell=True)
+                        if result != 0:
+                            rospy.logerr("Unable to create directory '%s'!" % annotated_directory)
+                        else:
+                            rospy.loginfo("Writing annotated Uppaal model file to '%s'..." % annotated_file)
+                            tree.write(annotated_file)
 
-                    # Save coverage list to file
-                    rospy.loginfo("Saving coverage list to file...")
-                    testit_common.write_yaml_to_file(coverage, daemon_coverage_fullname)
+                        # Save coverage list to file
+                        rospy.loginfo("Saving coverage list to file...")
+                        testit_common.write_yaml_to_file(coverage, daemon_coverage_fullname)
+                    else:
+                        rospy.logerr("No entries found for file '%s'!" % req.args)
                 
                 
         

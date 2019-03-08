@@ -95,6 +95,7 @@ class TestIt:
 
     def uppaal(self, args):
         # Uppaal subcommands handling here
+        args.pipeline = args.file
         self.call_service(self.uppaal_annotate_coverage_service, args)
 
 
@@ -126,6 +127,7 @@ if __name__ == '__main__':
     parser_bag = subparsers.add_parser("bag", help="bag help")
     parser_bag.set_defaults(func=testit_instance.bag)
     parser_uppaal = subparsers.add_parser("uppaal", help="uppaal help")
+    parser_uppaal.add_argument("file", action="store")
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
     testit.opt = parser.parse_args(rospy.myargv()[1:])
     testit.opt.func(testit.opt)
