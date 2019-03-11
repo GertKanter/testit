@@ -57,12 +57,18 @@ class TestIt:
         self.bag_service = rospy.ServiceProxy('testit/bag', testit.srv.Command)
         self.uppaal_annotate_coverage_service = rospy.ServiceProxy('testit/uppaal/annotate/coverage', testit.srv.Command)
 
-    def call_service(self, service, args):
+    def call_service(self, service, args, callback=None):
         try:
             if "pipeline" not in args:
                 args.pipeline = []
             response = service("".join(args.pipeline))
-            print response
+            verbose = 0
+            if args.verbose is not None:
+                verbose = args.verbose
+            if (response.result and verbose) or not response.result:
+                rospy.loginfo(response)
+            if callback is not None and response.result:
+                callback(response, args)
         except rospy.ServiceException, e:
             rospy.logerr("Calling service failed: %s" % e)
 
@@ -88,7 +94,18 @@ class TestIt:
         rospy.loginfo("Log")
 
     def results(self, args):
-        self.call_service(self.results_service, args)
+        self.call_service(self.results_service, args, self.results_callback)
+
+    def results_callback(self, response, args):
+        if "output" in args and args.output != "":
+            # "--output" specified
+	    try:
+		rospy.loginfo("Writing results to '%s'" % args.output)
+		with open(args.output, 'w') as outfile:
+		    outfile.write(response.message)
+	    except Exception as e:
+		import traceback
+		traceback.print_exc()
 
     def bag(self, args):
         self.call_service(self.bag_service, args)
@@ -104,6 +121,7 @@ if __name__ == '__main__':
     rospack = rospkg.RosPack()
     testit_instance = TestIt()
     parser = argparse.ArgumentParser(description="TestIt Command Line Interface")
+    parser.add_argument("-v", "--verbose", action="count", help="Verbosity level")
     subparsers = parser.add_subparsers(help="sub-command help")
     
     parser_reload = subparsers.add_parser("reload", help="reload help")
@@ -120,7 +138,8 @@ if __name__ == '__main__':
     parser_teardown.set_defaults(func=testit_instance.teardown)
     parser_status = subparsers.add_parser("status", help="status help")
     parser_status.set_defaults(func=testit_instance.status)
-    parser_results = subparsers.add_parser("results", help="results help")
+    parser_results = subparsers.add_parser("results", help="Output the results")
+    parser_results.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
     parser_results.set_defaults(func=testit_instance.results)
     parser_log = subparsers.add_parser("log", help="log help")
     parser_log.set_defaults(func=testit_instance.log)

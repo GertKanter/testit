@@ -395,14 +395,27 @@ class TestItDaemon:
         testsuite = testit.junit.testsuite(tests=len(self.tests))
         output = cStringIO.StringIO()
         for test in self.tests:
-            # message += "Test \'%s\': %s" % (test, self.tests[test].get('result', None)) + "\n"
-            testcase = testit.junit.testcase(classname=test, name=test)
-            if not self.tests[test].get('result', None):
-                testcase.add_failure(testit.junit.failure(type_="Type", message="FAILURE"))
-                result = False
+            testcase = testit.junit.testcase(classname=test)
+            test_result = self.tests[test].get('result', None)
+            if test_result is None:
+                # skipped or not executed
+                skipped = testit.junit.skipped(message="SKIPPED")
+                skipped.set_valueOf_("This test has not been executed.")
+                testcase.add_skipped(skipped)
+                testcase.set_name("skipped")
+            else:
+                if not test_result:
+                    # failed
+                    failure = testit.junit.failure(message="FAILURE")
+                    failure.set_valueOf_("Failure text")
+                    testcase.add_failure(failure)
+                    testcase.set_name("fail")
+                else:
+                    # success
+                    testcase.set_name("success")
             testsuite.add_testcase(testcase)
-        testsuite.export(output, 2, pretty_print=False)
-        message = output.getvalue()
+        testsuite.export(output, 0, pretty_print=False)
+        message = '<?xml version="1.0" encoding="UTF-8" ?>\n' + output.getvalue() + "\n"
         return testit.srv.CommandResponse(result, message)
 
     def handle_bag(self, req):
