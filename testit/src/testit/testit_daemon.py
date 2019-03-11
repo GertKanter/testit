@@ -249,6 +249,9 @@ class TestItDaemon:
                 if self.pipelines[pipeline][mode + system + 'FinishTrigger'] != '-':
                     # TODO using timeout + trigger
                     pass
+                else:
+                    # No trigger means we do not wait for timeout and break immediately
+                    break
                 rospy.loginfo_throttle(15.0, '[%s] (%s) ..' % (pipeline, mode))
                 time.sleep(1.0) 
             rospy.loginfo('[%s] Execution done!' % pipeline)
