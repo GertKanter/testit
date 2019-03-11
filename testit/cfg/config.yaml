@@ -5,13 +5,49 @@ tests:
     launch: "" # how to execute this test (run command) in TestIt container
     timeout: 0 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: "fail" # if timeout occurs, declare the test as this
+
 configuration:
-  - bringup: "" # how to bring up a pipeline server/docker (SUT + TestIt)
-    teardown: "" # how to clean up after completing (shut down server/docker)
-    noSSH: ["127.0.0.1"] # do not use SSH to connect to these IPs (useful for running TestIt and SUT on localhost)
+  dataDirectory: "$(rospack find testit)/data/" # Where to store coverage files, bag files etc.
+  bringupSUT: "" # how to bring up a pipeline server/docker SUT (general case), you can use "[[]]" for replacing
+  bringupSUTDelay: 1 # duration to wait after command (seconds)
+  bringupSUTTimeout: 0 # in seconds (0 for no timeout, but you have to specify bringupSUTFinishTrigger then or tests will not be run because it will be blocking. If bringupSUTFinishTrigger is "-" then this timeout is ignored)
+  bringupSUTFinishTrigger: "-" # polling command to test whether startup is finished, "-" = no trigger
+  runSUT: "" # run SUT, look at the tutorials for examples
+  runSUTDelay: 10 # duration to wait for SUT to come up (roscore initialization)
+  runSUTTimeout: 0
+  runSUTFinishTrigger: "-"
+  stopSUT: "" # how to stop SUT, look at the tutorials for examples
+  stopSUTDelay: 5 # duration to wait after stopping the SUT
+  stopSUTTimeout: 0
+  stopSUTFinishTrigger: "-"
+  teardownSUT: "" # how to clean up after finishing (shut down server/docker) (general case)
+  teardownSUTDelay: 0 # duration to wait after teardown
+  teardownSUTTimeout: 5
+  teardownSUTFinishTrigger: "-"
+  bringupTestIt: "" # bring up the pipeline server (in the cloud for example)
+  bringupTestItDelay: 1 # duration to wait after command
+  bringupTestItTimeout: 0
+  bringupTestItFinishTrigger: "-"
+  runTestIt: "" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
+  runTestItDelay: 5 # duration to wait after command
+  runTestItTimeout: 0
+  runTestItFinishTrigger: "-"
+  stopTestIt: "" # general case pipeline stopping
+  stopTestItDelay: 5 # duration to wait after command
+  stopTestItTimeout: 0
+  stopTestItFinishTrigger: "-"
+  teardownTestIt: ""
+  teardownTestItDelay: 1 # duration to wait after command
+  teardownTestItTimeout: 0 # empty string = use default
+  teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
+
 pipelines:
-  - tag: "example" # identifier for reporting
-    masterIP: "127.0.0.1" # where SUT roscore is running
-    testitIP: "127.0.0.1" # where TestIt docker container is running
-    bringup: "" # custom bringup for this pipeline
-    teardown: "" # custom teardown for this pipeline
+  - tag: "Example pipeline" # identifier for reporting
+    testItRosVersion: "lunar"
+    sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
+    testItConnection: "-" # see above
+    masterHost: "" # master hostname, look at the tutorials for examples
+    testItHost: "" # testit hostname, look at the tutorials for examples
+    masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
+    testItIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
+    testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
