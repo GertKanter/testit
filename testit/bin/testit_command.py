@@ -65,8 +65,10 @@ class TestIt:
             verbose = 0
             if args.verbose is not None:
                 verbose = args.verbose
-            if (response.result and verbose) or not response.result:
+            if (response.result and verbose > 0) and response.result:
                 rospy.loginfo(response)
+            elif not response.result:
+                rospy.logerr(response)
             if callback is not None and response.result:
                 callback(response, args)
         except rospy.ServiceException, e:
@@ -111,9 +113,32 @@ class TestIt:
         self.call_service(self.bag_service, args)
 
     def uppaal(self, args):
-        # Uppaal subcommands handling here
-        args.pipeline = args.file
-        self.call_service(self.uppaal_annotate_coverage_service, args)
+        def unrecognized(args):
+            rospy.logerr("Unrecognized subcommand (%s)!" % args)
+        # Uppaal subcommands handling
+        if len(args.command) == 2:
+            if args.command[0] == "":
+                # placeholder for custom
+                rospy.logerr("Custom command placeholder")
+            if args.command[0] == "extract":
+                if "fail" in args.command[1]:
+                    rospy.loginfo("Executing Uppaal TA trace failure extraction...")
+                else:
+                    unrecognized(args)
+        elif len(args.command) == 1:
+            if args.command[0] == "extract":
+                rospy.loginfo("Usage: testit_command.py uppaal extract failure")
+            elif args.command[0] == "annotate":
+                if args.file == "":
+                    rospy.logerr("Please specify the file filter for which to optimize the scenario (-f)!")
+                else:
+                    rospy.loginfo("Executing Uppaal TA model annotation...")
+                    args.pipeline = args.file
+                    self.call_service(self.uppaal_annotate_coverage_service, args)
+            else:
+                unrecognized(args)
+        else:
+            unrecognized(args)
 
 
 if __name__ == '__main__':
@@ -145,8 +170,9 @@ if __name__ == '__main__':
     parser_log.set_defaults(func=testit_instance.log)
     parser_bag = subparsers.add_parser("bag", help="bag help")
     parser_bag.set_defaults(func=testit_instance.bag)
-    parser_uppaal = subparsers.add_parser("uppaal", help="uppaal help")
-    parser_uppaal.add_argument("file", action="store")
+    parser_uppaal = subparsers.add_parser("uppaal", help="Uppaal TA related commands")
+    parser_uppaal.add_argument("command", action="store", nargs="+", help="Uppaal subcommands")
+    parser_uppaal.add_argument("-f", "--file", action="store", default="", help="Specify the file to work with")
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
     testit.opt = parser.parse_args(rospy.myargv()[1:])
     testit.opt.func(testit.opt)

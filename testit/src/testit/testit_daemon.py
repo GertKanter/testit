@@ -457,9 +457,10 @@ class TestItDaemon:
         entry -- a single testit coverage entry
 
         Returns:
-        Annotated xml.etree.ElementTree
+        Tuple (success, Annotated xml.etree.ElementTree)
         """
         assignments = tree.findall("./template/transition//*[@kind='assignment']")
+        success = False
         for assignment in assignments:
             failed = False
             for i, variable_dict in enumerate(entry['state']):
@@ -473,7 +474,8 @@ class TestItDaemon:
             if not failed:
                 if "V=" not in assignment.text:
                     assignment.text += ", V=" + str(entry['sum'])
-        return tree
+                    success = True
+        return (success, tree)
 
     def handle_uppaal_annotate_coverage(self, req):
         """
@@ -527,9 +529,9 @@ class TestItDaemon:
                         rospy.logerr("Unable to open log file '%s'!" % fullname)
                     if data is not None:
                         # Remove the processed log file so we don't process it again
-                        rospy.loginfo("Removing log file '%s'" % result)
-                        result = subprocess.call("rm -f " + fullname, shell=True)
-                        if result != 0:
+                        rospy.loginfo("Removing log file '%s'" % fullname)
+                        remove_result = subprocess.call("rm -f " + fullname, shell=True)
+                        if remove_result != 0:
                             rospy.logerr("Unable to remove log file '%s'!" % fullname)
 
                 if len(coverage) > 0:
@@ -563,9 +565,9 @@ class TestItDaemon:
                         rospy.loginfo("Annotating model with trace size %s..." % len(trace))
                         maxV = 0
                         for entry in trace:
-                            if entry['sum'] > maxV:
+                            success, tree = self.annotate_uppaal_transition(tree, entry)
+                            if success and entry['sum'] > maxV:
                                 maxV = entry['sum']
-                            tree = self.annotate_uppaal_transition(tree, entry)
                         # Add variable V and add variable "maxV" as constant to model
                         declaration = tree.findall("./declaration")
                         if len(declaration) > 0:
@@ -576,18 +578,21 @@ class TestItDaemon:
                         # Save annotated Uppaal model to file
                         annotated_file = data_directory + "annotated_models/" + model
                         annotated_directory = "/".join(annotated_file.split("/")[:-1])
-                        result = subprocess.call("mkdir -p " + annotated_directory, shell=True)
-                        if result != 0:
+                        mkdir_result = subprocess.call("mkdir -p " + annotated_directory, shell=True)
+                        if mkdir_result != 0:
                             rospy.logerr("Unable to create directory '%s'!" % annotated_directory)
                         else:
-                            rospy.loginfo("Writing annotated Uppaal model file to '%s'..." % annotated_file)
+                            rospy.loginfo("Writing annotated Uppaal model file...")
                             tree.write(annotated_file)
+                            message = "Wrote annotated Uppaal model file to '%s'" % annotated_file
+                            rospy.loginfo(message)
 
                         # Save coverage list to file
                         rospy.loginfo("Saving coverage list to file...")
                         testit_common.write_yaml_to_file(coverage, daemon_coverage_fullname)
                     else:
                         rospy.logerr("No entries found for file '%s'!" % req.args)
+                        result = False
                 
                 
         
