@@ -83,13 +83,32 @@ class TestItDaemon:
                            self.set_defaults(self.pipelines, 
                                              self.configuration))
 
-    def substitute_replacement_values(self, params):
+    def substitute_replacement_values(self, params, auxiliary={}):
+        """
+        Substitute the values wrapped with '[[]]' with the key value inside the brackets.
+
+        In case the substitution is not possible within params, try to find a substitution in auxiliary dictionary
+        
+        Arguments:
+        params -- dict, with potential values to substitute
+        auxiliary -- dict with auxiliary values to look for substitution values
+        """
         for param in params:
             for key in params[param]:
                 m = re.findall('(\[\[.*?\]\])', str(params[param][key]))
                 if m is not None:
                     for replacement in m:
-                        params[param][key] = params[param][key].replace(replacement, params[param][replacement[2:-2]], 1)
+                        substitution = params[param].get(replacement[2:-2], None)
+                        if substitution is not None:
+                            params[param][key] = params[param][key].replace(replacement, substitution, 1)
+                        else:
+                            # Unable to find substitution on the same dictionary level, try auxiliary dictionary
+                            if len(auxiliary) > 0:
+                                substitution = auxiliary.get(replacement[2:-2], None)
+                                if substitution is not None:
+                                    params[param][key] = params[param][key].replace(replacement, substitution, 1)
+                                else:
+                                    rospy.logerr("Unable to ground substition '%s' key '%s'" % (param, replacement))
         return params
 
 
@@ -343,6 +362,7 @@ class TestItDaemon:
         #TODO if specific pipeline is specified for a test, acquire that specific pipeline
         pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
         rospy.loginfo("Acquired pipeline %s" % pipeline)
+        self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
         # runSUT
         rospy.loginfo("[%s] Running SUT..." % pipeline)
         if self.execute_system(pipeline, 'SUT', 'run'):

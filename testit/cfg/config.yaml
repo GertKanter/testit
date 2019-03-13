@@ -54,15 +54,15 @@ pipelines:
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testItIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
     testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
+    sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit/")
     # + all the [bringup,run,stop,teardown][SUT,TestIt] in 'configuration' section
 
 tests:
   - tag: "scenario tag" # identifier for reporting
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
-    sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit")
-    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
     uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
+    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
     launch: "" # how to execute this test (run command) in TestIt container
     oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
     timeout: 0 # time in seconds for timeout (0 for no timeout)
