@@ -1,10 +1,10 @@
-tests:
-  - tag: "scenario tag" # identifier for reporting
-    pipeline: "" # leave empty for any
-    source: "" # test scenario source directory (SMACH state machine, UPPAAL model etc)
-    launch: "" # how to execute this test (run command) in TestIt container
-    timeout: 0 # time in seconds for timeout (0 for no timeout)
-    timeoutVerdict: "fail" # if timeout occurs, declare the test as this
+###############################################
+#                                             #
+#          Configuration template             #
+#                                             #
+#  PLEASE LOOK AT THE TUTORIALS FOR EXAMPLES  #
+#                                             #
+###############################################
 
 configuration:
   dataDirectory: "$(rospack find testit)/data/" # Where to store coverage files, bag files etc.
@@ -40,6 +40,9 @@ configuration:
   teardownTestItDelay: 1 # duration to wait after command
   teardownTestItTimeout: 0 # empty string = use default
   teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
+  bagEnabled: False # set to True, if you want to bag data
+  bagDuration: 30 # seconds, "rosbag record" file duration for test failure analysis
+  bagMaxSplits: 2 # number of bags to keep in rotation (total rosbag duration for post-failure analysis = bagMaxSplits * bagDuration)
 
 pipelines:
   - tag: "Example pipeline" # identifier for reporting
@@ -51,3 +54,16 @@ pipelines:
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testItIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
     testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
+    # + all the [bringup,run,stop,teardown][SUT,TestIt] in 'configuration' section
+
+tests:
+  - tag: "scenario tag" # identifier for reporting
+    pipeline: "" # leave empty for any
+    verbose: False # if set to True, TestIt daemon logs some additional info
+    sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit")
+    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
+    uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
+    launch: "" # how to execute this test (run command) in TestIt container
+    oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    timeout: 0 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: False # if timeout occurs, declare the test as this

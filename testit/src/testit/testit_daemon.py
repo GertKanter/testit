@@ -242,7 +242,8 @@ class TestItDaemon:
         """
         rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
         rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, self.pipelines[pipeline][mode + system]))
-        if subprocess.call(self.pipelines[pipeline][mode + system], shell=True) == 0:
+        command = self.pipelines[pipeline].get(mode + system, None)
+        if command is not None and subprocess.call(command, shell=True) == 0:
             rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
             time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
             start_time = rospy.Time.now()
@@ -275,7 +276,15 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         if self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
-            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
+            max_splits = self.tests[test].get('bagMaxSplits', None)
+            if max_splits is None:
+                rospy.logwarn("[%s] bagMaxSplits is not defined, defaulting to 2" % pipeline)
+                max_splits = 2
+            duration = self.tests[test].get('bagDuration', None)
+            if duration is None:
+                rospy.logwarn("[%s] bagDuration is not defined, defaulting to 30" % pipeline)
+                duration = 30
+            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
         if self.tests[test]['oracle'] != "":
