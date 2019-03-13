@@ -71,6 +71,7 @@ class TestItDaemon:
             rospy.logerror("No configuration defaults defined in configuration!")
             sys.exit(-1)
         self.tests = self.set_defaults(self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag'), self.configuration)
+        self.tests = self.substitute_replacement_values(self.tests)
         if self.tests is None:
             rospy.logerror("No tests defined in configuration!")
             sys.exit(-1)
@@ -78,11 +79,11 @@ class TestItDaemon:
         if self.pipelines is None:
             rospy.logerror("No pipelines defined in configuration!")
             sys.exit(-1)
-        self.pipelines = self.substitute_config_values(
+        self.pipelines = self.substitute_replacement_values(
                            self.set_defaults(self.pipelines, 
                                              self.configuration))
 
-    def substitute_config_values(self, params):
+    def substitute_replacement_values(self, params):
         for param in params:
             for key in params[param]:
                 m = re.findall('(\[\[.*?\]\])', str(params[param][key]))
@@ -274,7 +275,7 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         if self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
-            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['source']) + " && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
+            bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
         if self.tests[test]['oracle'] != "":
@@ -282,7 +283,7 @@ class TestItDaemon:
             detached = " -d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
         if self.tests[test]['verbose']:
-          rospy.loginfo("[%s] launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
+            rospy.loginfo("[%s] launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
         thread = threading.Thread(target=self.thread_call, args=('launch', "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"))
         start_time = rospy.Time.now()
         thread.start()
@@ -507,7 +508,7 @@ class TestItDaemon:
                     rospy.loginfo("Ran in %s " % pipeline)
                     # Get coverage log file from pipeline
                     #TODO support finding the log file in case it has been remapped in test adapter launch file
-                    filename = "testit_tests/results/testit_coverage.log"
+                    filename = self.tests[test].get("resultsDirectory", "") + "testit_coverage.log"
                     if self.pipelines[pipeline]['testItConnection'] != "-":
                         #TODO add support for remote testit pipeline (scp to temp file then read)
                         # command_prefix = "scp "
