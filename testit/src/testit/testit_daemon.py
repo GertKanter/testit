@@ -286,6 +286,28 @@ class TestItDaemon:
         self.call_result[tag] = -1 # -1 means timeout
         self.call_result[tag] = subprocess.call(command, shell=True)
 
+    def resolve_configuration_value(self, target_dictionary, pipeline, key, default=None):
+        """
+        Resolve the configuration value based on - use default if missing.
+
+        Returns:
+        The resolved configuration value.
+        """
+        value = target_dictionary.get(key, None)
+        if value is not None:
+            return value
+        else:
+            if key in self.pipelines[pipeline]:
+                target_dictionary[key] = self.pipelines[pipeline][key]
+                rospy.loginfo("Resolved '%s' to '%s'" % (key, target_dictionary[key]))
+                return target_dictionary[key]
+            else:
+                if default is not None:
+                    target_dictionary[key] = default
+                    rospy.logwarn("Resolved '%s' to default '%s'" % (key, target_dictionary[key]))
+                else:
+                    rospy.logerr("Unable to resolve '%s'" % key)
+
     def execute_in_testit_container(self, pipeline, test):
         """
         Returns:
@@ -303,6 +325,8 @@ class TestItDaemon:
             if duration is None:
                 rospy.logwarn("[%s] bagDuration is not defined, defaulting to 30" % pipeline)
                 duration = 30
+            self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
+            self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
             bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_result))
         detached = ""
@@ -310,6 +334,7 @@ class TestItDaemon:
             # run in detached
             detached = " -d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
+        self.resolve_configuration_value(self.tests[test], pipeline, 'verbose', False)
         if self.tests[test]['verbose']:
             rospy.loginfo("[%s] launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
         thread = threading.Thread(target=self.thread_call, args=('launch', "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"))
