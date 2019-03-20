@@ -299,20 +299,18 @@ class TestItDaemon:
         Returns:
         The resolved configuration value.
         """
-        value = target_dictionary.get(key, None)
-        if value is not None:
-            return value
+        if key in self.pipelines[pipeline]:
+            target_dictionary[key] = self.pipelines[pipeline][key]
+            rospy.loginfo("Resolved '%s' to '%s'" % (key, target_dictionary[key]))
         else:
-            if key in self.pipelines[pipeline]:
-                target_dictionary[key] = self.pipelines[pipeline][key]
-                rospy.loginfo("Resolved '%s' to '%s'" % (key, target_dictionary[key]))
-                return target_dictionary[key]
-            else:
+            if target_dictionary.get(key, None) is None:
                 if default is not None:
                     target_dictionary[key] = default
-                    rospy.logwarn("Resolved '%s' to default '%s'" % (key, target_dictionary[key]))
+                    rospy.loginfo("Resolved '%s' to default '%s'" % (key, target_dictionary[key]))
                 else:
                     rospy.logerr("Unable to resolve '%s'" % key)
+                    return None
+        return target_dictionary[key]
 
     def execute_in_testit_container(self, pipeline, test):
         """
@@ -404,6 +402,27 @@ class TestItDaemon:
                 self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
                 self.tests[tag]['executor_pipeline'] = pipeline
                 self.test_threads[tag]['result'] = self.tests[tag]['result']
+                # execute the post-testing commands
+                self.resolve_configuration_value(self.tests[tag], pipeline, 'postCommand', "")
+                self.resolve_configuration_value(self.tests[tag], pipeline, 'postSuccessCommand', "")
+                self.resolve_configuration_value(self.tests[tag], pipeline, 'postFailureCommand', "")
+                if self.tests[tag]['postCommand'] != "":
+                    rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postCommand'])
+                    result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
+                    if result != 0:
+                        rospy.logerr("Post-test command failed!")
+                if self.tests[tag]['result']:
+                    if self.tests[tag]['postSuccessCommand'] != "":
+                        rospy.loginfo("Executing post-success command ('%s')..." % self.tests[tag]['postSuccessCommand'])
+                        result = subprocess.call(self.tests[tag]['postSuccessCommand'], shell=True)
+                        if result != 0:
+                            rospy.logerr("Post-success command failed!")
+                else:
+                    if self.tests[tag]['postFailureCommand'] != "":
+                        rospy.loginfo("Executing post-failure command ('%s')..." % self.tests[tag]['postFailureCommand'])
+                        result = subprocess.call(self.tests[tag]['postFailureCommand'], shell=True)
+                        if result != 0:
+                            rospy.logerr("Post-failure command failed!")
                 # stopTestIt
                 rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
                 self.execute_system(pipeline, 'TestIt', 'stop')
