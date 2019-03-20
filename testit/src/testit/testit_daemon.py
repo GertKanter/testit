@@ -176,12 +176,15 @@ class TestItDaemon:
 
     def multithreaded_command(self, verb, req, prefix, pre_state, post_states, extra_commands=[]):
         rospy.logdebug(verb + " requested")
+        pipelines = []
         if req.args == "":
             rospy.loginfo(verb + " all pipelines...")
         else:
+            pipelines = set(self.tokenize_arguments(req.args)) # Remove duplicates
             rospy.loginfo(verb + "ing " + req.args + "...")
+        matched = False
         for pipe in rospy.get_param('testit/pipelines', []):
-            if req.args == '' or req.args == pipe['tag']:
+            if req.args == '' or pipe['tag'] in pipelines:
                 rospy.loginfo("[%s] Setting state to %s" % (pipe['tag'], pre_state))
                 self.pipelines[pipe['tag']]['state'] = pre_state
                 if prefix == "teardown":
@@ -195,6 +198,9 @@ class TestItDaemon:
                 thread = threading.Thread(target=self.thread_worker, args=(pipe['tag'], prefix, post_states))
                 self.threads[pipe['tag']] = {'thread': thread, 'result': None}
                 thread.start()
+                matched = True
+        if not matched:
+            rospy.logwarn("Unable to recognize pipeline!")
         result = True
         message = ""
         while len(self.threads) > 0:
@@ -428,13 +434,53 @@ class TestItDaemon:
             if sleep:
                 time.sleep(0.5)
 
+    def tokenize_arguments(self, string):
+        """
+        Tokenize the arguments passed (pipelines, tests) as a string.
+
+        Returns:
+        list of string tokens (e.g., pipelines, tests).
+        """
+        # Regex for quotation marks
+        m = re.findall('(["\'].+?["\'])', str(string))
+        matches = []
+        if m is not None:
+            for match in m:
+                matches.append(match.replace("\"", "").replace("'", ""))
+                string = string.replace(match, "", 1)
+        split = string.split(" ")
+        for token in split:
+            if len(token) > 0:
+                matches.append(token)
+        return matches
+
     def handle_test(self, req):
         rospy.logdebug("Test requested")
         result = True
         message = ""
+        # Create list with tests to execute
+        queue = [test for test in self.tests]
+        blocking = False
+        if len(req.args) > 0:
+            # Determine whether to block or not
+            if req.args.startswith("--blocking"):
+                blocking = True
+                req.args = req.args.replace("--blocking", "", 1)
+            if len(req.args) > 0:
+                queue = []
+            scenarios = set(self.tokenize_arguments(req.args)) # Remove duplicates
+            for scenario in scenarios:
+                found = False
+                for test in self.tests:
+                    if scenario == self.tests[test]['tag']:
+                        found = True
+                        queue.append(scenario)
+                if not found:
+                    rospy.logwarn("Unknown test tag specified '%s'" % scenario)
+        rospy.loginfo("Test scenarios queued: " + str(queue))
         if not self.testing:
             self.testing = True
-            for test in self.tests: # key
+            for test in queue: # key
                 self.tests[test]['result'] = None
                 self.tests[test]['pipeline'] = None
                 thread = threading.Thread(target=self.test_thread_worker, args=(test,))
@@ -442,6 +488,16 @@ class TestItDaemon:
                 thread.start()
             thread = threading.Thread(target=self.nonblocking_test_monitor)
             thread.start()
+            if blocking:
+                finished = False
+                while not finished:
+                    finished = True
+                    for test in queue:
+                        result = self.tests[test].get('result', None)
+                        if result is None:
+                            finished = False
+                            break
+                    rospy.sleep(0.1)
         else:
             rospy.logerr("Unable to start tests! Tests are already executing!")
         return testit.srv.CommandResponse(result, message)

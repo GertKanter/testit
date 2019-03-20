@@ -2,7 +2,7 @@
 
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2018,2019 Gert Kanter.
+# Copyright (c) 2019 Gert Kanter.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -61,7 +61,11 @@ class TestIt:
         try:
             if "pipeline" not in args:
                 args.pipeline = []
-            response = service("".join(args.pipeline))
+            # Enclose in quotes if there is a space
+            for i, pipeline in enumerate(args.pipeline):
+                if " " in pipeline:
+                    args.pipeline[i] = "\"" + pipeline + "\""
+            response = service(" ".join(args.pipeline))
             verbose = 0
             if args.verbose is not None:
                 verbose = args.verbose
@@ -90,6 +94,10 @@ class TestIt:
         self.call_service(self.status_service, args)
 
     def test(self, args):
+        args.pipeline = args.scenario
+        if args.blocking is not None:
+            if args.blocking:
+                args.pipeline.insert(0, "--blocking")
         self.call_service(self.test_service, args)
 
     def log(self, args):
@@ -157,6 +165,8 @@ if __name__ == '__main__':
     parser_bringup.add_argument("pipeline", nargs="*")
     parser_bringup.set_defaults(func=testit_instance.bringup)
     parser_test = subparsers.add_parser("test", help="test help")
+    parser_test.add_argument("-b", "--blocking", action="store_true", default='', help="If set, then this command will block until finished")
+    parser_test.add_argument("scenario", nargs="*")
     parser_test.set_defaults(func=testit_instance.test)
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
     parser_teardown.add_argument("pipeline", nargs="*")
