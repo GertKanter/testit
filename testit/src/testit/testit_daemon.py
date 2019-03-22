@@ -321,12 +321,13 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         bag_return = 1
         if self.configuration.get('bagEnabled', False):
-            # Delete old rosbags (if present)
+            # Delete old rosbags if present
             self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
             if self.tests[test]['testItVolume'] is not None:
                 self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
                 if self.tests[test]['resultsDirectory'] is not None:
                     bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+                    # Handle spaces in tag names
                     prefix = test.split(" ")
                     if len(prefix) > 1:
                         prefix = prefix[0:1] + ["\\ " + x for x in prefix[1:]]
@@ -400,7 +401,7 @@ class TestItDaemon:
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
             subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
-            subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chmod 777 " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && chmod 666 " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "*bag\'", shell=True)
+            subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chown -R " + self.ground_path("$(id -u)") + ":" + self.ground_path("$(id -g)") + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\'", shell=True)
         return return_value
 
     def test_thread_worker(self, tag):
