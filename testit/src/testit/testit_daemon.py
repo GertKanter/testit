@@ -321,6 +321,19 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         bag_return = 1
         if self.configuration.get('bagEnabled', False):
+            # Delete old rosbags (if present)
+            self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
+            if self.tests[test]['testItVolume'] is not None:
+                self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
+                if self.tests[test]['resultsDirectory'] is not None:
+                    bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+                    prefix = test.split(" ")
+                    if len(prefix) > 1:
+                        prefix = prefix[0:1] + ["\\ " + x for x in prefix[1:]]
+                    prefix = "".join(prefix)
+                    delete_command = "rm -f " + bags_directory + prefix + "*bag"
+                    delete_bags_return = subprocess.call(delete_command, shell=True)
+
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
             max_splits = self.tests[test].get('bagMaxSplits', None)
             if max_splits is None:
@@ -332,7 +345,7 @@ class TestItDaemon:
                 duration = 30
             self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
             self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
-            command = "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O testit __name:=testit_rosbag_recorder\'"
+            command = "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" __name:=testit_rosbag_recorder\'"
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
@@ -386,6 +399,8 @@ class TestItDaemon:
         if bag_return == 0 and self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
             subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
+            rospy.loginfo("[%s] Setting privileges..." % pipeline)
+            subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chmod 777 " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && chmod 666 " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "*bag\'", shell=True)
         return return_value
 
     def test_thread_worker(self, tag):
