@@ -42,8 +42,8 @@ configuration:
   teardownTestItDelay: 0 # duration to wait after command
   teardownTestItTimeout: 5 # empty string = use default
   teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
-  bagEnabled: True # True=rosbag record, False=don't bag
-  bagMaxSplits: 5 # total bag duration = maxsplits*duration
+  bagEnabled: True #True # True=rosbag record, False=don't bag
+  bagMaxSplits: 3 # total bag duration = maxsplits*duration
   bagDuration: 15 # seconds
 
 pipelines:
