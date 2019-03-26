@@ -58,6 +58,7 @@ class TestItDaemon:
         rospy.Service('testit/bag', testit.srv.Command, self.handle_bag)
         rospy.Service('testit/coverage', testit.srv.Command, self.handle_coverage)
         rospy.Service('testit/uppaal/annotate/coverage', testit.srv.Command, self.handle_uppaal_annotate_coverage)
+        rospy.Service('testit/clean', testit.srv.Command, self.handle_clean)
         self.initialize()
 
     def initialize(self):
@@ -323,8 +324,8 @@ class TestItDaemon:
         if self.configuration.get('bagEnabled', False):
             # Delete old rosbags if present
             self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
+            self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
             if self.tests[test]['testItVolume'] is not None:
-                self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
                 if self.tests[test]['resultsDirectory'] is not None:
                     bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
                     # Handle spaces in tag names
@@ -344,7 +345,6 @@ class TestItDaemon:
             if duration is None:
                 rospy.logwarn("[%s] bagDuration is not defined, defaulting to 30" % pipeline)
                 duration = 30
-            self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
             self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
             command = "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" __name:=testit_rosbag_recorder\'"
             rospy.loginfo("Executing '%s'" % command)
@@ -494,6 +494,65 @@ class TestItDaemon:
                 matches.append(token)
         return matches
 
+    def handle_clean(self, req):
+        rospy.logdebug("Clean requested")
+        result = True
+        message = ""
+        queue = [pipeline for pipeline in self.pipelines]
+        if len(req.args) > 0:
+            # Determine whether we should clean results from daemon workspace
+            if req.args.startswith("--all"):
+                clean_daemon = True
+                req.args = req.args.replace("--all", "", 1)
+                if self.configuration.get('dataDirectory', None) is not None:
+                    data_directory = self.ground_path(self.configuration['dataDirectory'])
+                    rospy.loginfo("Cleaning daemon data directory '%s'..." % data_directory)
+                    remove_result = subprocess.call("rm -rf " + data_directory + "*", shell=True)
+                    if remove_result != 0:
+                        rospy.logerr("Unable to remove files from '%s'!" % data_directory)
+                    else:
+                        rospy.loginfo("Done!")
+                else:
+                    rospy.logerr("'dataDirectory' is not defined in configuration!")
+            if len(req.args) > 0:
+                queue = []
+            pipes = set(self.tokenize_arguments(req.args)) # Remove duplicates
+            for pipe in pipes:
+                found = False
+                for pipeline in self.pipelines:
+                    if pipe == self.pipelines[pipeline]['tag']:
+                        found = True
+                        queue.append(pipe)
+                if not found:
+                    rospy.logwarn("Unknown pipeline tag specified '%s'" % pipe)
+        if len(queue) > 0:
+            rospy.loginfo("Cleaning results directories from pipelines: %s" % str(queue))
+            for pipeline in queue:
+                if self.pipelines[pipeline].get('testItConnection', "-") != "-":
+                    #TODO add support for remote testit pipeline (scp to temp file then read)
+                    # command_prefix = "scp "
+                    rospy.logerr("Not implemented!")
+                testit_volume = self.pipelines[pipeline].get('testItVolume', None)
+                results_directory = self.pipelines[pipeline].get('resultsDirectory', None)
+                if results_directory is not None:
+                    if testit_volume is not None:
+                        rospy.loginfo("Cleaning results directory at '%s'..." % pipeline)
+                        command = "rm -rf " + self.ground_path(testit_volume + results_directory) + "*"
+                        rospy.loginfo("Executing command '%s'" % command)
+                        remove_result = subprocess.call(command, shell=True)
+                        if remove_result != 0:
+                            rospy.logerr("Unable to remove files from '%s'!" % data_directory)
+                        else:
+                            rospy.loginfo("Done!")
+                    else:
+                        rospy.logerr("'testItVolume' is not defined in configuration!")
+                else:
+                    rospy.logerr("'resultsDirectory' is not defined in configuration!")
+        else:
+            result = False
+            message = "Unable to clean workspace!"
+        return testit.srv.CommandResponse(result, message)
+
     def handle_test(self, req):
         rospy.logdebug("Test requested")
         result = True
@@ -558,6 +617,29 @@ class TestItDaemon:
                 testcase.add_skipped(skipped)
                 testcase.set_name("skipped")
             else:
+                # If "--xml-sys-out" is specified, try to include [scenario_tag]_system_out.xml to <system-out> tag in generated XML
+                if req.args == "--xml-sys-out":
+                    pipeline = self.tests[test].get('executor_pipeline', None)
+                    if pipeline is not None:
+                        rospy.loginfo("Ran in %s " % pipeline)
+                        # Get XML file from pipeline
+                        self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
+                        filename = self.tests[test].get("resultsDirectory", "") + self.tests[test]['tag'] + "_system_out.xml"
+                        if self.pipelines[pipeline].get('testItConnection', "-") != "-":
+                            #TODO add support for remote testit pipeline (scp to temp file then read)
+                            # command_prefix = "scp "
+                            rospy.logerr("Not implemented!")
+                        # ground testItVolume path
+                        path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
+                        fullname = self.ground_path(path + filename)
+                        # Read the file
+                        rospy.loginfo("Reading from file '%s'" % fullname)
+                        try:
+                            with open(fullname, 'r') as sys_out:
+                                data = sys_out.readlines()
+                                testcase.add_system_out("".join(data))
+                        except Exception as e:
+                            pass
                 if not test_result:
                     # failed
                     failure = testit.junit.failure(message="FAILURE")
@@ -658,11 +740,12 @@ class TestItDaemon:
                     rospy.loginfo("Ran in %s " % pipeline)
                     # Get coverage log file from pipeline
                     #TODO support finding the log file in case it has been remapped in test adapter launch file
+                    self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
                     filename = self.tests[test].get("resultsDirectory", "") + "testit_coverage.log"
-                    if self.pipelines[pipeline]['testItConnection'] != "-":
+                    if self.pipelines[pipeline].get('testItConnection', "-") != "-":
                         #TODO add support for remote testit pipeline (scp to temp file then read)
                         # command_prefix = "scp "
-                        pass
+                        rospy.logerr("Not implemented!")
                     # ground testItVolume path
                     path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
                     fullname = path + filename

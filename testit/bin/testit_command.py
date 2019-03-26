@@ -48,6 +48,7 @@ class TestIt:
         rospy.wait_for_service('testit/test')
         rospy.wait_for_service('testit/results')
         rospy.wait_for_service('testit/bag')
+        rospy.wait_for_service('testit/clean')
         rospy.wait_for_service('testit/uppaal/annotate/coverage')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
@@ -55,6 +56,7 @@ class TestIt:
         self.test_service = rospy.ServiceProxy('testit/test', testit.srv.Command)
         self.results_service = rospy.ServiceProxy('testit/results', testit.srv.Command)
         self.bag_service = rospy.ServiceProxy('testit/bag', testit.srv.Command)
+        self.clean_service = rospy.ServiceProxy('testit/clean', testit.srv.Command)
         self.uppaal_annotate_coverage_service = rospy.ServiceProxy('testit/uppaal/annotate/coverage', testit.srv.Command)
 
     def call_service(self, service, args, callback=None):
@@ -78,6 +80,12 @@ class TestIt:
         except rospy.ServiceException, e:
             rospy.logerr("Calling service failed: %s" % e)
 
+    def clean(self, args):
+        rospy.loginfo("Cleaning workspace(s)...")
+        if args.all:
+            args.pipeline.insert(0, "--all")
+        self.call_service(self.clean_service, args)
+
     def bringup(self, args):
         rospy.loginfo("Bringing up pipeline(s)...")
         self.call_service(self.bringup_service, args)
@@ -94,16 +102,18 @@ class TestIt:
         self.call_service(self.status_service, args)
 
     def test(self, args):
+        rospy.loginfo("Starting testing...")
         args.pipeline = args.scenario
-        if args.blocking is not None:
-            if args.blocking:
-                args.pipeline.insert(0, "--blocking")
+        if args.blocking:
+            args.pipeline.insert(0, "--blocking")
         self.call_service(self.test_service, args)
 
     def log(self, args):
         rospy.loginfo("Log")
 
     def results(self, args):
+        if args.xml_sys_out:
+            args.pipeline = ['--xml-sys-out']
         self.call_service(self.results_service, args, self.results_callback)
 
     def results_callback(self, response, args):
@@ -157,6 +167,10 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", action="count", help="Verbosity level")
     subparsers = parser.add_subparsers(help="sub-command help")
     
+    parser_clean = subparsers.add_parser("clean", help="Clean workspaces from old results")
+    parser_clean.add_argument("-a", "--all", action="store_true", default=False, help="Delete results from daemon")
+    parser_clean.add_argument("pipeline", nargs="*")
+    parser_clean.set_defaults(func=testit_instance.clean)
     parser_reload = subparsers.add_parser("reload", help="reload help")
     parser_reload.add_argument("-c", "--config", action="store", default=rospack.get_path('testit')+'/cfg/config.yaml',
                     help="Configuration file location")
@@ -165,7 +179,7 @@ if __name__ == '__main__':
     parser_bringup.add_argument("pipeline", nargs="*")
     parser_bringup.set_defaults(func=testit_instance.bringup)
     parser_test = subparsers.add_parser("test", help="test help")
-    parser_test.add_argument("-b", "--blocking", action="store_true", default='', help="If set, then this command will block until finished")
+    parser_test.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
     parser_test.add_argument("scenario", nargs="*")
     parser_test.set_defaults(func=testit_instance.test)
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
@@ -175,6 +189,7 @@ if __name__ == '__main__':
     parser_status.set_defaults(func=testit_instance.status)
     parser_results = subparsers.add_parser("results", help="Output the results")
     parser_results.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
+    parser_results.add_argument("-x", "--xml-sys-out", action="store_true", default=False, help="Add system-out to results")
     parser_results.set_defaults(func=testit_instance.results)
     parser_log = subparsers.add_parser("log", help="log help")
     parser_log.set_defaults(func=testit_instance.log)

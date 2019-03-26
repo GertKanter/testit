@@ -55,6 +55,7 @@ pipelines:
     testItIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
     testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
     sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit/")
+    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
     postSuccessCommand: "" # command to run after test was SUCCESS (this command is run in pipeline, not in testit container)
     postFailureCommand: "" # command to run after test was FAILURE (this command is run in pipeline, not in testit container)
     postCommand: "" # command to run after test on either SUCCESS or FAILURE (this command is run in pipeline, not in testit container)
@@ -65,7 +66,6 @@ tests:
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
     uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
-    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
     launch: "" # how to execute this test (run command) in TestIt container
     oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
     timeout: 0 # time in seconds for timeout (0 for no timeout)

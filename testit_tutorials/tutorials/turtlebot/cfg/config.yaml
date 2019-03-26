@@ -1,15 +1,15 @@
 tests:
   - tag: "Scenario #1" # identifier for reporting
     pipeline: "" # empty for any
-    resultsDirectory: "testit_tests/results/"
     launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
     oracle: "/testit/testit_tests/01/oracle/oracle.py" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
-    timeout: 60 # time in seconds for timeout (0 for no timeout)
+    timeout: 180 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
     bagMaxSplits: "" # empty = use default
     bagDuration: "" # empty = use default
 
 configuration:
+  dataDirectory: "$(rospack find testit)/data/" # Where to store coverage files, bag files etc.
   bringupSUT: "" # how to bring up a pipeline server/docker SUT (general case), you can use "[[]]" for replacing
   bringupSUTDelay: 0 # duration to wait after command
   bringupSUTTimeout: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
@@ -55,6 +55,7 @@ pipelines:
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testItHost is not defined) ("-" means none)
     testItVolume: "$(rospack find testit_tutorials)/tutorials/turtlebot/" # where TestIt volume is located in the pipeline (test scenarios + bags are stored there)
+    resultsDirectory: "testit_tests/results/"
     sharedDirectory: "/testit/" # shared directory in testit docker
     bringupSUT: "" # empty string = use default
     bringupSUTDelay: ""
