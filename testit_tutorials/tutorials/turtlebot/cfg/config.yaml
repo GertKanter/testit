@@ -7,6 +7,8 @@ tests:
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
     bagMaxSplits: "" # empty = use default
     bagDuration: "" # empty = use default
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)
 
 configuration:
   dataDirectory: "$(rospack find testit)/data/" # Where to store coverage files, bag files etc.
@@ -45,6 +47,8 @@ configuration:
   bagEnabled: True #True # True=rosbag record, False=don't bag
   bagMaxSplits: 3 # total bag duration = maxsplits*duration
   bagDuration: 15 # seconds
+  bagTopicRegex: "(.*)gazebo/(.*)|/odom(.*)|/amcl_pose(.*)" # match topics using regular expressions, "" = all topics
+  bagTopicExcludeRegex: "" # exclude topics matching this regular expression
 
 pipelines:
   - tag: "Pipeline #1" # identifier for reporting

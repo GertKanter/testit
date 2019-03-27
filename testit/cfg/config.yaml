@@ -43,6 +43,8 @@ configuration:
   bagEnabled: False # set to True, if you want to bag data
   bagDuration: 30 # seconds, "rosbag record" file duration for test failure analysis
   bagMaxSplits: 2 # number of bags to keep in rotation (total rosbag duration for post-failure analysis = bagMaxSplits * bagDuration)
+  bagTopicRegex: "" # match topics using regular expressions, "" = all topics
+  bagTopicExcludeRegex: "" # exclude topics matching this regular expression
 
 pipelines:
   - tag: "Example pipeline" # identifier for reporting
@@ -66,8 +68,13 @@ tests:
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
     uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
-    preLaunchCommand: "" # command to execute before executing 'launch', useful for sanity check, must return 0 to continue with test
+    preLaunchCommand: "" # optional command to execute before executing 'launch', useful for sanity check, must return 0 to continue with test
     launch: "" # how to execute this test (run command) in TestIt container
     oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
     timeout: 0 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this
+    bagEnabled: False # set to True, if you want to bag data
+    bagDuration: 30 # seconds, "rosbag record" file duration for test failure analysis
+    bagMaxSplits: 2 # number of bags to keep in rotation (total rosbag duration for post-failure analysis = bagMaxSplits * bagDuration)
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)

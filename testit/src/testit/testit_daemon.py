@@ -356,8 +356,22 @@ class TestItDaemon:
             if duration is None:
                 rospy.logwarn("[%s] bagDuration is not defined, defaulting to 30" % pipeline)
                 duration = 30
+            topic_regex = self.tests[test].get('bagTopicRegex', None)
+            if topic_regex is None:
+                rospy.logwarn("[%s] bagTopicRegex is not defined, defaulting to 'all'" % pipeline)
+                topic_regex = ""
+            topics = "-a "
+            if topic_regex != "":
+                topics = "--regex \"" + str(topic_regex) + "\" "
+            topic_exclude = self.tests[test].get('bagTopicExcludeRegex', None)
+            if topic_exclude is None:
+                rospy.logwarn("[%s] bagTopicExcludeRegex is not defined, defaulting to ''" % pipeline)
+                topic_exclude = ""
+            exclude = ""
+            if topic_exclude != "":
+                exclude = "--exclude \"" + str(topic_exclude) + "\" "
             self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
-            command = "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record -a --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" __name:=testit_rosbag_recorder\'"
+            command = "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder\'"
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
@@ -438,11 +452,6 @@ class TestItDaemon:
                 self.resolve_configuration_value(self.tests[tag], pipeline, 'postCommand', "")
                 self.resolve_configuration_value(self.tests[tag], pipeline, 'postSuccessCommand', "")
                 self.resolve_configuration_value(self.tests[tag], pipeline, 'postFailureCommand', "")
-                if self.tests[tag]['postCommand'] != "":
-                    rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postCommand'])
-                    result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
-                    if result != 0:
-                        rospy.logerr("Post-test command failed!")
                 if self.tests[tag]['result']:
                     if self.tests[tag]['postSuccessCommand'] != "":
                         rospy.loginfo("Executing post-success command ('%s')..." % self.tests[tag]['postSuccessCommand'])
@@ -455,6 +464,11 @@ class TestItDaemon:
                         result = subprocess.call(self.tests[tag]['postFailureCommand'], shell=True)
                         if result != 0:
                             rospy.logerr("Post-failure command failed!")
+                if self.tests[tag]['postCommand'] != "":
+                    rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postCommand'])
+                    result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
+                    if result != 0:
+                        rospy.logerr("Post-test command failed!")
                 # stopTestIt
                 rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
                 self.execute_system(pipeline, 'TestIt', 'stop')
