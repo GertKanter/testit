@@ -47,6 +47,7 @@ import subprocess
 import testit.junit
 import cStringIO
 import xml.etree.ElementTree
+import os
 
 class TestItDaemon:
     def __init__(self):
@@ -330,7 +331,6 @@ class TestItDaemon:
                 rospy.logerr("Pre-launch command failed! Test failed!")
                 return False
         #TODO support ssh wrapping (currently only runs on localhost)
-        # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         bag_return = 1
         if self.configuration.get('bagEnabled', False):
             # Delete old rosbags if present
@@ -375,6 +375,7 @@ class TestItDaemon:
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
+        # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         detached = ""
         if self.tests[test]['oracle'] != "":
             # run in detached
@@ -424,9 +425,24 @@ class TestItDaemon:
 
         if bag_return == 0 and self.configuration.get('bagEnabled', False):
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
+            subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
-            subprocess.call( "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chown -R " + self.ground_path("$(id -u)") + ":" + self.ground_path("$(id -g)") + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\'", shell=True)
+            subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chown -R " + self.ground_path("$(id -u)") + ":" + self.ground_path("$(id -g)") + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\'", shell=True)
+            # Rename all bag suffixes to start from 0
+            rospy.loginfo("[%s] Renaming bag files..." % pipeline)
+            bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+            try:
+                files = sorted([f for f in os.listdir(bags_directory) if os.path.isfile(os.path.join(bags_directory, f)) and f.startswith(test) and f.endswith(".bag")])
+            except Exception as e:
+                rospy.logerr("Path not found ('%s')!" % bags_directory)
+            bags = []
+            for f in files:
+               bags.append((f, os.stat(os.path.join(bags_directory, f)).st_mtime))
+            bags = sorted(bags, key=lambda x: x[1])
+            # Rename bags to start from suffix zero (_0)
+            for i, bag in enumerate(bags):
+                os.rename(os.path.join(bags_directory, bag[0]), os.path.join(bags_directory, str(test) + "_" + str(i) + ".bag"))
+            rospy.loginfo("[%s] Done!" % pipeline)
         return return_value
 
     def test_thread_worker(self, tag):
