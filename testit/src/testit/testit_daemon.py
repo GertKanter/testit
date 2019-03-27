@@ -318,6 +318,17 @@ class TestItDaemon:
         Returns:
         True if test successful, False otherwise
         """
+        # execute preLaunchCommand, if this returns 0, proceed, if not, fail
+        prelaunch_command = self.tests[test].get('preLaunchCommand', None)
+        if prelaunch_command is not None:
+            rospy.loginfo("[%s] Executing pre-launch command..." % pipeline)
+            command = "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + prelaunch_command + "\'"
+            rospy.loginfo("Executing '%s'" % command)
+            return_value = subprocess.call(command, shell=True)
+            rospy.loginfo("[%s] Pre-launch command returned %s" % (pipeline, return_value))
+            if return_value != 0:
+                rospy.logerr("Pre-launch command failed! Test failed!")
+                return False
         #TODO support ssh wrapping (currently only runs on localhost)
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         bag_return = 1
@@ -353,7 +364,7 @@ class TestItDaemon:
         detached = ""
         if self.tests[test]['oracle'] != "":
             # run in detached
-            detached = " -d "
+            detached = "-d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
         self.resolve_configuration_value(self.tests[test], pipeline, 'verbose', False)
         if self.tests[test]['verbose']:

@@ -1,6 +1,6 @@
 ###############################################
 #                                             #
-#          Configuration template             #
+#       Configuration template (schema)       #
 #                                             #
 #  PLEASE LOOK AT THE TUTORIALS FOR EXAMPLES  #
 #                                             #
@@ -66,6 +66,7 @@ tests:
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
     uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
+    preLaunchCommand: "" # command to execute before executing 'launch', useful for sanity check, must return 0 to continue with test
     launch: "" # how to execute this test (run command) in TestIt container
     oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
     timeout: 0 # time in seconds for timeout (0 for no timeout)
