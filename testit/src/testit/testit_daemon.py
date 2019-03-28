@@ -355,7 +355,8 @@ class TestItDaemon:
                 return False
         #TODO support ssh wrapping (currently only runs on localhost)
         bag_return = 1
-        if self.configuration.get('bagEnabled', False):
+        bag_enabled = self.tests[test].get('bagEnabled', False)
+        if bag_enabled:
             # Delete old rosbags if present
             self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
             self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
@@ -399,14 +400,16 @@ class TestItDaemon:
         self.resolve_configuration_value(self.tests[test], pipeline, 'verbose', False)
         if self.tests[test]['verbose']:
             rospy.loginfo("[%s] launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
-        thread_command = "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"
-        rospy.loginfo("[%s] Docker command is '%s'" % (pipeline, thread_command))
-        thread = threading.Thread(target=self.thread_call, args=('launch', thread_command))
+        launch = self.tests[test].get('launch', "")
         start_time = rospy.Time.now()
-        thread.start()
-        thread.join(self.tests[test]['timeout'])
+        if launch != "":
+            thread_command = "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"
+            rospy.loginfo("[%s] Docker command is '%s'" % (pipeline, thread_command))
+            thread = threading.Thread(target=self.thread_call, args=('launch', thread_command))
+            thread.start()
+            thread.join(self.tests[test]['timeout'])
         return_value = False
-        if self.call_result['launch'] == 0:
+        if launch == "" or self.call_result['launch'] == 0:
             # command returned success
             if detached == "":
                 # test success, because we didn't run in detached
@@ -437,7 +440,7 @@ class TestItDaemon:
         else:
             rospy.logerr("[%s] Test FAIL!" % pipeline)
 
-        if bag_return == 0 and self.configuration.get('bagEnabled', False):
+        if bag_return == 0 and bag_enabled:
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
             subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
@@ -457,7 +460,7 @@ class TestItDaemon:
                 # Merge bags
                 with rosbag.Bag(os.path.join(bags_directory, str(test) + ".bag"), 'w') as outfile:
                     for i, bag in enumerate(bags):
-                        #os.rename(os.path.join(bags_directory, bag[0]), os.path.join(bags_directory, str(test) + "_" + str(i) + ".bag"))
+                        rospy.loginfo("Merging '%s'... (%s/%s)" % (bag[0], str(i+1), str(len(bags))))
                         with rosbag.Bag(os.path.join(bags_directory, bag[0]), 'r') as infile:
                             for topic, msg, t in infile:
                                 outfile.write(topic, msg, t)

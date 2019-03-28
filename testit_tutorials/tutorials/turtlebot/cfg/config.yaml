@@ -3,8 +3,20 @@ tests:
     pipeline: "" # empty for any
     launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
     oracle: "/testit/testit_tests/01/oracle/oracle.py" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    timeout: 120 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
+    bagEnabled: False # True=rosbag record, False=don't bag
+    bagMaxSplits: "" # empty = use default
+    bagDuration: "" # empty = use default
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)
+  - tag: "Scenario #2" # identifier for reporting
+    pipeline: "" # empty for any
+    launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
+    oracle: "/testit/testit_tests/02/oracle/oracle.py" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
     timeout: 180 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
+    bagEnabled: True # True=rosbag record, False=don't bag
     bagMaxSplits: "" # empty = use default
     bagDuration: "" # empty = use default
     bagTopicRegex: "" # empty = use default (specified in configuration)
@@ -44,7 +56,7 @@ configuration:
   teardownTestItDelay: 0 # duration to wait after command
   teardownTestItTimeout: 5 # empty string = use default
   teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
-  bagEnabled: True #True # True=rosbag record, False=don't bag
+  bagEnabled: True # True=rosbag record, False=don't bag
   bagMaxSplits: 3 # total bag duration = maxsplits*duration
   bagDuration: 15 # seconds
   bagTopicRegex: "(.*)gazebo/(.*)|/odom(.*)|/amcl_pose(.*)" # match topics using regular expressions, "" = all topics
