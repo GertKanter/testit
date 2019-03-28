@@ -91,7 +91,7 @@ TestIt supports recording rosbags of the test executions and will by default onl
 
 The first scenario is configured to not record the bag files with the failure but the second scenario is configured to record the bag files (`bagEnabled: True`).
 
-##### pipelines
+##### Pipelines
 
 TestIt is uses the notion of pipelines as the testing unit. A pipeline consists of the SUT (the software that is being tested) and TestIt (the set of tools that simplifies integration testing).
 
@@ -105,7 +105,7 @@ The `pipelines` section configures the pipelines to
 - stop the TestIt container
 - stop the TestIt server
 
-##### configuration
+##### Configuration
 
 The `configuration` section defines the default values for pipelines and tests and also some general parameters for TestIt daemon.
 
@@ -165,3 +165,124 @@ Next, we can run the tests by using
 ```
 rosrun testit testit_command.py test
 ```
+And you should see the following at the console
+```
+[INFO] [1553777577.408230]: [Pipeline #1] Executing SUT to run...
+[INFO] [1553777577.408745]: [Pipeline #1] Executing "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=sut1 --env ROS_MASTER_URI=http://sut1:11311 --name sut1 -dt testit_tb_sut:latest /bin/bash -c "source /catkin_ws/devel/setup.bash && rosrun mission_control run_example_in_docker.sh && tail -f /dev/null""
+c2fb01cd54cae6c5601919927eba7305a756ce36f4ec5a624caf5139279df805
+[WARN] [1553777577.908604]: Test 'Scenario #2' waiting for a free pipeline...
+[INFO] [1553777578.646075]: [Pipeline #1] Waiting for delay duration (10)...
+[INFO] [1553777588.647103]: [Pipeline #1] Execution done!
+[INFO] [1553777588.647765]: [Pipeline #1] Running TestIt...
+[INFO] [1553777588.648250]: [Pipeline #1] Executing TestIt to run...
+[INFO] [1553777588.648682]: [Pipeline #1] Executing "docker run --rm --volume=$(rospack find testit_tutorials)/tutorials/turtlebot/:/testit/ --net=rosnetwork --env ROS_VERSION=lunar --env ROS_HOSTNAME=testit1 --env ROS_MASTER_URI=http://sut1:11311 --name testit1 -dt testit_tb_testit /bin/bash -c "tail -f /dev/null""
+30c7bfad48346361fa71a30c3c571e6c87924bfb01ad6336068a097adc96d4c7
+[INFO] [1553777589.528964]: [Pipeline #1] Waiting for delay duration (0)...
+[INFO] [1553777589.530056]: [Pipeline #1] Execution done!
+[INFO] [1553777589.530733]: [Pipeline #1] Executing tests in TestIt container...
+[INFO] [1553777589.531420]: [Pipeline #1] Launching test 'Scenario #1'
+[INFO] [1553777589.532063]: Resolved 'verbose' to default 'False'
+[INFO] [1553777589.532722]: [Pipeline #1] Executing oracle...
+[WARN] [1553777607.956916]: Test 'Scenario #2' waiting for a free pipeline...
+[WARN] [1553777638.007460]: Test 'Scenario #2' waiting for a free pipeline...
+[WARN] [1553777668.053762]: Test 'Scenario #2' waiting for a free pipeline...
+[WARN] [1553777698.103043]: Test 'Scenario #2' waiting for a free pipeline...
+[WARN] [1553777709.533065]: [Pipeline #1] TEST TIMEOUT (False)!
+[INFO] [1553777709.533528]: Resolved 'postCommand' to default ''
+[INFO] [1553777709.533994]: Resolved 'postSuccessCommand' to default ''
+[INFO] [1553777709.534397]: Resolved 'postFailureCommand' to default ''
+[INFO] [1553777709.534791]: [Pipeline #1] Stopping TestIt container...
+[INFO] [1553777709.535146]: [Pipeline #1] Executing TestIt to stop...
+[INFO] [1553777709.535440]: [Pipeline #1] Executing "docker kill testit1"
+testit1
+[INFO] [1553777710.038547]: [Pipeline #1] Waiting for delay duration (0)...
+[INFO] [1553777710.039427]: [Pipeline #1] Execution done!
+[INFO] [1553777710.040026]: [Pipeline #1] Stopping SUT...
+[INFO] [1553777710.040460]: [Pipeline #1] Executing SUT to stop...
+[INFO] [1553777710.041001]: [Pipeline #1] Executing "docker kill sut1"
+sut1
+[INFO] [1553777710.476265]: [Pipeline #1] Waiting for delay duration (0)...
+[INFO] [1553777710.476857]: [Pipeline #1] Execution done!
+[INFO] [1553777710.477152]: Freeing pipeline 'Pipeline #1'
+[INFO] [1553777710.620876]: Acquired pipeline Pipeline #1
+[INFO] [1553777710.621936]: [Pipeline #1] Running SUT...
+[INFO] [1553777710.622544]: [Pipeline #1] Executing SUT to run...
+[INFO] [1553777710.623064]: [Pipeline #1] Executing "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=sut1 --env ROS_MASTER_URI=http://sut1:11311 --name sut1 -dt testit_tb_sut:latest /bin/bash -c "source /catkin_ws/devel/setup.bash && rosrun mission_control run_example_in_docker.sh && tail -f /dev/null""
+7ebfb90e875703d26a487a05f5f7512ff37ebcd019b6d33c9711a7b4968e9926
+[INFO] [1553777711.562338]: [Pipeline #1] Waiting for delay duration (10)...
+[INFO] [1553777721.569522]: [Pipeline #1] Execution done!
+[INFO] [1553777721.569951]: [Pipeline #1] Running TestIt...
+[INFO] [1553777721.570225]: [Pipeline #1] Executing TestIt to run...
+[INFO] [1553777721.570506]: [Pipeline #1] Executing "docker run --rm --volume=$(rospack find testit_tutorials)/tutorials/turtlebot/:/testit/ --net=rosnetwork --env ROS_VERSION=lunar --env ROS_HOSTNAME=testit1 --env ROS_MASTER_URI=http://sut1:11311 --name testit1 -dt testit_tb_testit /bin/bash -c "tail -f /dev/null""
+4deca8a96a71599c78bf173ffd310ed9eb42d858e6e241ea1d2dd5594cb1f94f
+[INFO] [1553777722.490960]: [Pipeline #1] Waiting for delay duration (0)...
+[INFO] [1553777722.491695]: [Pipeline #1] Execution done!
+[INFO] [1553777722.492110]: [Pipeline #1] Executing tests in TestIt container...
+[INFO] [1553777722.492528]: Resolved 'testItVolume' to '$(rospack find testit_tutorials)/tutorials/turtlebot/'
+[INFO] [1553777722.492936]: Resolved 'resultsDirectory' to 'testit_tests/results/'
+[INFO] [1553777722.493352]: Resolved 'testItVolume' to '$(rospack find testit_tutorials)/tutorials/turtlebot/'
+[INFO] [1553777722.493884]: Resolved 'resultsDirectory' to 'testit_tests/results/'
+[INFO] [1553777722.546719]: [Pipeline #1] Start rosbag recording...
+[INFO] [1553777722.547692]: Resolved 'sharedDirectory' to '/testit/'
+[INFO] [1553777722.548270]: Executing 'docker exec -d testit1 /bin/bash -c 'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p /testit/testit_tests/results/ && cd /testit/testit_tests/results/ && rosbag record --split --max-splits=3 --duration=15 -O "Scenario #2" --regex "(.*)gazebo/(.*)|/odom(.*)|/amcl_pose(.*)" __name:=testit_rosbag_recorder''
+[INFO] [1553777722.627524]: [Pipeline #1] rosbag record returned 0
+[INFO] [1553777722.628229]: [Pipeline #1] Launching test 'Scenario #2'
+[INFO] [1553777722.628582]: Resolved 'verbose' to default 'False'
+[INFO] [1553777722.628914]: [Pipeline #1] Executing oracle...
+[WARN] [1553777902.629481]: [Pipeline #1] TEST TIMEOUT (False)!
+[INFO] [1553777902.630189]: [Pipeline #1] Stop rosbag recording...
+killing /testit_rosbag_recorder
+killed
+[INFO] [1553777907.224321]: [Pipeline #1] Setting privileges...
+[INFO] [1553777907.329950]: [Pipeline #1] Merging bag files...
+[INFO] [1553777907.356477]: Merging 'Scenario #2_3.bag'... (1/4)
+[INFO] [1553777917.833442]: Merging 'Scenario #2_4.bag'... (2/4)
+[INFO] [1553777930.206083]: Merging 'Scenario #2_5.bag'... (3/4)
+[INFO] [1553777940.863712]: Merging 'Scenario #2_6.bag'... (4/4)
+[INFO] [1553777947.807506]: [Pipeline #1] Done!
+[INFO] [1553777947.807982]: Resolved 'postCommand' to default ''
+[INFO] [1553777947.808375]: Resolved 'postSuccessCommand' to default ''
+[INFO] [1553777947.808703]: Resolved 'postFailureCommand' to default ''
+[INFO] [1553777947.809301]: [Pipeline #1] Stopping TestIt container...
+[INFO] [1553777947.809672]: [Pipeline #1] Executing TestIt to stop...
+[INFO] [1553777947.810067]: [Pipeline #1] Executing "docker kill testit1"
+testit1
+[INFO] [1553777948.374999]: [Pipeline #1] Waiting for delay duration (0)...
+[INFO] [1553777948.375877]: [Pipeline #1] Execution done!
+[INFO] [1553777948.376482]: [Pipeline #1] Stopping SUT...
+[INFO] [1553777948.377152]: [Pipeline #1] Executing SUT to stop...
+[INFO] [1553777948.377948]: [Pipeline #1] Executing "docker kill sut1"
+sut1
+[INFO] [1553777948.851600]: [Pipeline #1] Waiting for delay duration (0)...
+[INFO] [1553777948.852187]: [Pipeline #1] Execution done!
+[INFO] [1553777948.852594]: Freeing pipeline 'Pipeline #1'
+```
+The general breakdown of the output is simple
+- we run the SUT stack
+- we run the TestIt container
+- we run the oracle inside TestIt container
+- the oracle will return zero or non-zero (success or fail) or timeout (configured to mean fail in this use case)
+- we stop the SUT
+- we stop the TestIt container
+And we do this for each test scenario (defined in `tests` in the configuration file).
+
+After the tests are finished, we can get the results as JUnit XML with the following command:
+```
+rosrun testit testit_command.py -v results
+```
+And we should see something like this
+```
+[INFO] [1553778161.307410]: result: True
+message: "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<testsuite tests=\"2\"><testcase name=\"\
+  fail\" classname=\"Scenario #1\"><failure message=\"FAILURE\">Failure text</failure></testcase><testcase\
+  \ name=\"fail\" classname=\"Scenario #2\"><failure message=\"FAILURE\">Failure text</failure></testcase></testsuite>\n"
+```
+In case we want to get the XML into a file, we can use the command:
+```
+rosrun testit testit_command.py results -o results.xml
+```
+And we should see
+```
+[INFO] [1553784715.702665]: Writing results to 'results.xml'
+```
+And we can use this result for example in Jenkins build job.
