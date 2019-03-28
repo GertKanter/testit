@@ -731,6 +731,29 @@ class TestItDaemon:
         """
         result = True
         message = ""
+        rospy.loginfo("Copying files from pipelines...")
+        data_directory = self.configuration.get('dataDirectory', None)
+        if data_directory is not None:
+            data_directory = self.ground_path(data_directory)
+            for pipeline in self.pipelines:
+                rospy.loginfo("Copying files from pipeline '%s'..." % pipeline)
+                testit_volume = self.pipelines[pipeline].get('testItVolume', None)
+                if testit_volume is not None:
+                    results_directory = self.pipelines[pipeline].get('resultsDirectory', None)
+                    if results_directory is not None:
+                        #TODO add support for remote pipelines
+                        bags_directory = self.ground_path(testit_volume + results_directory)
+                        command = "cp " + bags_directory + "*bag " + data_directory
+                        rospy.loginfo("Executing command '%s'" % command)
+                        copy_result = subprocess.call(command, shell=True)
+                        if copy_result != 0:
+                            rospy.logerr("Unable to copy files from pipeline '%s'!" % pipeline)
+                            result = False
+                        else:
+                            rospy.loginfo("Done!")
+        else:
+            rospy.logerr("'dataDirectory' is not defined!")
+            result = False
         return testit.srv.CommandResponse(result, message)
 
     def shutdown(self):
