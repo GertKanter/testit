@@ -2,6 +2,37 @@ TestIt: a Scalable Long-Term Autonomy Testing Toolkit for ROS tutorials
 =======================================================================
 
 ## Turtlebot navigation
+
+### Description
+This tutorial demonstrates a typical use case for testing a mobile robot. The directory structure is as follows: 
+```
+.
+└── turtlebot
+    ├── cfg
+    │   └── config.yaml
+    ├── docker
+    │   ├── sut
+    │   │   └── Dockerfile
+    │   └── testit
+    │       └── Dockerfile
+    ├── scripts
+    │   └── build_turtlebot_docker_containers.sh
+    └── testit_tests
+        ├── 01
+        │   └── oracle
+        │       └── oracle.py
+        └── 02
+            └── oracle
+                └── oracle.py
+```
+The `cfg` directory holds the `config.yaml` file which is the TestIt configuration file. This file defines how TestIt tests the system under test (SUT).
+
+In the [`docker`](tutorials/turtlebot/docker) directory, we can see two directories - `sut` and `testit`. The `sut` Dockerfile describes the system under test (the robot software we want to test). The `testit` Dockerfile defines the TestIt configuration for this particular project (e.g., in case you need to extend the regular functionality of TestIt with some extra packages).
+
+The `scripts` directory has the script for building the Docker containers.
+
+The test scenarios for testing the software are in the `testit_tests` directory.
+
 ### Prerequisites
 #### Dependencies
 You need to have [Docker](https://www.docker.com/) installed for this tutorial.
