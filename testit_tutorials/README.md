@@ -133,7 +133,7 @@ then you need to source the catkin workspace before running the command. To do t
 . ~/catkin_ws/devel/setup.bash
 roslaunch testit_tutorials turtlebot.launch
 ```
-#### TestIt Commands
+#### TestIt CLI commands
 If you see something like
 ```
 [INFO] [1521626203.463729]: Loading configuration from /home/user/catkin_ws/src/testit/testit_tutorials/tutorials/turtlebot/cfg/config.yaml...
@@ -266,6 +266,8 @@ The general breakdown of the output is simple
 - we stop the TestIt container
 And we do this for each test scenario (defined in `tests` in the configuration file).
 
+#### Analysis
+##### Results JUnit
 After the tests are finished, we can get the results as JUnit XML with the following command:
 ```
 rosrun testit testit_command.py -v results
@@ -286,3 +288,32 @@ And we should see
 [INFO] [1553784715.702665]: Writing results to 'results.xml'
 ```
 And we can use this result for example in Jenkins build job.
+
+##### Rosbag
+As we have configured test "Scenario #2" to record a rosbag in case of test failure we can use a TestIt CLI command to retrieve it from the pipeline.
+
+The files are stored at the location specified in the configuration. In this use case, they are stored at the `testit_tests/results` directory
+
+```
+testit_tests/
+├── 01
+│   └── oracle
+│       └── oracle.py
+├── 02
+│   └── oracle
+│       └── oracle.py
+└── results
+    └── Scenario #2.bag
+```
+We can now use the following command to retrieve the bag file from the pipeline workspace into the daemon data directory (`dataDirectory` in configuration):
+```
+rosrun testit testit_command.py bag collect
+```
+And we should see an output like this
+```
+[INFO] [1553785688.186251]: Copying files from pipelines...
+[INFO] [1553785688.211655]: Copying files from pipeline 'Pipeline #1'...
+[INFO] [1553785688.239864]: Executing command 'cp /home/user/testit_catkin/src/testit/testit_tutorials/tutorials/turtlebot/testit_tests/results/*bag /home/user/testit_catkin/src/testit/testit/data/'
+[INFO] [1553785688.580736]: Done!
+```
+Now we can use `rosbag play` command to replay the failed scenario to analyze what went wrong.
