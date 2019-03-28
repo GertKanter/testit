@@ -47,17 +47,19 @@ class TestIt:
         rospy.wait_for_service('testit/status')
         rospy.wait_for_service('testit/test')
         rospy.wait_for_service('testit/results')
-        rospy.wait_for_service('testit/bag')
+        rospy.wait_for_service('testit/bag/collect')
         rospy.wait_for_service('testit/clean')
         rospy.wait_for_service('testit/uppaal/annotate/coverage')
+        rospy.wait_for_service('testit/shutdown')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
         self.status_service = rospy.ServiceProxy('testit/status', testit.srv.Command)
         self.test_service = rospy.ServiceProxy('testit/test', testit.srv.Command)
         self.results_service = rospy.ServiceProxy('testit/results', testit.srv.Command)
-        self.bag_service = rospy.ServiceProxy('testit/bag', testit.srv.Command)
+        self.bag_collect_service = rospy.ServiceProxy('testit/bag/collect', testit.srv.Command)
         self.clean_service = rospy.ServiceProxy('testit/clean', testit.srv.Command)
         self.uppaal_annotate_coverage_service = rospy.ServiceProxy('testit/uppaal/annotate/coverage', testit.srv.Command)
+        self.shutdown_service = rospy.ServiceProxy('testit/shutdown', testit.srv.Command)
 
     def call_service(self, service, args, callback=None):
         try:
@@ -79,6 +81,9 @@ class TestIt:
                 callback(response, args)
         except rospy.ServiceException, e:
             rospy.logerr("Calling service failed: %s" % e)
+
+    def shutdown(self, args):
+        self.call_service(self.shutdown_service, args)
 
     def clean(self, args):
         rospy.loginfo("Cleaning workspace(s)...")
@@ -130,7 +135,17 @@ class TestIt:
 		traceback.print_exc()
 
     def bag(self, args):
-        self.call_service(self.bag_service, args)
+        def unrecognized(args):
+            rospy.logerr("Unrecognized subcommand (%s)!" % args)
+        # Bag subcommands handling
+        if len(args.command) == 1:
+            if args.command[0] == "collect":
+                self.call_service(self.bag_collect_service, args)
+            else:
+                unrecognized(args)
+        else:
+            unrecognized(args)
+
 
     def uppaal(self, args):
         def unrecognized(args):
@@ -197,11 +212,14 @@ if __name__ == '__main__':
     parser_log = subparsers.add_parser("log", help="log help")
     parser_log.set_defaults(func=testit_instance.log)
     parser_bag = subparsers.add_parser("bag", help="bag help")
+    parser_bag.add_argument("command", action="store", nargs="+", help="Bag subcommands")
     parser_bag.set_defaults(func=testit_instance.bag)
     parser_uppaal = subparsers.add_parser("uppaal", help="Uppaal TA related commands")
     parser_uppaal.add_argument("command", action="store", nargs="+", help="Uppaal subcommands")
     parser_uppaal.add_argument("-f", "--file", action="store", default="", help="Specify the file to work with")
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
+    parser_shutdown = subparsers.add_parser("shutdown", help="Shut down the daemon")
+    parser_shutdown.set_defaults(func=testit_instance.shutdown)
     testit.opt = parser.parse_args(rospy.myargv()[1:])
     testit.opt.func(testit.opt)
 

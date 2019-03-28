@@ -57,10 +57,11 @@ class TestItDaemon:
         rospy.Service('testit/status', testit.srv.Command, self.handle_status)
         rospy.Service('testit/test', testit.srv.Command, self.handle_test)
         rospy.Service('testit/results', testit.srv.Command, self.handle_results)
-        rospy.Service('testit/bag', testit.srv.Command, self.handle_bag)
+        rospy.Service('testit/bag/collect', testit.srv.Command, self.handle_bag_collect)
         rospy.Service('testit/coverage', testit.srv.Command, self.handle_coverage)
         rospy.Service('testit/uppaal/annotate/coverage', testit.srv.Command, self.handle_uppaal_annotate_coverage)
         rospy.Service('testit/clean', testit.srv.Command, self.handle_clean)
+        rospy.Service('testit/shutdown', testit.srv.Command, self.handle_shutdown)
         self.initialize()
 
     def initialize(self):
@@ -635,7 +636,7 @@ class TestItDaemon:
             if "--blocking" in req.args:
                 blocking = True
                 req.args = req.args.replace("--blocking", "", 1)
-            if len(req.args) > 0:
+            if len(req.args.strip()) > 0:
                 queue = []
             scenarios = set(self.tokenize_arguments(req.args)) # Remove duplicates
             for scenario in scenarios:
@@ -724,13 +725,24 @@ class TestItDaemon:
         message = '<?xml version="1.0" encoding="UTF-8" ?>\n' + output.getvalue() + "\n"
         return testit.srv.CommandResponse(result, message)
 
-    def handle_bag(self, req):
+    def handle_bag_collect(self, req):
         """
-        Use rosbag_merge to combine individual bag files and copy the file into working dir
+        Collect bags from pipelines to daemon data directory.
         """
-        result = False
+        result = True
         message = ""
-        #bag_result = subprocess.call( "docker exec -d " + self.pipelines[pipeline]['testitHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && cd /testit_tests/01/ && rosbag record -a --split --max-splits=" + str(self.tests[test]['bagMaxSplits']) + " --duration=" + str(self.tests[test]['bagDuration']) + " -O testit __name:=testit_rosbag_recorder\'", shell=True)
+        return testit.srv.CommandResponse(result, message)
+
+    def shutdown(self):
+        rospy.sleep(1)
+        rospy.signal_shutdown("Shutting down!")
+
+    def handle_shutdown(self, req):
+        rospy.logdebug("Shutdown requested")
+        message = "Shutting down!"
+        result = True
+        thread = threading.Thread(target=self.shutdown)
+        thread.start()
         return testit.srv.CommandResponse(result, message)
 
     def handle_coverage(self, req):
