@@ -48,6 +48,7 @@ import testit.junit
 import cStringIO
 import xml.etree.ElementTree
 import os
+import rosbag
 
 class TestItDaemon:
     def __init__(self):
@@ -314,7 +315,28 @@ class TestItDaemon:
                     return None
         return target_dictionary[key]
 
-    def execute_in_testit_container(self, pipeline, test):
+    def delete_bag_files(self, pipeline, test):
+        """
+        Remove bag files from results.
+
+        Returns:
+        True if successful (no errors)
+        """
+        self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
+        self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
+        if self.tests[test]['testItVolume'] is not None:
+            if self.tests[test]['resultsDirectory'] is not None:
+                bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+                # Handle spaces in tag names
+                prefix = test.split(" ")
+                if len(prefix) > 1:
+                    prefix = prefix[0:1] + ["\\ " + x for x in prefix[1:]]
+                prefix = "".join(prefix)
+                delete_command = "rm -f " + bags_directory + prefix + "*bag"
+                return True if subprocess.call(delete_command, shell=True) == 0 else False
+        return False
+
+    def execute_in_testit_container(self, pipeline, test, keep_bags):
         """
         Returns:
         True if test successful, False otherwise
@@ -336,16 +358,8 @@ class TestItDaemon:
             # Delete old rosbags if present
             self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
             self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
-            if self.tests[test]['testItVolume'] is not None:
-                if self.tests[test]['resultsDirectory'] is not None:
-                    bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
-                    # Handle spaces in tag names
-                    prefix = test.split(" ")
-                    if len(prefix) > 1:
-                        prefix = prefix[0:1] + ["\\ " + x for x in prefix[1:]]
-                    prefix = "".join(prefix)
-                    delete_command = "rm -f " + bags_directory + prefix + "*bag"
-                    delete_bags_return = subprocess.call(delete_command, shell=True)
+            if not self.delete_bag_files(pipeline, test):
+                rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
 
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
             max_splits = self.tests[test].get('bagMaxSplits', None)
@@ -415,7 +429,6 @@ class TestItDaemon:
                 else:
                     # oracle reports test failed
                     rospy.logerr("[%s] TEST FAIL!" % pipeline)
-                    return_value = True
         elif self.call_result['launch'] == -1:
             rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
             if self.tests[test]['timeoutVerdict']:
@@ -428,24 +441,36 @@ class TestItDaemon:
             subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
             subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chown -R " + self.ground_path("$(id -u)") + ":" + self.ground_path("$(id -g)") + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\'", shell=True)
-            # Rename all bag suffixes to start from 0
-            rospy.loginfo("[%s] Renaming bag files..." % pipeline)
-            bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
-            try:
-                files = sorted([f for f in os.listdir(bags_directory) if os.path.isfile(os.path.join(bags_directory, f)) and f.startswith(test) and f.endswith(".bag")])
-            except Exception as e:
-                rospy.logerr("Path not found ('%s')!" % bags_directory)
-            bags = []
-            for f in files:
-               bags.append((f, os.stat(os.path.join(bags_directory, f)).st_mtime))
-            bags = sorted(bags, key=lambda x: x[1])
-            # Rename bags to start from suffix zero (_0)
-            for i, bag in enumerate(bags):
-                os.rename(os.path.join(bags_directory, bag[0]), os.path.join(bags_directory, str(test) + "_" + str(i) + ".bag"))
-            rospy.loginfo("[%s] Done!" % pipeline)
+            # Delete bags if success, merge split bags and keep if fail
+            if not return_value or keep_bags:
+                rospy.loginfo("[%s] Merging bag files..." % pipeline)
+                bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+                try:
+                    files = sorted([f for f in os.listdir(bags_directory) if os.path.isfile(os.path.join(bags_directory, f)) and f.startswith(test) and f.endswith(".bag")])
+                except Exception as e:
+                    rospy.logerr("Path not found ('%s')!" % bags_directory)
+                bags = []
+                for f in files:
+                   bags.append((f, os.stat(os.path.join(bags_directory, f)).st_mtime))
+                bags = sorted(bags, key=lambda x: x[1])
+                # Merge bags
+                with rosbag.Bag(os.path.join(bags_directory, str(test) + ".bag"), 'w') as outfile:
+                    for i, bag in enumerate(bags):
+                        #os.rename(os.path.join(bags_directory, bag[0]), os.path.join(bags_directory, str(test) + "_" + str(i) + ".bag"))
+                        with rosbag.Bag(os.path.join(bags_directory, bag[0]), 'r') as infile:
+                            for topic, msg, t in infile:
+                                outfile.write(topic, msg, t)
+                        # Remove the individual bag file
+                        os.remove(os.path.join(bags_directory, bag[0]))
+                rospy.loginfo("[%s] Done!" % pipeline)
+            else:
+                # Delete bags
+                rospy.loginfo("[%s] Removing bag files..." % pipeline)
+                if not self.delete_bag_files(pipeline, test):
+                    rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
         return return_value
 
-    def test_thread_worker(self, tag):
+    def test_thread_worker(self, tag, keep_bags=False):
         """
         Arguments:
             tag -- test tag (string)
@@ -461,7 +486,7 @@ class TestItDaemon:
             rospy.loginfo("[%s] Running TestIt..." % pipeline)
             if self.execute_system(pipeline, 'TestIt', 'run'):
                 rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
-                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag)
+                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags)
                 self.tests[tag]['executor_pipeline'] = pipeline
                 self.test_threads[tag]['result'] = self.tests[tag]['result']
                 # execute the post-testing commands
@@ -601,9 +626,13 @@ class TestItDaemon:
         # Create list with tests to execute
         queue = [test for test in self.tests]
         blocking = False
+        keep_bags = False
         if len(req.args) > 0:
             # Determine whether to block or not
-            if req.args.startswith("--blocking"):
+            if "--keep-bags" in req.args:
+                keep_bags = True
+                req.args = req.args.replace("--keep-bags", "", 1)
+            if "--blocking" in req.args:
                 blocking = True
                 req.args = req.args.replace("--blocking", "", 1)
             if len(req.args) > 0:
@@ -623,7 +652,7 @@ class TestItDaemon:
             for test in queue: # key
                 self.tests[test]['result'] = None
                 self.tests[test]['pipeline'] = None
-                thread = threading.Thread(target=self.test_thread_worker, args=(test,))
+                thread = threading.Thread(target=self.test_thread_worker, args=(test, keep_bags))
                 self.test_threads[test] = {'thread': thread, 'result': None}
                 thread.start()
             thread = threading.Thread(target=self.nonblocking_test_monitor)

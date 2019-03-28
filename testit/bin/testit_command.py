@@ -104,6 +104,8 @@ class TestIt:
     def test(self, args):
         rospy.loginfo("Starting testing...")
         args.pipeline = args.scenario
+        if args.keep_bags:
+            args.pipeline.insert(0, "--keep-bags")
         if args.blocking:
             args.pipeline.insert(0, "--blocking")
         self.call_service(self.test_service, args)
@@ -180,6 +182,7 @@ if __name__ == '__main__':
     parser_bringup.set_defaults(func=testit_instance.bringup)
     parser_test = subparsers.add_parser("test", help="test help")
     parser_test.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
+    parser_test.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
     parser_test.add_argument("scenario", nargs="*")
     parser_test.set_defaults(func=testit_instance.test)
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
