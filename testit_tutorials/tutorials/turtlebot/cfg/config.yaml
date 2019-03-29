@@ -44,7 +44,7 @@ configuration:
   bringupTestItDelay: 0 # duration to wait after command
   bringupTestItTimeout: 1
   bringupTestItFinishTrigger: "-"
-  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --net=rosnetwork --env ROS_VERSION=[[rosVersion]] --env ROS_HOSTNAME=[[testItHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testItHost]] -dt testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
+  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --net=rosnetwork --env ROS_HOSTNAME=[[testItHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testItHost]] -dt testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
   runTestItDelay: 0 # duration to wait after command
   runTestItTimeout: 5
   runTestItFinishTrigger: "-"
