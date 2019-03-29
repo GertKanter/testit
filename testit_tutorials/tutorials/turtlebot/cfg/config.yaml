@@ -64,15 +64,15 @@ configuration:
 
 pipelines:
   - tag: "Pipeline #1" # identifier for reporting
-    rosVersion: "lunar"
-    ssh: "-" # "-" means no ssh command wrapping, execute docker commands on localhost, bringup/teardown are not wrapped, run/stop + test commands are wrapped
+    sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
+    testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
     masterHost: "sut1"
     testItHost: "testit1"
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testItHost is not defined) ("-" means none)
     testItVolume: "$(rospack find testit_tutorials)/tutorials/turtlebot/" # where TestIt volume is located in the pipeline (test scenarios + bags are stored there)
-    resultsDirectory: "testit_tests/results/"
     sharedDirectory: "/testit/" # shared directory in testit docker
+    resultsDirectory: "testit_tests/results/"
     bringupSUT: "" # empty string = use default
     bringupSUTDelay: ""
     bringupSUTTimeout: "" # empty string = use default

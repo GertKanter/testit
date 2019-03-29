@@ -48,9 +48,8 @@ configuration:
 
 pipelines:
   - tag: "Example pipeline" # identifier for reporting
-    testItRosVersion: "lunar"
     sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
-    testItConnection: "-" # see above
+    testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
     masterHost: "" # master hostname, look at the tutorials for examples
     testItHost: "" # testit hostname, look at the tutorials for examples
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
