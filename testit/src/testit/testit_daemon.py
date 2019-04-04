@@ -49,6 +49,7 @@ import cStringIO
 import xml.etree.ElementTree
 import os
 import rosbag
+import testit_uppaal
 
 class TestItDaemon:
     def __init__(self):
@@ -60,6 +61,7 @@ class TestItDaemon:
         rospy.Service('testit/bag/collect', testit.srv.Command, self.handle_bag_collect)
         rospy.Service('testit/coverage', testit.srv.Command, self.handle_coverage)
         rospy.Service('testit/uppaal/annotate/coverage', testit.srv.Command, self.handle_uppaal_annotate_coverage)
+        rospy.Service('testit/uppaal/extract/failure', testit.srv.Command, self.handle_uppaal_extract_failure)
         rospy.Service('testit/clean', testit.srv.Command, self.handle_clean)
         rospy.Service('testit/shutdown', testit.srv.Command, self.handle_shutdown)
         self.initialize()
@@ -817,6 +819,86 @@ class TestItDaemon:
                     assignment.text += ", V=" + str(entry['sum'])
                     success = True
         return (success, tree)
+        
+    def read_yaml_file(self, test, pipeline, filename):
+        self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
+        filename = self.tests[test].get("resultsDirectory", "") + filename
+        if self.pipelines[pipeline].get('testItConnection', "-") != "-":
+            #TODO add support for remote testit pipeline (scp to temp file then read)
+            # command_prefix = "scp "
+            rospy.logerr("Not implemented!")
+        # ground testItVolume path
+        path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
+        fullname = path + filename
+        # Read the file
+        rospy.loginfo("Reading from file '%s'" % fullname)
+        data = None
+        try:
+            data = testit_common.parse_yaml(fullname)
+            rospy.loginfo("Read %s log entries!" % len(data))
+        except:
+            rospy.logerr("Unable to open log file '%s'!" % fullname)
+        return data
+
+    def log(self, return_condition, message, out="info"):
+        if out == "err":
+            rospy.logerr(message)
+        elif out == "warn":
+            rospy.logwarn(message)
+        elif out == "info":
+            rospy.loginfo(message)
+        else:
+            rospy.logdebug(message)
+        if return_condition:
+            return message + "\n"
+        else:
+            return ""
+
+    def handle_uppaal_extract_failure(self, req):
+        """
+        Extract the scenario failure into an Uppaal model (which can be executed as a test scenario in the future).
+        """
+        message = "No test specified!"
+        result = False
+        tests = set(self.tokenize_arguments(req.args)) # Remove duplicates
+        for test in self.tests:
+            message = ""
+            if test in tests:
+                rospy.loginfo("Processing '%s'..." % test)
+                model = self.tests[test].get('uppaalModel', None)
+                if model is not None:
+                    pipeline = self.tests[test].get('executor_pipeline', None)
+                    if not pipeline:
+                        message += self.log(self.tests[test].get('verbose', False), "Test '%s' has not been executed during this runtime, unable to match data to pipeline!" % test, "err")
+                    else:
+                        rospy.loginfo("Ran in %s " % pipeline)
+                        if not self.tests[test].get('result', True):
+                            # Test execution location found
+                            data = self.read_yaml_file(test, pipeline, "testit_coverage.log")
+                            if data is not None:
+                                filtered = []
+                                last_timestamp = -1.0
+                                for entry in data:
+                                    if entry['traceStartTimestamp'] == data[-1]['traceStartTimestamp']:
+                                        if entry['event'] == "PRE":
+                                            if entry['timestamp'] != last_timestamp:
+                                                state = {}
+                                                for variable in entry['state']:
+                                                    state.update(variable)
+                                                filtered.append((entry['name'], state))
+                                                last_timestamp = entry['timestamp']
+                                                
+                                                rospy.loginfo("Found transition: '%s' - %s" % (entry['name'], str(entry['state'])))
+                                if len(filtered) > 0:
+                                    message = testit_uppaal.create_sequential_uppaal_xml(filtered)
+                                    result = True
+                            if not result:
+                                message = "Unable to create failure Uppaal XML model"
+                        else:
+                            rospy.logerr("Last execution was not FAILURE!")
+                else:
+                    rospy.logerr("'uppaalModel' is not defined in configuration!")
+        return testit.srv.CommandResponse(result, message)
 
     def handle_uppaal_annotate_coverage(self, req):
         """
@@ -829,7 +911,6 @@ class TestItDaemon:
             rospy.loginfo("Processing '%s'..." % test)
             model = self.tests[test].get('uppaalModel', None)
             if model is not None:
-
                 # Read previous processed log entries
                 data_directory = self.ground_path(self.configuration['dataDirectory'])
                 rospy.loginfo("Data directory path is '%s'" % data_directory)
@@ -848,28 +929,12 @@ class TestItDaemon:
                     rospy.loginfo("Ran in %s " % pipeline)
                     # Get coverage log file from pipeline
                     #TODO support finding the log file in case it has been remapped in test adapter launch file
-                    self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
-                    filename = self.tests[test].get("resultsDirectory", "") + "testit_coverage.log"
-                    if self.pipelines[pipeline].get('testItConnection', "-") != "-":
-                        #TODO add support for remote testit pipeline (scp to temp file then read)
-                        # command_prefix = "scp "
-                        rospy.logerr("Not implemented!")
-                    # ground testItVolume path
-                    path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
-                    fullname = path + filename
-                    # Read the file
-                    rospy.loginfo("Reading coverage log from file '%s'" % fullname)
-                    data = None
-                    try:
-                        data = testit_common.parse_yaml(fullname)
-                        rospy.loginfo("Read %s log entries!" % len(data))
+                    data = self.read_yaml_file(test, pipeline, "testit_coverage.log")
+                    if data is not None:
                         # Add model info to daemon coverage log file (combined from all pipelines and over runs)
                         for entry in data:
                             entry['model'] = path + 'testit_tests/' + model
                         coverage += data
-                    except:
-                        rospy.logerr("Unable to open log file '%s'!" % fullname)
-                    if data is not None:
                         # Remove the processed log file so we don't process it again
                         rospy.loginfo("Removing log file '%s'" % fullname)
                         remove_result = subprocess.call("rm -f " + fullname, shell=True)

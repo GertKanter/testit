@@ -50,6 +50,7 @@ class TestIt:
         rospy.wait_for_service('testit/bag/collect')
         rospy.wait_for_service('testit/clean')
         rospy.wait_for_service('testit/uppaal/annotate/coverage')
+        rospy.wait_for_service('testit/uppaal/extract/failure')
         rospy.wait_for_service('testit/shutdown')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
@@ -59,6 +60,7 @@ class TestIt:
         self.bag_collect_service = rospy.ServiceProxy('testit/bag/collect', testit.srv.Command)
         self.clean_service = rospy.ServiceProxy('testit/clean', testit.srv.Command)
         self.uppaal_annotate_coverage_service = rospy.ServiceProxy('testit/uppaal/annotate/coverage', testit.srv.Command)
+        self.uppaal_extract_failure_service = rospy.ServiceProxy('testit/uppaal/extract/failure', testit.srv.Command)
         self.shutdown_service = rospy.ServiceProxy('testit/shutdown', testit.srv.Command)
 
     def call_service(self, service, args, callback=None):
@@ -150,19 +152,35 @@ class TestIt:
     def uppaal(self, args):
         def unrecognized(args):
             rospy.logerr("Unrecognized subcommand (%s)!" % args)
+        def extract_failure(args):
+            rospy.loginfo("Usage: testit_command.py uppaal extract failure [scenario_tag [...]] [-o file]")
+        def handle_extract_failure(args):
+            args.pipeline = []
+            if len(args.command) >= 3:
+                args.pipeline = args.command[2:]
+            callback = None
+            if args.output != "":
+                callback = self.results_callback
+            rospy.loginfo("Executing Uppaal TA trace failure extraction...")
+            self.call_service(self.uppaal_extract_failure_service, args, callback)
         # Uppaal subcommands handling
-        if len(args.command) == 2:
-            if args.command[0] == "":
-                # placeholder for custom
-                rospy.logerr("Custom command placeholder")
+        if len(args.command) >= 3:
+            if args.command[0] == "extract":
+               if "fail" in args.command[1]:
+                    handle_extract_failure(args)
+               else:
+                    unrecognized(args)
+            else:
+                unrecognized(args)
+        elif len(args.command) == 2:
             if args.command[0] == "extract":
                 if "fail" in args.command[1]:
-                    rospy.loginfo("Executing Uppaal TA trace failure extraction...")
+                    handle_extract_failure(args)
                 else:
                     unrecognized(args)
         elif len(args.command) == 1:
             if args.command[0] == "extract":
-                rospy.loginfo("Usage: testit_command.py uppaal extract failure")
+                extract_failure(args)
             elif args.command[0] == "annotate":
                 if args.file == "":
                     rospy.logerr("Please specify the file filter for which to optimize the scenario (-f)!")
@@ -217,6 +235,7 @@ if __name__ == '__main__':
     parser_uppaal = subparsers.add_parser("uppaal", help="Uppaal TA related commands")
     parser_uppaal.add_argument("command", action="store", nargs="+", help="Uppaal subcommands")
     parser_uppaal.add_argument("-f", "--file", action="store", default="", help="Specify the file to work with")
+    parser_uppaal.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
     parser_shutdown = subparsers.add_parser("shutdown", help="Shut down the daemon")
     parser_shutdown.set_defaults(func=testit_instance.shutdown)
