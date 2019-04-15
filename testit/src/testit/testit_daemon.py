@@ -137,6 +137,44 @@ class TestItDaemon:
             return_value[item[key]] = item
         return return_value
 
+    def get_configuration_schema(self):
+        rospack = rospkg.RosPack()
+        filename = rospack.get_path('testit')+'/cfg/config.yaml'
+        rospy.loginfo("Resolved schema file to '%s'!" % filename)
+        try:
+            return testit_common.parse_yaml(filename)
+        except Exception as e:
+	    import traceback
+	    traceback.print_exc()
+        return None
+
+    def add_test_to_config_file(self, dictionary):
+        filename = rospy.get_param('~config')
+        schema = self.get_configuration_schema()
+        filtered = {'tests':[{}]}
+        for key in dictionary['tests'][0]: #TODO support any schema check not just tests
+            if key in schema['tests'][0]:
+                if dictionary['tests'][0][key] is None:
+                    filtered['tests'][0][key] = ""
+                else:
+                    filtered['tests'][0][key] = dictionary['tests'][0][key]
+        data = "  " + "\n  ".join(testit_common.dump_yaml(filtered).split("\n")[1:]).rstrip() + "\n"
+        rospy.loginfo("Writing configuration to '%s'..." % filename)
+        config_file_data = ""
+        try:
+            with open(filename, 'r') as infile:
+                for line in infile:
+                    config_file_data += line
+                    if line.startswith("tests:"):
+                        config_file_data += data
+	    with open(filename, 'w') as outfile:
+                outfile.write(config_file_data)
+	except Exception as e:
+	    import traceback
+	    traceback.print_exc()
+	    return False
+        return True
+
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
         rospy.loginfo("Loading configuration from " + filename + "...")
@@ -858,46 +896,76 @@ class TestItDaemon:
         """
         Extract the scenario failure into an Uppaal model (which can be executed as a test scenario in the future).
         """
-        message = "No test specified!"
+        message = ""
         result = False
-        tests = set(self.tokenize_arguments(req.args)) # Remove duplicates
-        for test in self.tests:
-            message = ""
-            if test in tests:
-                rospy.loginfo("Processing '%s'..." % test)
-                model = self.tests[test].get('uppaalModel', None)
-                if model is not None:
-                    pipeline = self.tests[test].get('executor_pipeline', None)
-                    if not pipeline:
-                        message += self.log(self.tests[test].get('verbose', False), "Test '%s' has not been executed during this runtime, unable to match data to pipeline!" % test, "err")
-                    else:
-                        rospy.loginfo("Ran in %s " % pipeline)
-                        if not self.tests[test].get('result', True):
-                            # Test execution location found
-                            data = self.read_yaml_file(test, pipeline, "testit_coverage.log")
-                            if data is not None:
-                                filtered = []
-                                last_timestamp = -1.0
-                                for entry in data:
-                                    if entry['traceStartTimestamp'] == data[-1]['traceStartTimestamp']:
-                                        if entry['event'] == "PRE":
-                                            if entry['timestamp'] != last_timestamp:
-                                                state = {}
-                                                for variable in entry['state']:
-                                                    state.update(variable)
-                                                filtered.append((entry['name'], state))
-                                                last_timestamp = entry['timestamp']
-                                                
-                                                rospy.loginfo("Found transition: '%s' - %s" % (entry['name'], str(entry['state'])))
-                                if len(filtered) > 0:
-                                    message = testit_uppaal.create_sequential_uppaal_xml(filtered)
-                                    result = True
-                            if not result:
-                                message = "Unable to create failure Uppaal XML model"
-                        else:
-                            rospy.logerr("Last execution was not FAILURE!")
-                else:
-                    rospy.logerr("'uppaalModel' is not defined in configuration!")
+        
+        add_scenario = False
+        scenario_name = ""
+        tokens = self.tokenize_arguments(req.args)
+        tag_conflict = False
+        if "--add-scenario" in tokens:
+            index = tokens.index("--add-scenario")
+            scenario_name = tokens[index+1]
+            # Check whether a scenario with that tag name exists
+	    del tokens[index+1]
+	    del tokens[index]
+            if scenario_name in self.tests:
+                message += self.log(True, "Test scenario '%s' already defined in configuration!" % scenario_name, "err")
+                tag_conflict = True
+            else:
+                add_scenario = True
+		rospy.loginfo("Cloning scenario to '%s' upon success..." % scenario_name)
+        if not add_scenario or (add_scenario and not tag_conflict):
+	    tests = set(tokens) # Remove duplicates
+	    matched = False
+	    processed_scenario = None
+	    for test in self.tests:
+		if test in tests:
+		    matched = True
+		    rospy.loginfo("Processing '%s'..." % test)
+		    model = self.tests[test].get('uppaalModel', None)
+		    if model is not None:
+			pipeline = self.tests[test].get('executor_pipeline', None)
+			if not pipeline:
+			    message += self.log(self.tests[test].get('verbose', False), "Test '%s' has not been executed during this runtime, unable to match data to pipeline!" % test, "err")
+			else:
+			    rospy.loginfo("Ran in %s " % pipeline)
+			    if not self.tests[test].get('result', True):
+				# Test execution location found
+				data = self.read_yaml_file(test, pipeline, "testit_coverage.log")
+				if data is not None:
+				    filtered = []
+				    last_timestamp = -1.0
+				    for entry in data:
+					if entry['traceStartTimestamp'] == data[-1]['traceStartTimestamp']:
+					    if entry['event'] == "PRE":
+						if entry['timestamp'] != last_timestamp:
+						    state = {}
+						    for variable in entry['state']:
+							state.update(variable)
+						    filtered.append((entry['name'], state))
+						    last_timestamp = entry['timestamp']
+						    
+						    rospy.logdebug("Found transition: '%s' - %s" % (entry['name'], str(entry['state'])))
+				    if len(filtered) > 0:
+					message = testit_uppaal.create_sequential_uppaal_xml(filtered)
+					processed_scenario = test
+					result = True
+					break #TODO add possibility to combine scenario failures
+				if not result:
+				    message = "Unable to create failure Uppaal XML model"
+			    else:
+				rospy.logerr("Last execution was not FAILURE!")
+		    else:
+			rospy.logerr("'uppaalModel' is not defined in configuration!")
+	    if result and add_scenario:
+		rospy.logwarn("create new scenario")
+		self.tests[scenario_name] = self.tests[processed_scenario]
+		self.tests[scenario_name]['tag'] = scenario_name
+		self.add_test_to_config_file({'tests': [self.tests[scenario_name]]})
+	    elif not matched:
+		message = self.log(True, "Unable to match any test scenarios!", "err")
+        
         return testit.srv.CommandResponse(result, message)
 
     def handle_uppaal_annotate_coverage(self, req):
@@ -1000,9 +1068,6 @@ class TestItDaemon:
                     else:
                         rospy.logerr("No entries found for file '%s'!" % req.args)
                         result = False
-                
-                
-        
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":

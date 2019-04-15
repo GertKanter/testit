@@ -156,8 +156,10 @@ class TestIt:
             rospy.loginfo("Usage: testit_command.py uppaal extract failure [scenario_tag [...]] [-o file]")
         def handle_extract_failure(args):
             args.pipeline = []
+            if args.add_scenario != "":
+                args.pipeline += ["'--add-scenario'", args.add_scenario]
             if len(args.command) >= 3:
-                args.pipeline = args.command[2:]
+                args.pipeline += args.command[2:]
             callback = None
             if args.output != "":
                 callback = self.results_callback
@@ -236,6 +238,7 @@ if __name__ == '__main__':
     parser_uppaal.add_argument("command", action="store", nargs="+", help="Uppaal subcommands")
     parser_uppaal.add_argument("-f", "--file", action="store", default="", help="Specify the file to work with")
     parser_uppaal.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
+    parser_uppaal.add_argument("-a", "--add-scenario", action="store", default='', help="Add the scenario to test suite")
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
     parser_shutdown = subparsers.add_parser("shutdown", help="Shut down the daemon")
     parser_shutdown.set_defaults(func=testit_instance.shutdown)

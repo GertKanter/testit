@@ -58,5 +58,13 @@ def write_yaml_to_file(data, filename):
         return False
     return True
 
+def dump_yaml(data):
+    try:
+        return yaml.dump(data, default_flow_style=False)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+    return None
+
 def load_config_to_rosparam(config):
     rosparam.upload_params('testit', config)
