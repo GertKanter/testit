@@ -52,6 +52,7 @@ class TestIt:
         rospy.wait_for_service('testit/uppaal/annotate/coverage')
         rospy.wait_for_service('testit/uppaal/extract/failure')
         rospy.wait_for_service('testit/shutdown')
+        rospy.wait_for_service('testit/credits')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
         self.status_service = rospy.ServiceProxy('testit/status', testit.srv.Command)
@@ -62,6 +63,7 @@ class TestIt:
         self.uppaal_annotate_coverage_service = rospy.ServiceProxy('testit/uppaal/annotate/coverage', testit.srv.Command)
         self.uppaal_extract_failure_service = rospy.ServiceProxy('testit/uppaal/extract/failure', testit.srv.Command)
         self.shutdown_service = rospy.ServiceProxy('testit/shutdown', testit.srv.Command)
+        self.credits_service = rospy.ServiceProxy('testit/credits', testit.srv.Command)
 
     def call_service(self, service, args, callback=None):
         try:
@@ -115,10 +117,21 @@ class TestIt:
             args.pipeline.insert(0, "--keep-bags")
         if args.blocking:
             args.pipeline.insert(0, "--blocking")
+        if args.no_credit_increment:
+            args.pipeline.insert(0, "--no-credit-increment")
         self.call_service(self.test_service, args)
+
+    def credits(self, args):
+        rospy.loginfo(args)
+        args.pipeline = []
+        if args.set != "":
+            args.pipeline += ["--set", args.set]
+        args.pipeline += args.scenario
+        self.call_service(self.credits_service, args)
 
     def log(self, args):
         rospy.loginfo("Log")
+
 
     def results(self, args):
         if args.xml_sys_out:
@@ -218,6 +231,7 @@ if __name__ == '__main__':
     parser_test = subparsers.add_parser("test", help="test help")
     parser_test.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
     parser_test.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
+    parser_test.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
     parser_test.add_argument("scenario", nargs="*")
     parser_test.set_defaults(func=testit_instance.test)
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
@@ -242,6 +256,10 @@ if __name__ == '__main__':
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
     parser_shutdown = subparsers.add_parser("shutdown", help="Shut down the daemon")
     parser_shutdown.set_defaults(func=testit_instance.shutdown)
+    parser_credits = subparsers.add_parser("credits", help="Display and modify test credits")
+    parser_credits.add_argument("-s", "--set", action="store", default='', help="Set number of credits")
+    parser_credits.add_argument("scenario", action="store", nargs="*", help="Scenarios")
+    parser_credits.set_defaults(func=testit_instance.credits)
     testit.opt = parser.parse_args(rospy.myargv()[1:])
     testit.opt.func(testit.opt)
 

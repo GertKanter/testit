@@ -64,6 +64,7 @@ class TestItDaemon:
         rospy.Service('testit/uppaal/extract/failure', testit.srv.Command, self.handle_uppaal_extract_failure)
         rospy.Service('testit/clean', testit.srv.Command, self.handle_clean)
         rospy.Service('testit/shutdown', testit.srv.Command, self.handle_shutdown)
+        rospy.Service('testit/credits', testit.srv.Command, self.handle_credits)
         self.initialize()
 
     def initialize(self):
@@ -514,14 +515,25 @@ class TestItDaemon:
                     rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
         return return_value
 
-    def test_thread_worker(self, tag, keep_bags=False):
+    def test_thread_worker(self, tag, keep_bags=False, pipeline=None):
         """
         Arguments:
             tag -- test tag (string)
         """
-        #TODO if specific pipeline is specified for a test, acquire that specific pipeline
-        pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
-        rospy.loginfo("Acquired pipeline %s" % pipeline)
+        # check whether credits > 0, or return
+        self.tests[tag]['credits'] = self.tests[tag].get('credits', 0)
+        rospy.loginfo("Test '%s' has %s credit(s)." % (tag, self.tests[tag]['credits']))
+        if self.tests[tag]['credits'] == 0:
+            rospy.logerr("Test '%s' has no credits! Test not executed!" % tag)
+            self.tests[tag]['result'] = False
+            self.test_threads[tag]['result'] = self.tests[tag]['result']
+            return
+        if pipeline is None:
+            #TODO if specific pipeline is specified for a test, acquire that specific pipeline
+            pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
+            rospy.loginfo("Acquired pipeline %s" % pipeline)
+        else:
+            rospy.loginfo("Continuing with pipeline %s" % pipeline)
         self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
         # runSUT
         rospy.loginfo("[%s] Running SUT..." % pipeline)
@@ -530,52 +542,61 @@ class TestItDaemon:
             rospy.loginfo("[%s] Running TestIt..." % pipeline)
             if self.execute_system(pipeline, 'TestIt', 'run'):
                 rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
+                self.tests[tag]['credits'] -= 1
                 self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags)
                 self.tests[tag]['executor_pipeline'] = pipeline
-                self.test_threads[tag]['result'] = self.tests[tag]['result']
-                # execute the post-testing commands
-                self.resolve_configuration_value(self.tests[tag], pipeline, 'postCommand', "")
-                self.resolve_configuration_value(self.tests[tag], pipeline, 'postSuccessCommand', "")
-                self.resolve_configuration_value(self.tests[tag], pipeline, 'postFailureCommand', "")
-                if self.tests[tag]['result']:
-                    if self.tests[tag]['postSuccessCommand'] != "":
-                        rospy.loginfo("Executing post-success command ('%s')..." % self.tests[tag]['postSuccessCommand'])
-                        result = subprocess.call(self.tests[tag]['postSuccessCommand'], shell=True)
+                # execute the post-testing commands if credits are zero
+                if self.tests[tag]['credits'] == 0:
+                    self.resolve_configuration_value(self.tests[tag], pipeline, 'postCommand', "")
+                    self.resolve_configuration_value(self.tests[tag], pipeline, 'postSuccessCommand', "")
+                    self.resolve_configuration_value(self.tests[tag], pipeline, 'postFailureCommand', "")
+                    if self.tests[tag]['result']:
+                        if self.tests[tag]['postSuccessCommand'] != "":
+                            rospy.loginfo("Executing post-success command ('%s')..." % self.tests[tag]['postSuccessCommand'])
+                            result = subprocess.call(self.tests[tag]['postSuccessCommand'], shell=True)
+                            if result != 0:
+                                rospy.logerr("Post-success command failed!")
+                    else:
+                        if self.tests[tag]['postFailureCommand'] != "":
+                            rospy.loginfo("Executing post-failure command ('%s')..." % self.tests[tag]['postFailureCommand'])
+                            result = subprocess.call(self.tests[tag]['postFailureCommand'], shell=True)
+                            if result != 0:
+                                rospy.logerr("Post-failure command failed!")
+                    if self.tests[tag]['postCommand'] != "":
+                        rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postCommand'])
+                        result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
                         if result != 0:
-                            rospy.logerr("Post-success command failed!")
-                else:
-                    if self.tests[tag]['postFailureCommand'] != "":
-                        rospy.loginfo("Executing post-failure command ('%s')..." % self.tests[tag]['postFailureCommand'])
-                        result = subprocess.call(self.tests[tag]['postFailureCommand'], shell=True)
-                        if result != 0:
-                            rospy.logerr("Post-failure command failed!")
-                if self.tests[tag]['postCommand'] != "":
-                    rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postCommand'])
-                    result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
-                    if result != 0:
-                        rospy.logerr("Post-test command failed!")
+                            rospy.logerr("Post-test command failed!")
+                    self.test_threads[tag]['result'] = self.tests[tag]['result']
                 # stopTestIt
                 rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
                 self.execute_system(pipeline, 'TestIt', 'stop')
             else:
                 # unable to run TestIt
                 rospy.logerr("[%s] Unable to run TestIt!" % pipeline)
+                rospy.sleep(1.0)
             # stopSUT
             rospy.loginfo("[%s] Stopping SUT..." % pipeline)
             self.execute_system(pipeline, 'SUT', 'stop')
         else:
             # Unable to run SUT
             rospy.logerr("[%s] Unable to run SUT!" % pipeline)
-        if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "OFFLINE", "FAILED"]:
-            rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
-            self.pipelines[pipeline]['state'] = "READY"
+            rospy.sleep(1.0)
+        if self.tests[tag]['credits'] > 0:
+            rospy.loginfo("Test '%s' has %s credits remaining! Continuing..." % (tag, self.tests[tag]['credits']))
+            self.test_thread_worker(tag, keep_bags, pipeline)
+        else:
+            if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "OFFLINE", "FAILED"]:
+                rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
+                self.pipelines[pipeline]['state'] = "READY"
 
     def nonblocking_test_monitor(self):
         while True:
             sleep = True
-            for thread in self.test_threads:
-                if not self.test_threads[thread]['result'] is None:
-                    del self.test_threads[thread]
+            for test in self.test_threads:
+                if not self.test_threads[test]['result'] is None:
+                    del self.test_threads[test]
+                    self.tests[test]['executing'] = False
                     sleep = False
                     break
             if len(self.test_threads) == 0:
@@ -663,6 +684,36 @@ class TestItDaemon:
             message = "Unable to clean workspace!"
         return testit.srv.CommandResponse(result, message)
 
+    def handle_credits(self, req):
+        rospy.logdebug("Credits requested")
+        result = True
+        message = ""
+        rospy.logwarn(req)
+        tokens = self.tokenize_arguments(req.args)
+        rospy.loginfo(tokens)
+        set_value = None
+        if "--set" in tokens:
+            index = tokens.index("--set")
+            set_value = tokens[index+1]
+            if not str(set_value).isdigit():
+                rospy.logerr("Credit amount is not numeric!")
+                result = False
+            else:
+                set_value = int(set_value)
+	    del tokens[index+1]
+	    del tokens[index]
+        if result:
+            for token in tokens:
+                rospy.loginfo(token)
+                test = self.tests.get(token, None)
+                if test is not None:
+                    if set_value is not None:
+                        rospy.loginfo("Setting test '%s' credits to %s!" % (test['tag'], set_value))
+                        self.tests[test['tag']]['credits'] = set_value
+                    else:
+                        message += self.log(True, "Test '%s' credits: %s" % (test['tag'], test.get('credits', 0)), "info")
+        return testit.srv.CommandResponse(result, message)
+
     def handle_test(self, req):
         rospy.logdebug("Test requested")
         result = True
@@ -671,6 +722,7 @@ class TestItDaemon:
         queue = [test for test in self.tests]
         blocking = False
         keep_bags = False
+        no_credit_increment = False
         if len(req.args) > 0:
             # Determine whether to block or not
             if "--keep-bags" in req.args:
@@ -679,6 +731,9 @@ class TestItDaemon:
             if "--blocking" in req.args:
                 blocking = True
                 req.args = req.args.replace("--blocking", "", 1)
+            if "--no-credit-increment" in req.args:
+                no_credit_increment = True
+                req.args = req.args.replace("--no-credit-increment", "", 1)
             if len(req.args.strip()) > 0:
                 queue = []
             scenarios = set(self.tokenize_arguments(req.args)) # Remove duplicates
@@ -691,28 +746,36 @@ class TestItDaemon:
                 if not found:
                     rospy.logwarn("Unknown test tag specified '%s'" % scenario)
         rospy.loginfo("Test scenarios queued: " + str(queue))
-        if not self.testing:
-            self.testing = True
-            for test in queue: # key
+        for test in queue: # key
+            self.tests[test]['executing'] = self.tests[test].get('executing', False)
+            if not self.tests[test]['executing']:
                 self.tests[test]['result'] = None
                 self.tests[test]['pipeline'] = None
-                thread = threading.Thread(target=self.test_thread_worker, args=(test, keep_bags))
+                if not no_credit_increment:
+                    self.tests[test]['credits'] = self.tests[test].get('credits', 0)
+                    if self.tests[test]['credits'] == 0:
+                        rospy.loginfo("Auto incrementing '%s' test credits..." % test)
+                        self.tests[test]['credits'] += 1
+                self.tests[test]['executing'] = True
+                thread = threading.Thread(target=self.test_thread_worker, args=(test, keep_bags, None))
                 self.test_threads[test] = {'thread': thread, 'result': None}
                 thread.start()
-            thread = threading.Thread(target=self.nonblocking_test_monitor)
-            thread.start()
-            if blocking:
-                finished = False
-                while not finished:
-                    finished = True
-                    for test in queue:
-                        result = self.tests[test].get('result', None)
-                        if result is None:
-                            finished = False
-                            break
-                    rospy.sleep(0.1)
-        else:
-            rospy.logerr("Unable to start tests! Tests are already executing!")
+                if not self.testing:
+                    thread = threading.Thread(target=self.nonblocking_test_monitor)
+                    thread.start()
+                    self.testing = True
+            else:
+                rospy.logerr("Test '%s' is already executing!" % test)
+        if blocking:
+            finished = False
+            while not finished:
+                finished = True
+                for test in queue:
+                    result = self.tests[test].get('result', None)
+                    if result is None:
+                        finished = False
+                        break
+                rospy.sleep(0.1)
         return testit.srv.CommandResponse(result, message)
 
     def handle_results(self, req):
