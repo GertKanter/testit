@@ -688,9 +688,7 @@ class TestItDaemon:
         rospy.logdebug("Credits requested")
         result = True
         message = ""
-        rospy.logwarn(req)
         tokens = self.tokenize_arguments(req.args)
-        rospy.loginfo(tokens)
         set_value = None
         if "--set" in tokens:
             index = tokens.index("--set")
@@ -703,8 +701,9 @@ class TestItDaemon:
 	    del tokens[index+1]
 	    del tokens[index]
         if result:
+            if len(tokens) == 0:
+                tokens = [x for x in self.tests]
             for token in tokens:
-                rospy.loginfo(token)
                 test = self.tests.get(token, None)
                 if test is not None:
                     if set_value is not None:
