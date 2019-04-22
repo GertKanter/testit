@@ -122,7 +122,6 @@ class TestIt:
         self.call_service(self.test_service, args)
 
     def credits(self, args):
-        rospy.loginfo(args)
         args.pipeline = []
         if args.set != "":
             args.pipeline += ["--set", args.set]

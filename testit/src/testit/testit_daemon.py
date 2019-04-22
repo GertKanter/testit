@@ -302,7 +302,7 @@ class TestItDaemon:
                     self.pipelines[pipeline]['state'] = "BUSY"
                     return pipeline
             time.sleep(0.5)
-            rospy.logwarn_throttle(30.0, 'Test \'%s\' waiting for a free pipeline...' % tag)
+            rospy.logwarn_throttle(30.0, 'Test \'%s\' (priority %s) waiting for a free pipeline...' % (tag, self.tests[tag].get('priority', 0)))
 
     def execute_system(self, pipeline, system, mode):
         """
@@ -530,10 +530,35 @@ class TestItDaemon:
             return
         if pipeline is None:
             #TODO if specific pipeline is specified for a test, acquire that specific pipeline
+            self.tests[tag]['queued'] = True
             pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
-            rospy.loginfo("Acquired pipeline %s" % pipeline)
+            self.tests[tag]['queued'] = False
+            rospy.loginfo("Acquired pipeline '%s' for test '%s'" % (pipeline, tag))
         else:
-            rospy.loginfo("Continuing with pipeline %s" % pipeline)
+            # We have to free the pipeline if higher priority tasks are in test_thread pool
+            highest_queued_priority = None
+            for test in self.test_threads:
+                priority = self.tests[test].get('priority', 0)
+                queued = self.tests[test].get('queued', False)
+                requested_pipeline = self.tests[test].get('pipeline', "")
+                if test != tag and queued and (highest_queued_priority is None or priority > highest_queued_priority):
+                    #TODO consider wildcards for pipeline
+                    if requested_pipeline == "" or pipeline == requested_pipeline:
+                        highest_queued_priority = priority
+            rospy.loginfo("Highest queued priority is %s" % highest_queued_priority)
+            priority = self.tests[tag].get('priority', 0)
+            if highest_queued_priority is not None and highest_queued_priority > priority:
+                rospy.loginfo("Releasing the pipeline to higher priority test...")
+                self.free_pipeline(pipeline)
+                rospy.loginfo("Pipeline freed!")
+                rospy.loginfo("Add to queue again in 5 sec...")
+                time.sleep(5.0)
+                rospy.loginfo("Adding to queue...")
+                #FIXME this will raise recursion limit exceeded if the project has scenarios with large number of credits or complex priority/queuing!
+                self.test_thread_worker(tag, keep_bags)
+                return
+            else:
+                rospy.loginfo("Continuing with pipeline %s" % pipeline)
         self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
         # runSUT
         rospy.loginfo("[%s] Running SUT..." % pipeline)
@@ -543,7 +568,9 @@ class TestItDaemon:
             if self.execute_system(pipeline, 'TestIt', 'run'):
                 rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
                 self.tests[tag]['credits'] -= 1
+                self.tests[tag]['test_start_timestamp'] = rospy.Time.now()
                 self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags)
+                self.tests[tag]['test_end_timestamp'] = rospy.Time.now()
                 self.tests[tag]['executor_pipeline'] = pipeline
                 # execute the post-testing commands if credits are zero
                 if self.tests[tag]['credits'] == 0:
@@ -586,9 +613,13 @@ class TestItDaemon:
             rospy.loginfo("Test '%s' has %s credits remaining! Continuing..." % (tag, self.tests[tag]['credits']))
             self.test_thread_worker(tag, keep_bags, pipeline)
         else:
-            if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "OFFLINE", "FAILED"]:
-                rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
-                self.pipelines[pipeline]['state'] = "READY"
+            self.free_pipeline(pipeline)
+
+    def free_pipeline(self, pipeline):
+        if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "OFFLINE", "FAILED"]:
+            rospy.loginfo("Freeing pipeline \'%s\'" % pipeline)
+            self.pipelines[pipeline]['state'] = "READY"
+
 
     def nonblocking_test_monitor(self):
         while True:
@@ -749,7 +780,6 @@ class TestItDaemon:
             self.tests[test]['executing'] = self.tests[test].get('executing', False)
             if not self.tests[test]['executing']:
                 self.tests[test]['result'] = None
-                self.tests[test]['pipeline'] = None
                 if not no_credit_increment:
                     self.tests[test]['credits'] = self.tests[test].get('credits', 0)
                     if self.tests[test]['credits'] == 0:
@@ -785,6 +815,13 @@ class TestItDaemon:
         output = cStringIO.StringIO()
         for test in self.tests:
             testcase = testit.junit.testcase(classname=test)
+            start_timestamp = self.tests[test].get('test_start_timestamp', None)
+            if start_timestamp is not None:
+                testcase.set_timestamp(start_timestamp.to_sec())
+            end_timestamp = self.tests[test].get('test_end_timestamp', None)
+            if end_timestamp is not None and start_timestamp is not None:
+                if end_timestamp > start_timestamp:
+                    testcase.set_time((end_timestamp - start_timestamp).to_sec())
             test_result = self.tests[test].get('result', None)
             if test_result is None:
                 # skipped or not executed

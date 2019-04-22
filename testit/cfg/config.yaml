@@ -65,6 +65,7 @@ pipelines:
 tests:
   - tag: "scenario tag" # identifier for reporting
     credits: 0 # number of test runs, 0 = single test case, CLI "test" command auto-increments credits if credits is zero, use CLI "test --no-credit-increment" in conjunction with "credits" CLI command to load credits for exploratory testing
+    priority: 0 # test priority, bigger means more important (exploratory tests check whether higher priority tests are waiting and suspend to let higher priority jobs be completed)
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
     uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
