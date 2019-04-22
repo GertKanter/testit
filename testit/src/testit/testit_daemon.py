@@ -299,8 +299,20 @@ class TestItDaemon:
         while True:
             for pipeline in self.pipelines:
                 if self.pipelines[pipeline].get('state', "OFFLINE") == "READY":
-                    self.pipelines[pipeline]['state'] = "BUSY"
-                    return pipeline
+                    # Check whether test thread pool has a higher priority test queued. If yes, then continue sleeping
+                    priority = self.tests[tag].get('priority', 0)
+                    sleep = False
+                    for thread in self.test_threads:
+                        thread_tag = self.test_threads[thread]['tag']
+                        thread_test_priority = self.tests[thread_tag].get('priority', 0)
+                        queued = self.test_threads[thread].get('queued', False)
+                        if queued and thread_test_priority > priority:
+                            rospy.logwarn("Higher priority is queued, continuing to sleep for tag '%s'..." % tag)
+                            sleep = True
+                            break
+                    if not sleep:
+                        self.pipelines[pipeline]['state'] = "BUSY"
+                        return pipeline
             time.sleep(0.5)
             rospy.logwarn_throttle(30.0, 'Test \'%s\' (priority %s) waiting for a free pipeline...' % (tag, self.tests[tag].get('priority', 0)))
 
@@ -446,11 +458,11 @@ class TestItDaemon:
         if launch != "":
             thread_command = "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"
             rospy.loginfo("[%s] Docker command is '%s'" % (pipeline, thread_command))
-            thread = threading.Thread(target=self.thread_call, args=('launch', thread_command))
+            thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
             thread.start()
             thread.join(self.tests[test]['timeout'])
         return_value = False
-        if launch == "" or self.call_result['launch'] == 0:
+        if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0:
             # command returned success
             if detached == "":
                 # test success, because we didn't run in detached
@@ -460,14 +472,14 @@ class TestItDaemon:
                 # running detached, run oracle to assess test pass/fail
                 # execute oracle in TestIt docker
                 rospy.loginfo("[%s] Executing oracle..." % pipeline)
-                thread = threading.Thread(target=self.thread_call, args=('oracle', "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'"))
+                thread = threading.Thread(target=self.thread_call, args=('oracle' + str(threading.current_thread().ident), "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'"))
                 thread.start()
                 thread.join(max(0.1, self.tests[test]['timeout'] - (rospy.Time.now() - start_time).to_sec()))
-                if self.call_result['oracle'] == 0:
+                if self.call_result['oracle' + str(threading.current_thread().ident)] == 0:
                     # oracle reports test pass
                     rospy.loginfo("[%s] TEST PASS!" % pipeline)
                     return_value = True
-                elif self.call_result['oracle'] == -1:
+                elif self.call_result['oracle' + str(threading.current_thread().ident)] == -1:
                     rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
                     if self.tests[test]['timeoutVerdict']:
                         return_value = True
@@ -520,26 +532,32 @@ class TestItDaemon:
         Arguments:
             tag -- test tag (string)
         """
+        self.tests[tag]['reserved_credits'] = self.tests[tag].get('reserved_credits', 0)
         # check whether credits > 0, or return
         self.tests[tag]['credits'] = self.tests[tag].get('credits', 0)
         rospy.loginfo("Test '%s' has %s credit(s)." % (tag, self.tests[tag]['credits']))
-        if self.tests[tag]['credits'] == 0:
-            rospy.logerr("Test '%s' has no credits! Test not executed!" % tag)
-            self.tests[tag]['result'] = False
-            self.test_threads[tag]['result'] = self.tests[tag]['result']
+        if self.tests[tag]['credits'] - self.tests[tag]['reserved_credits'] <= 0:
+            rospy.loginfo("Test '%s' has no credits! Test not executed!" % tag)
+            self.test_threads[threading.current_thread().ident]['result'] = False
+            if pipeline is not None:
+                self.free_pipeline(pipeline)
             return
+        self.tests[tag]['reserved_credits'] += 1
         if pipeline is None:
             #TODO if specific pipeline is specified for a test, acquire that specific pipeline
-            self.tests[tag]['queued'] = True
+            while self.test_threads.get(threading.current_thread().ident, 0) == 0:
+                time.sleep(0.01) # Wait until main thread has created the thread entry in the dictionary
+            self.test_threads[threading.current_thread().ident]['queued'] = True
             pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
-            self.tests[tag]['queued'] = False
+            self.test_threads[threading.current_thread().ident]['queued'] = False
             rospy.loginfo("Acquired pipeline '%s' for test '%s'" % (pipeline, tag))
         else:
-            # We have to free the pipeline if higher priority tasks are in test_thread pool
+            # We have to free the pipeline if higher priority tasks are waiting in test_thread pool
             highest_queued_priority = None
-            for test in self.test_threads:
+            for thread in self.test_threads:
+                test = self.test_threads[thread]['tag']
                 priority = self.tests[test].get('priority', 0)
-                queued = self.tests[test].get('queued', False)
+                queued = self.test_threads[thread].get('queued', False)
                 requested_pipeline = self.tests[test].get('pipeline', "")
                 if test != tag and queued and (highest_queued_priority is None or priority > highest_queued_priority):
                     #TODO consider wildcards for pipeline
@@ -553,6 +571,7 @@ class TestItDaemon:
                 rospy.loginfo("Pipeline freed!")
                 rospy.loginfo("Add to queue again in 5 sec...")
                 time.sleep(5.0)
+                self.tests[tag]['reserved_credits'] -= 1
                 rospy.loginfo("Adding to queue...")
                 #FIXME this will raise recursion limit exceeded if the project has scenarios with large number of credits or complex priority/queuing!
                 self.test_thread_worker(tag, keep_bags)
@@ -594,7 +613,7 @@ class TestItDaemon:
                         result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
                         if result != 0:
                             rospy.logerr("Post-test command failed!")
-                    self.test_threads[tag]['result'] = self.tests[tag]['result']
+                    self.test_threads[threading.current_thread().ident]['result'] = self.tests[tag]['result']
                 # stopTestIt
                 rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
                 self.execute_system(pipeline, 'TestIt', 'stop')
@@ -609,6 +628,7 @@ class TestItDaemon:
             # Unable to run SUT
             rospy.logerr("[%s] Unable to run SUT!" % pipeline)
             rospy.sleep(1.0)
+        self.tests[tag]['reserved_credits'] -= 1
         if self.tests[tag]['credits'] > 0:
             rospy.loginfo("Test '%s' has %s credits remaining! Continuing..." % (tag, self.tests[tag]['credits']))
             self.test_thread_worker(tag, keep_bags, pipeline)
@@ -624,10 +644,18 @@ class TestItDaemon:
     def nonblocking_test_monitor(self):
         while True:
             sleep = True
-            for test in self.test_threads:
-                if not self.test_threads[test]['result'] is None:
-                    del self.test_threads[test]
-                    self.tests[test]['executing'] = False
+            for thread in self.test_threads:
+                tag = self.test_threads[thread]['tag']
+                if not self.test_threads[thread]['result'] is None:
+                    del self.test_threads[thread]
+                    # Only set executing to false if all other threads with same tag are not None
+                    executing = False
+                    for check in self.test_threads:
+                        if self.test_threads[check]['tag'] == tag and not self.test_threads[check]['result'] is None:
+                            executing = True
+                            break
+                    if not executing:
+                        self.tests[tag]['executing'] = False
                     sleep = False
                     break
             if len(self.test_threads) == 0:
@@ -786,9 +814,15 @@ class TestItDaemon:
                         rospy.loginfo("Auto incrementing '%s' test credits..." % test)
                         self.tests[test]['credits'] += 1
                 self.tests[test]['executing'] = True
-                thread = threading.Thread(target=self.test_thread_worker, args=(test, keep_bags, None))
-                self.test_threads[test] = {'thread': thread, 'result': None}
-                thread.start()
+                threads = 0
+                concurrency = self.tests[test].get('concurrency', 1)
+                for _ in self.pipelines:
+                    thread = threading.Thread(target=self.test_thread_worker, args=(test, keep_bags, None))
+                    thread.start()
+                    self.test_threads[thread.ident] = {'thread': thread, 'result': None, 'tag': test}
+                    threads += 1
+                    if concurrency != 0 and threads >= concurrency:
+                        break
                 if not self.testing:
                     thread = threading.Thread(target=self.nonblocking_test_monitor)
                     thread.start()

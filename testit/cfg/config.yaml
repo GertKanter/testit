@@ -64,6 +64,7 @@ pipelines:
 
 tests:
   - tag: "scenario tag" # identifier for reporting
+    concurrency: 1 # maximum number of tests in parallel, 1 = no concurrency (single thread), 0 = maximum number (i.e., as many as pipelines)
     credits: 0 # number of test runs, 0 = single test case, CLI "test" command auto-increments credits if credits is zero, use CLI "test --no-credit-increment" in conjunction with "credits" CLI command to load credits for exploratory testing
     priority: 0 # test priority, bigger means more important (exploratory tests check whether higher priority tests are waiting and suspend to let higher priority jobs be completed)
     pipeline: "" # leave empty for any
