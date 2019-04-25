@@ -452,7 +452,7 @@ class TestItDaemon:
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder" + quote_termination + suffix
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder" + quote_termination + suffix
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
