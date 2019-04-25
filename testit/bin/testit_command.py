@@ -200,7 +200,7 @@ class TestIt:
                     rospy.logerr("Please specify the file filter for which to optimize the scenario (-f)!")
                 else:
                     rospy.loginfo("Executing Uppaal TA model annotation...")
-                    args.pipeline = args.file
+                    args.pipeline = [args.file]
                     self.call_service(self.uppaal_annotate_coverage_service, args)
             else:
                 unrecognized(args)

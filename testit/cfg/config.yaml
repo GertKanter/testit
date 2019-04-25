@@ -48,6 +48,7 @@ configuration:
 
 pipelines:
   - tag: "Example pipeline" # identifier for reporting
+    identityFile: "-" # "-" means none. If you need to specify the identity file for SSH/SCP, e.g., "~/.ssh/testit_rsa" means that this will be prepended to SSH/SCP commands like this "-i ~/.ssh/testit_rsa user@pipe1.domain.com".
     sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
     testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
     masterHost: "" # master hostname, look at the tutorials for examples
@@ -56,10 +57,10 @@ pipelines:
     testItIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
     testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
     sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit/")
-    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
-    postSuccessCommand: "" # default command to run after test was SUCCESS (this command is run in pipeline, not in testit container)
-    postFailureCommand: "" # default command to run after test was FAILURE (this command is run in pipeline, not in testit container)
-    postCommand: "" # default command to run after test on either SUCCESS or FAILURE (this command is run in pipeline, not in testit container)
+    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory and testItVolume (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
+    postSuccessCommand: "" # default command to run after test was SUCCESS (this command is run in [[testItConnection]] shell, not inside TestIt container)
+    postFailureCommand: "" # default command to run after test was FAILURE (this command is run in [[testItConnection]] shell, not inside TestIt container)
+    postCommand: "" # default command to run after test on either SUCCESS or FAILURE (this command is run in pipeline shell, not inside TestIt container)
     # + all the [bringup,run,stop,teardown][SUT,TestIt] in 'configuration' section
 
 tests:
@@ -70,9 +71,9 @@ tests:
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
     uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
-    preLaunchCommand: "" # optional command to execute before executing 'launch', useful for sanity check, must return 0 to continue with test
-    launch: "" # how to execute this test (run command) in TestIt container
-    oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    preLaunchCommand: "" # optional command to execute before executing 'launch', useful for sanity check, must return 0 to continue with test (this is executed in [[testItConnection]] shell)
+    launch: "" # how to execute this test (run command) in TestIt container (executed in [[testItConnection]] shell)
+    oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail (executed in [[testItConnection]] shell)
     timeout: 0 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this
     bagEnabled: False # set to True, if you want to bag data

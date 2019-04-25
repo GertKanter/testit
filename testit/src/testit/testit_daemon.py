@@ -50,6 +50,7 @@ import xml.etree.ElementTree
 import os
 import rosbag
 import testit_uppaal
+import tempfile
 
 class TestItDaemon:
     def __init__(self):
@@ -234,8 +235,10 @@ class TestItDaemon:
                 self.pipelines[pipe['tag']]['state'] = pre_state
                 if prefix == "teardown":
                     # run stop just in case
-                    self.execute_system(pipe['tag'], 'SUT', 'stop')
-                    self.execute_system(pipe['tag'], 'TestIt', 'stop')
+                    sut_prefix, sut_suffix = self.get_command_wrapper("sutConnection", "ssh", pipe['tag'])
+                    testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipe['tag'])
+                    self.execute_system(pipe['tag'], 'SUT', 'stop', sut_prefix, sut_suffix)
+                    self.execute_system(pipe['tag'], 'TestIt', 'stop', testit_prefix, testit_suffix)
                 # Run extra_commands before executing the main command
                 for command in extra_commands:
                     command(pipe['tag'])
@@ -307,24 +310,27 @@ class TestItDaemon:
                         thread_test_priority = self.tests[thread_tag].get('priority', 0)
                         queued = self.test_threads[thread].get('queued', False)
                         if queued and thread_test_priority > priority:
-                            rospy.logwarn("Higher priority is queued, continuing to sleep for tag '%s'..." % tag)
+                            rospy.logwarn("Higher priority is queued, continuing to sleep for test scenario '%s'..." % tag)
                             sleep = True
                             break
                     if not sleep:
                         self.pipelines[pipeline]['state'] = "BUSY"
                         return pipeline
-            time.sleep(0.5)
+            time.sleep(0.2)
             rospy.logwarn_throttle(30.0, 'Test \'%s\' (priority %s) waiting for a free pipeline...' % (tag, self.tests[tag].get('priority', 0)))
 
-    def execute_system(self, pipeline, system, mode):
+    def execute_system(self, pipeline, system, mode, prefix="", suffix=""):
         """
         blocking
         Returns:
         true -- if successful, false otherwise
         """
         rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
-        rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, self.pipelines[pipeline][mode + system]))
-        command = self.pipelines[pipeline].get(mode + system, None)
+        quote_termination = ""
+        if prefix != "":
+            quote_termination = "'\\''"
+        command = "/bin/bash -c '" + prefix[:-1] + quote_termination + self.pipelines[pipeline].get(mode + system, None) + suffix[:-1] + quote_termination + "'"
+        rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, command))
         if command is not None and subprocess.call(command, shell=True) == 0:
             rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
             time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
@@ -369,7 +375,7 @@ class TestItDaemon:
                     return None
         return target_dictionary[key]
 
-    def delete_bag_files(self, pipeline, test):
+    def delete_bag_files(self, pipeline, test, prefix, suffix):
         """
         Remove bag files from results.
 
@@ -380,17 +386,21 @@ class TestItDaemon:
         self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
         if self.tests[test]['testItVolume'] is not None:
             if self.tests[test]['resultsDirectory'] is not None:
-                bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+                bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'], prefix, suffix)
                 # Handle spaces in tag names
-                prefix = test.split(" ")
-                if len(prefix) > 1:
-                    prefix = prefix[0:1] + ["\\ " + x for x in prefix[1:]]
-                prefix = "".join(prefix)
-                delete_command = "rm -f " + bags_directory + prefix + "*bag"
+                split_prefix = test.split(" ")
+                if len(split_prefix) > 1:
+                    split_prefix = split_prefix[0:1] + ["\\ " + x for x in split_prefix[1:]]
+                split_prefix = "".join(split_prefix)
+                quote_termination = ""
+                if prefix != "":
+                    quote_termination = "'\\''"
+                delete_command = "/bin/bash -c '" + prefix[:-1] + quote_termination + "rm -f " + bags_directory + split_prefix + "*bag" + suffix[:-1] + quote_termination + "'"
+                rospy.loginfo("Executing '%s'" % delete_command)
                 return True if subprocess.call(delete_command, shell=True) == 0 else False
         return False
 
-    def execute_in_testit_container(self, pipeline, test, keep_bags):
+    def execute_in_testit_container(self, pipeline, test, keep_bags, prefix, suffix):
         """
         Returns:
         True if test successful, False otherwise
@@ -399,21 +409,20 @@ class TestItDaemon:
         prelaunch_command = self.tests[test].get('preLaunchCommand', None)
         if prelaunch_command is not None:
             rospy.loginfo("[%s] Executing pre-launch command..." % pipeline)
-            command = "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + prelaunch_command + "\'"
+            command = prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && " + prelaunch_command + "\"" + suffix
             rospy.loginfo("Executing '%s'" % command)
             return_value = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] Pre-launch command returned %s" % (pipeline, return_value))
             if return_value != 0:
                 rospy.logerr("Pre-launch command failed! Test failed!")
                 return False
-        #TODO support ssh wrapping (currently only runs on localhost)
         bag_return = 1
         bag_enabled = self.tests[test].get('bagEnabled', False)
         if bag_enabled:
             # Delete old rosbags if present
             self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
             self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
-            if not self.delete_bag_files(pipeline, test):
+            if not self.delete_bag_files(pipeline, test, prefix, suffix):
                 rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
 
             rospy.loginfo("[%s] Start rosbag recording..." % pipeline)
@@ -440,7 +449,10 @@ class TestItDaemon:
             if topic_exclude != "":
                 exclude = "--exclude \"" + str(topic_exclude) + "\" "
             self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
-            command = "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder\'"
+            quote_termination = "'"
+            if prefix != "":
+                quote_termination = "'\\''"
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /opt/ros/$ROS_VERSION/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder" + quote_termination + suffix
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
@@ -456,8 +468,11 @@ class TestItDaemon:
         launch = self.tests[test].get('launch', "")
         start_time = rospy.Time.now()
         if launch != "":
-            thread_command = "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + "\'"
-            rospy.loginfo("[%s] Docker command is '%s'" % (pipeline, thread_command))
+            quote_termination = "'"
+            if prefix != "":
+                quote_termination = "'\\''"
+            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + quote_termination + suffix
+            rospy.loginfo("[%s] Launch command is '%s'" % (pipeline, thread_command))
             thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
             thread.start()
             thread.join(self.tests[test]['timeout'])
@@ -472,7 +487,12 @@ class TestItDaemon:
                 # running detached, run oracle to assess test pass/fail
                 # execute oracle in TestIt docker
                 rospy.loginfo("[%s] Executing oracle..." % pipeline)
-                thread = threading.Thread(target=self.thread_call, args=('oracle' + str(threading.current_thread().ident), "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + "\'"))
+                quote_termination = "'"
+                if prefix != "":
+                  quote_termination = "'\\''"
+                thread_command = prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + quote_termination + suffix
+                rospy.loginfo("[%s] Oracle command is '%s'" % (pipeline, thread_command))
+                thread = threading.Thread(target=self.thread_call, args=('oracle' + str(threading.current_thread().ident), thread_command))
                 thread.start()
                 thread.join(max(0.1, self.tests[test]['timeout'] - (rospy.Time.now() - start_time).to_sec()))
                 if self.call_result['oracle' + str(threading.current_thread().ident)] == 0:
@@ -495,13 +515,29 @@ class TestItDaemon:
 
         if bag_return == 0 and bag_enabled:
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\'", shell=True)
+            subprocess.call(prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\"" + suffix, shell=True)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
-            subprocess.call("docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \'chown -R " + self.ground_path("$(id -u)") + ":" + self.ground_path("$(id -g)") + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\'", shell=True)
+            subprocess.call(prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
             # Delete bags if success, merge split bags and keep if fail
             if not return_value or keep_bags:
+                # To avoid adding ROS as a prerequisite for TestIt pipeline, we have to copy the files to local, merge, upload merge, delete remote
                 rospy.loginfo("[%s] Merging bag files..." % pipeline)
-                bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'])
+                if self.pipelines[pipeline].get('testItConnection', "-") == "-":
+                    # Local pipeline
+                    bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'], prefix, suffix)
+                else:
+                    # Remote pipeline
+                    rospy.loginfo("[%s] Copying bag files from pipeline..." % pipeline )
+                    bags_directory = tempfile.mkdtemp()
+                    rospy.loginfo("Local temp directory is '%s'" % bags_directory)
+                    remote_bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'], prefix, suffix)
+                    testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "scp", pipeline, False, False)
+                    command = testit_prefix + ":" + remote_bags_directory + "*bag " + bags_directory
+                    rospy.loginfo("Executing '%s'" % command)
+                    copy_return_value = subprocess.call(command, shell=True)
+                    if copy_return_value != 0:
+                        rospy.logerr("[%s] Unable to copy bags from pipeline!" % pipeline)
+                        return return_value
                 try:
                     files = sorted([f for f in os.listdir(bags_directory) if os.path.isfile(os.path.join(bags_directory, f)) and f.startswith(test) and f.endswith(".bag")])
                 except Exception as e:
@@ -511,21 +547,63 @@ class TestItDaemon:
                    bags.append((f, os.stat(os.path.join(bags_directory, f)).st_mtime))
                 bags = sorted(bags, key=lambda x: x[1])
                 # Merge bags
-                with rosbag.Bag(os.path.join(bags_directory, str(test) + ".bag"), 'w') as outfile:
+                merged_filename = os.path.join(bags_directory, str(test) + ".bag")
+                testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+                with rosbag.Bag(merged_filename, 'w') as outfile:
                     for i, bag in enumerate(bags):
-                        rospy.loginfo("Merging '%s'... (%s/%s)" % (bag[0], str(i+1), str(len(bags))))
+                        rospy.loginfo("[%s] Merging '%s'... (%s/%s)" % (pipeline, bag[0], str(i+1), str(len(bags))))
                         with rosbag.Bag(os.path.join(bags_directory, bag[0]), 'r') as infile:
                             for topic, msg, t in infile:
                                 outfile.write(topic, msg, t)
                         # Remove the individual bag file
-                        os.remove(os.path.join(bags_directory, bag[0]))
+                        if self.pipelines[pipeline].get('testItConnection', "-") == "-":
+                            os.remove(os.path.join(bags_directory, bag[0]))
+                        else:
+                            rospy.loginfo("[%s] Removing pipeline bag file..." % pipeline)
+                            command = testit_prefix + "rm -rf \"" + remote_bags_directory + bag[0] + "\"" + testit_suffix
+                            remove_result = subprocess.call(command, shell=True)
+                            if remove_result != 0:
+                                rospy.logerr("[%s] Unable to remove bag file from pipeline!" % pipeline)
                 rospy.loginfo("[%s] Done!" % pipeline)
+                # Upload to remote if needed
+                if self.pipelines[pipeline].get('testItConnection', "-") != "-":
+                    rospy.loginfo("[%s] Uploading bag file to pipeline..." % pipeline)
+                    identity = self.pipelines[pipeline].get('identityFile', "-")
+                    if identity != "-":
+                        identity = "-i " + identity
+                    else:
+                        identity = ""
+                    command = "scp " + identity + " \"" + merged_filename + "\" " + self.pipelines[pipeline]['testItConnection'] + ":" + remote_bags_directory
+                    rospy.loginfo("[%s] Executing '%s'" % (pipeline, command))
+                    upload_return_value = subprocess.call(command, shell=True)
+                    rospy.loginfo("[%s] Done!" % pipeline)
+                    if upload_return_value != 0:
+                        rospy.logerr("[%s] Unable to upload bag file to pipeline!" % pipeline)
+                    rospy.loginfo("[%s] Removing local temp bag directory..." % pipeline)
+                    remove_result = subprocess.call("rm -rf " + bags_directory, shell=True)
+                    if remove_result != 0:
+                        rospy.logerr("[%s] Unable to remove local temp bag directory!" % pipeline)
+                    rospy.loginfo("[%s] Done!" % pipeline)
             else:
                 # Delete bags
                 rospy.loginfo("[%s] Removing bag files..." % pipeline)
-                if not self.delete_bag_files(pipeline, test):
+                if not self.delete_bag_files(pipeline, test, prefix, suffix):
                     rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
         return return_value
+
+    def get_command_wrapper(self, parameter, command, pipeline, add_quotes=True, add_space=True):
+        prefix = command + " "
+        suffix = "'" if add_quotes else ""
+        connection = self.pipelines[pipeline].get(parameter, "-")
+        if connection == "-":
+            connection = ""
+            suffix = ""
+        else:
+            identity = self.pipelines[pipeline].get('identityFile', "-")
+            if identity != "-":
+                prefix += "-i " + identity + " "
+            connection = prefix + connection + (" " if add_space else "") + ("'" if add_quotes else "")
+        return connection, suffix
 
     def test_thread_worker(self, tag, keep_bags=False, pipeline=None):
         """
@@ -581,14 +659,16 @@ class TestItDaemon:
         self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
         # runSUT
         rospy.loginfo("[%s] Running SUT..." % pipeline)
-        if self.execute_system(pipeline, 'SUT', 'run'):
+        sut_prefix, sut_suffix = self.get_command_wrapper("sutConnection", "ssh", pipeline)
+        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+        if self.execute_system(pipeline, 'SUT', 'run', sut_prefix, sut_suffix):
             # runTestIt
             rospy.loginfo("[%s] Running TestIt..." % pipeline)
-            if self.execute_system(pipeline, 'TestIt', 'run'):
+            if self.execute_system(pipeline, 'TestIt', 'run', testit_prefix, testit_suffix):
                 rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
                 self.tests[tag]['credits'] -= 1
                 self.tests[tag]['test_start_timestamp'] = rospy.Time.now()
-                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags)
+                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags, testit_prefix, testit_suffix)
                 self.tests[tag]['test_end_timestamp'] = rospy.Time.now()
                 self.tests[tag]['executor_pipeline'] = pipeline
                 # execute the post-testing commands if credits are zero
@@ -616,14 +696,14 @@ class TestItDaemon:
                     self.test_threads[threading.current_thread().ident]['result'] = self.tests[tag]['result']
                 # stopTestIt
                 rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
-                self.execute_system(pipeline, 'TestIt', 'stop')
+                self.execute_system(pipeline, 'TestIt', 'stop', testit_prefix, testit_suffix)
             else:
                 # unable to run TestIt
                 rospy.logerr("[%s] Unable to run TestIt!" % pipeline)
                 rospy.sleep(1.0)
             # stopSUT
             rospy.loginfo("[%s] Stopping SUT..." % pipeline)
-            self.execute_system(pipeline, 'SUT', 'stop')
+            self.execute_system(pipeline, 'SUT', 'stop', sut_prefix, sut_suffix)
         else:
             # Unable to run SUT
             rospy.logerr("[%s] Unable to run SUT!" % pipeline)
@@ -695,7 +775,7 @@ class TestItDaemon:
                 clean_daemon = True
                 req.args = req.args.replace("--all", "", 1)
                 if self.configuration.get('dataDirectory', None) is not None:
-                    data_directory = self.ground_path(self.configuration['dataDirectory'])
+                    data_directory = self.ground_path(self.configuration['dataDirectory'], "", "")
                     rospy.loginfo("Cleaning daemon data directory '%s'..." % data_directory)
                     remove_result = subprocess.call("rm -rf " + data_directory + "*", shell=True)
                     if remove_result != 0:
@@ -718,16 +798,13 @@ class TestItDaemon:
         if len(queue) > 0:
             rospy.loginfo("Cleaning results directories from pipelines: %s" % str(queue))
             for pipeline in queue:
-                if self.pipelines[pipeline].get('testItConnection', "-") != "-":
-                    #TODO add support for remote testit pipeline (scp to temp file then read)
-                    # command_prefix = "scp "
-                    rospy.logerr("Not implemented!")
                 testit_volume = self.pipelines[pipeline].get('testItVolume', None)
                 results_directory = self.pipelines[pipeline].get('resultsDirectory', None)
                 if results_directory is not None:
                     if testit_volume is not None:
                         rospy.loginfo("Cleaning results directory at '%s'..." % pipeline)
-                        command = "rm -rf " + self.ground_path(testit_volume + results_directory) + "*"
+                        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+                        command = testit_prefix + "rm -rf " + self.ground_path(testit_volume + results_directory, testit_prefix, testit_suffix) + "*" + testit_suffix
                         rospy.loginfo("Executing command '%s'" % command)
                         remove_result = subprocess.call(command, shell=True)
                         if remove_result != 0:
@@ -872,13 +949,12 @@ class TestItDaemon:
                         # Get XML file from pipeline
                         self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
                         filename = self.tests[test].get("resultsDirectory", "") + self.tests[test]['tag'] + "_system_out.xml"
-                        if self.pipelines[pipeline].get('testItConnection', "-") != "-":
-                            #TODO add support for remote testit pipeline (scp to temp file then read)
-                            # command_prefix = "scp "
-                            rospy.logerr("Not implemented!")
                         # ground testItVolume path
-                        path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
-                        fullname = self.ground_path(path + filename)
+                        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+                        path = self.ground_path(self.pipelines[pipeline]['testItVolume'], testit_prefix, testit_suffix)
+                        fullname = self.ground_path("\"" + path + filename + "\"", testit_prefix, testit_suffix)
+                        if self.pipelines[pipeline].get('testItConnection', "-") != "-":
+                            fullname = self.get_temp_filename(pipeline, fullname)
                         # Read the file
                         rospy.loginfo("Reading from file '%s'" % fullname)
                         try:
@@ -910,16 +986,16 @@ class TestItDaemon:
         rospy.loginfo("Copying files from pipelines...")
         data_directory = self.configuration.get('dataDirectory', None)
         if data_directory is not None:
-            data_directory = self.ground_path(data_directory)
+            data_directory = self.ground_path(data_directory, "", "")
             for pipeline in self.pipelines:
                 rospy.loginfo("Copying files from pipeline '%s'..." % pipeline)
                 testit_volume = self.pipelines[pipeline].get('testItVolume', None)
                 if testit_volume is not None:
                     results_directory = self.pipelines[pipeline].get('resultsDirectory', None)
                     if results_directory is not None:
-                        #TODO add support for remote pipelines
-                        bags_directory = self.ground_path(testit_volume + results_directory)
-                        command = "cp " + bags_directory + "*bag " + data_directory
+                        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+                        bags_directory = self.ground_path(testit_volume + results_directory, testit_prefix, testit_suffix)
+                        command = testit_prefix + "cp " + bags_directory + "*bag " + data_directory + testit_suffix
                         rospy.loginfo("Executing command '%s'" % command)
                         copy_result = subprocess.call(command, shell=True)
                         if copy_result != 0:
@@ -950,12 +1026,16 @@ class TestItDaemon:
         result = True
         return testit.srv.CommandResponse(result, message)
 
-    def ground_path(self, command):
+    def ground_path(self, command, prefix, suffix):
         """
         Process paths with bash commands.
         E.g., '$(rospack find testit)/data/' to '/home/user/catkin_ws/src/testit/testit/data/'
         """
-        process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command + ''], stdout=subprocess.PIPE)
+        if prefix == "":
+            process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command], stdout=subprocess.PIPE)
+        else:
+            cmd = prefix + "/bin/bash -c '\\''echo " + command + "'\\''" + suffix
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         out, err = process.communicate()
         out = out.replace("\n", "")
         return out
@@ -990,17 +1070,29 @@ class TestItDaemon:
                     assignment.text += ", V=" + str(entry['sum'])
                     success = True
         return (success, tree)
+
+    def get_temp_filename(self, pipeline, filename):
+        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "scp", pipeline, False, False)
+        temp_filename = tempfile.mkstemp()[1]
+        rospy.loginfo("Temp file is '%s'" % temp_filename)
+        command = testit_prefix + ":\"" + filename.replace(" ", "\\ ") + "\" " + temp_filename
+        rospy.loginfo("Executing '%s'" % command)
+        return_value = subprocess.call(command, shell=True)
+        if return_value != 0:
+            rospy.logerr("Unable to copy '%s' from pipeline '%s'!" % (filename, pipeline))
+            return None
+        else:
+            return temp_filename
         
-    def read_yaml_file(self, test, pipeline, filename):
+    def read_yaml_file(self, test, pipeline, filename, prefix, suffix):
         self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
-        filename = self.tests[test].get("resultsDirectory", "") + filename
-        if self.pipelines[pipeline].get('testItConnection', "-") != "-":
-            #TODO add support for remote testit pipeline (scp to temp file then read)
-            # command_prefix = "scp "
-            rospy.logerr("Not implemented!")
         # ground testItVolume path
-        path = self.ground_path(self.pipelines[pipeline]['testItVolume'])
-        fullname = path + filename
+        path = self.ground_path(self.pipelines[pipeline]['testItVolume'], prefix, suffix)
+        fullname = path + self.tests[test].get("resultsDirectory", "") + filename
+        if self.pipelines[pipeline].get('testItConnection', "-") != "-":
+            fullname = self.get_temp_filename(pipeline, fullname)
+            if fullname is None:
+                return
         # Read the file
         rospy.loginfo("Reading from file '%s'" % fullname)
         data = None
@@ -1065,7 +1157,8 @@ class TestItDaemon:
 			    rospy.loginfo("Ran in %s " % pipeline)
 			    if not self.tests[test].get('result', True):
 				# Test execution location found
-				data = self.read_yaml_file(test, pipeline, "testit_coverage.log")
+                                testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+				data = self.read_yaml_file(test, pipeline, "testit_coverage.log", testit_prefix, testit_suffix)
 				if data is not None:
 				    filtered = []
 				    last_timestamp = -1.0
@@ -1113,7 +1206,7 @@ class TestItDaemon:
             model = self.tests[test].get('uppaalModel', None)
             if model is not None:
                 # Read previous processed log entries
-                data_directory = self.ground_path(self.configuration['dataDirectory'])
+                data_directory = self.ground_path(self.configuration['dataDirectory'], "", "")
                 rospy.loginfo("Data directory path is '%s'" % data_directory)
                 coverage = []
                 daemon_coverage_fullname = data_directory + "testit_coverage.log"
@@ -1130,17 +1223,16 @@ class TestItDaemon:
                     rospy.loginfo("Ran in %s " % pipeline)
                     # Get coverage log file from pipeline
                     #TODO support finding the log file in case it has been remapped in test adapter launch file
-                    data = self.read_yaml_file(test, pipeline, "testit_coverage.log")
+                    testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+                    data = self.read_yaml_file(test, pipeline, "testit_coverage.log", testit_prefix, testit_suffix)
                     if data is not None:
+                        path = self.ground_path(self.pipelines[pipeline]['testItVolume'], testit_prefix, testit_suffix)
                         # Add model info to daemon coverage log file (combined from all pipelines and over runs)
                         for entry in data:
                             entry['model'] = path + 'testit_tests/' + model
                         coverage += data
-                        # Remove the processed log file so we don't process it again
-                        rospy.loginfo("Removing log file '%s'" % fullname)
-                        remove_result = subprocess.call("rm -f " + fullname, shell=True)
-                        if remove_result != 0:
-                            rospy.logerr("Unable to remove log file '%s'!" % fullname)
+                        # It is up to the user to use "clean" command to avoid erroneous reprocessing
+                        rospy.logwarn("Use \"testit_command.py clean\" before using this command again to avoid adding these entries again!")
 
                 if len(coverage) > 0:
                     rospy.loginfo("Processing %s coverage entries..." % len(coverage))
