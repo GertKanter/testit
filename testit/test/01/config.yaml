@@ -1,0 +1,96 @@
+tests:
+  - tag: "Scenario #1" # identifier for reporting
+    pipeline: "" # empty for any
+    launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
+    oracle: "ls" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    timeout: 10 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
+    bagEnabled: False # True=rosbag record, False=don't bag
+    bagMaxSplits: "" # empty = use default
+    bagDuration: "" # empty = use default
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)
+
+configuration:
+  dataDirectory: "$(rospack find testit)/data/" # Where to store coverage files, bag files etc.
+  bringupSUT: "" # how to bring up a pipeline server/docker SUT (general case), you can use "[[]]" for replacing
+  bringupSUTDelay: 0 # duration to wait after command
+  bringupSUTTimeout: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
+  bringupSUTFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
+  runSUT: "docker run --rm --name [[masterHost]] --env ROS_HOSTNAME=[[masterHost]] -dt ros:latest /bin/bash -c \"tail -f /dev/null\"" # run SUT 
+  runSUTDelay: 5 # duration to wait for SUT to come up (roscore initialization)
+  runSUTTimeout: 60
+  runSUTFinishTrigger: "-"
+  stopSUT: "docker kill [[masterHost]]"
+  stopSUTDelay: 0 # duration to wait after stopping the SUT
+  stopSUTTimeout: 5
+  stopSUTFinishTrigger: "-"
+  teardownSUT: "" # how to clean up after finishing (shut down server/docker) (general case)
+  teardownSUTDelay: 0 # duration to wait after teardown
+  teardownSUTTimeout: 5
+  teardownSUTFinishTrigger: "-"
+  bringupTestIt: "" # bring up the pipeline server (in the cloud for example)
+  bringupTestItDelay: 0 # duration to wait after command
+  bringupTestItTimeout: 1
+  bringupTestItFinishTrigger: "-"
+  runTestIt: "docker run --rm --name [[testItHost]] -dt testitros/testit:base /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
+  runTestItDelay: 0 # duration to wait after command
+  runTestItTimeout: 5
+  runTestItFinishTrigger: "-"
+  stopTestIt: "docker kill [[testItHost]]" # general case pipeline stopping
+  stopTestItDelay: 0 # duration to wait after command
+  stopTestItTimeout: 5
+  stopTestItFinishTrigger: "-"
+  teardownTestIt: ""
+  teardownTestItDelay: 0 # duration to wait after command
+  teardownTestItTimeout: 5 # empty string = use default
+  teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
+  bagEnabled: False # True=rosbag record, False=don't bag
+  bagMaxSplits: 0 # total bag duration = maxsplits*duration
+  bagDuration: 0 # seconds
+  bagTopicRegex: "" # match topics using regular expressions, "" = all topics
+  bagTopicExcludeRegex: "" # exclude topics matching this regular expression
+
+pipelines:
+  - tag: "Pipeline #1" # identifier for reporting
+    sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
+    testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
+    masterHost: "test_sut1"
+    testItHost: "test_testit1"
+    masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
+    testitIP: "-" # where TestIt docker container is running (used if testItHost is not defined) ("-" means none)
+    testItVolume: "$(rospack find testit)/test/" # where TestIt volume is located in the pipeline (test scenarios + bags are stored there)
+    sharedDirectory: "/testit/" # shared directory in testit docker
+    resultsDirectory: "results/"
+    bringupSUT: "" # empty string = use default
+    bringupSUTDelay: ""
+    bringupSUTTimeout: "" # empty string = use default
+    bringupSUTFinishTrigger: "" # empty string = use default
+    runSUT: "" # empty string = use default
+    runSUTDelay: ""
+    runSUTTimeout: ""
+    runSUTFinishTrigger: ""
+    stopSUT: ""
+    stopSUTDelay: ""
+    stopSUTTimeout: ""
+    stopSUTFinishTrigger: ""
+    teardownSUT: "" # custom teardown for this pipeline
+    teardownSUTDelay: ""
+    teardownSUTTimeout: "" # empty string = use default
+    teardownSUTFinishTrigger: "" # empty string = use default
+    bringupTestIt: "" # empty string = use default
+    bringupTestItDelay: ""
+    bringupTestItTimeout: "" # empty string = use default
+    bringupTestItFinishTrigger: "" # empty string = use default
+    runTestIt: "" # empty string = use default
+    runTestItDelay: ""
+    runTestItTimeout: ""
+    runTestItFinishTrigger: ""
+    stopTestIt: ""
+    stopTestItDelay: ""
+    stopTestItTimeout: ""
+    stopTestItFinishTrigger: ""
+    teardownTestIt: "" # custom teardown for this pipeline
+    teardownTestItDelay: "" # duration to wait after command
+    teardownTestItTimeout: "" # empty string = use default
+    teardownTestItFinishTrigger: "" # empty string = use default

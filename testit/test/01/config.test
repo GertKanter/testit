@@ -1,0 +1,7 @@
+<launch>
+  <node pkg="testit" type="testit_daemon.py" name="testit_daemon" output="screen">
+    <param name="config" value="$(find testit)/test/01/config.yaml"/>
+  </node>
+  <param name="test_module" value="$(find testit)/test/01"/>
+  <test test-name="test_testit" pkg="testit" type="pytest_runner.py"/>
+</launch>
