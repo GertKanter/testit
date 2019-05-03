@@ -7,15 +7,10 @@
 ###############################################
 
 configuration:
-  triggers: # Trigger log entry
-    - identifier: "" # topic/service name (with full namespace, i.e., "/robot/odom")
-      type: "" # topic/service as string (e.g., "std_msgs/Int32")
-      mode: "" # "topic"/"service"
-  inputs: # SUT inputs
-    - identifier: "" # topic/service name (with full namespace, i.e., "/robot/odom")
-      type: "" # topic/service as string (e.g., "std_msgs/Int32")
-      mode: "" # "topic"/"service"
+  inputs: # SUT inputs (e.g., commands to SUT), triggers log entry
+    - identifier: "" # topic/service proxy name (with full namespace, i.e., "/robot/odom")
+      proxy: "" # advertised proxy service name (reroutes the service to "identifier" service); if empty (""), "topic"-mode is assumed
+      type: "" # topic/service proxy as string (e.g., "std_msgs/Int32")
   outputs: # SUT outputs (monitored values)
-    - identifier: "" # topic/service name (with full namespace, i.e., "/robot/odom")
-      type: "" # topic/service as string (e.g., "std_msgs/Int32")
-      mode: "" # "topic"/"service"
+    - identifier: "" # topic (with full namespace, i.e., "/robot/odom")
+      type: "" # topic as string (e.g., "std_msgs/Int32")

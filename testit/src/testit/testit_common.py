@@ -37,6 +37,7 @@
 import sys
 import rosparam
 import yaml
+import json
 
 def parse_yaml(filename):
     try:
@@ -68,3 +69,25 @@ def dump_yaml(data):
 
 def load_config_to_rosparam(config):
     rosparam.upload_params('testit', config)
+
+def parse_json_stream_file(filename):
+    try:
+        with open(filename, 'r') as data:
+            return_value = []
+            for line in data:
+                return_value.append(json.loads(line))
+            return return_value
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        sys.exit(-1)
+
+def append_to_json_file(data, filename):
+    try:
+        with open(filename, 'a+') as outfile:
+            outfile.write(json.dumps(data) + "\n")#json.dump(data, outfile, default_flow_style=False)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return False
+    return True

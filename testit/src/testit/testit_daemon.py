@@ -1290,6 +1290,7 @@ class TestItDaemon:
                         # Save coverage list to file
                         rospy.loginfo("Saving coverage list to file...")
                         testit_common.write_yaml_to_file(coverage, daemon_coverage_fullname)
+                        rospy.loginfo("Finished!")
                     else:
                         rospy.logerr("No entries found for file '%s'!" % req.args)
                         result = False

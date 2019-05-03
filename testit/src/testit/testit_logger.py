@@ -38,9 +38,10 @@ import rospy
 import testit_common
 import sys
 
-class TestItLogger:
+class TestItLogger(object):
     def __init__(self):
         self.initialize()
+        self.register_services_and_subscribe()
 
     def initialize(self):
         self.load_config_from_file()
@@ -48,12 +49,55 @@ class TestItLogger:
         if self.configuration is None:
             rospy.logerr("Logger configuration not defined!")
             sys.exit(-1)
-        rospy.loginfo("hello %s" % self.configuration['triggers'])
+        self.log_file = rospy.get_param('~log', None)
+        if self.log_file is None:
+            rospy.logerr("Log file not defined!")
+            sys.exit(-1)
+
+    def register_services_and_subscribe(self):
+        """
+        Subscribe to topics - both input and output
+        """
+        rospy.loginfo("Subscribing to topics...")
+        if self.configuration.get('inputs', None) is not None:
+            for channel in map(lambda x: (x, 'input'), self.configuration.get('inputs', [])) + map(lambda x: (x, 'output'), self.configuration.get('outputs', [])):
+                identifier = channel[0].get('identifier', "")
+                if identifier != "":
+                    channel_type = channel[0].get('type', "")
+                    if channel_type != "":
+                        rospy.loginfo("%s" % channel[0])
+                        self.do_import(channel_type)
+                        proxy = channel[0].get('proxy', "")
+                        if proxy == "":
+                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", \"" + identifier + "\"))")
+                            rospy.loginfo("Subscribed to %s" % identifier)
+                        else:
+                            # Register service
+                            rospy.loginfo("Registered service %s" % identifier)
+                            eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, \"" + identifier + "\"))", dict(globals().items() + [('self', self)]))
+
+    def do_import(self, channel_type):
+        import_string = ".".join(channel_type.split(".")[:-1])
+        rospy.loginfo("Importing '%s'" % import_string)
+        exec("import " + import_string, globals())
+
+    def topic_callback(self, data, args):
+        rospy.logwarn(args)
+        rospy.logerr(data)
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
         rospy.loginfo("Loading configuration from " + filename + "...")
         testit_common.load_config_to_rosparam(testit_common.parse_yaml(filename))
+
+    def add_entry(self, data):
+        testit_common.append_to_json_file(data, self.log_file)
+
+    def service_handler(self, req, args):
+        rospy.logerr(self.configuration)
+        rospy.logerr(args)
+        rospy.logwarn(type(req))
+        return ()
 
 if __name__ == "__main__":
     rospy.init_node('testit_logger')
