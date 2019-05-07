@@ -37,6 +37,7 @@
 import rospy
 import testit_common
 import sys
+import actionlib
 
 class TestItLogger(object):
     def __init__(self):
@@ -46,6 +47,7 @@ class TestItLogger(object):
     def initialize(self):
         self.load_config_from_file()
         self.configuration = rospy.get_param('testit/configuration', None)
+        self.action_servers = []
         if self.configuration is None:
             rospy.logerr("Logger configuration not defined!")
             sys.exit(-1)
@@ -72,9 +74,14 @@ class TestItLogger(object):
                             eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", \"" + identifier + "\"))")
                             rospy.loginfo("Subscribed to %s" % identifier)
                         else:
-                            # Register service
-                            rospy.loginfo("Registered service %s" % identifier)
-                            eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, \"" + identifier + "\"))", dict(globals().items() + [('self', self)]))
+                            if "Action" in channel_type:
+                                # Register actionserver
+                                eval("self.action_servers.append(actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, \"" + identifier + "\", \"" + proxy + "\")))", dict(globals().items() + [('self', self)]))
+                                rospy.loginfo("Registered proxy actionserver %s" % proxy)
+                            else:
+                                # Register service
+                                eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, \"" + identifier + "\"))", dict(globals().items() + [('self', self)]))
+                                rospy.loginfo("Registered proxy service %s" % identifier)
 
     def do_import(self, channel_type):
         import_string = ".".join(channel_type.split(".")[:-1])
@@ -94,10 +101,29 @@ class TestItLogger(object):
         testit_common.append_to_json_file(data, self.log_file)
 
     def service_handler(self, req, args):
+        rospy.loginfo("service_handler")
         rospy.logerr(self.configuration)
         rospy.logerr(args)
         rospy.logwarn(type(req))
         return ()
+
+    def get_action_server(self, identifier):
+        for action_server in self.action_servers:
+            if action_server.action_server.ns == identifier:
+                return action_server
+        return None
+
+    def action_handler(self, goal, identifier, proxy):
+        rospy.loginfo("action_handler")
+        rospy.logerr(self.configuration)
+        rospy.logerr(self.action_servers)
+        rospy.logerr(identifier)
+        rospy.logerr(proxy)
+        rospy.logwarn(type(goal))
+        action_server = self.get_action_server(proxy)
+        if action_server is not None:
+            action_server.set_succeeded()
+            rospy.loginfo("set succeeded")
 
 if __name__ == "__main__":
     rospy.init_node('testit_logger')

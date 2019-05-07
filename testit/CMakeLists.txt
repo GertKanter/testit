@@ -4,6 +4,7 @@ project(testit)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   message_generation
+  actionlib
 )
 
 add_service_files(

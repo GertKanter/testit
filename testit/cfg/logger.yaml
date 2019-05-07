@@ -10,7 +10,17 @@ configuration:
   inputs: # SUT inputs (e.g., commands to SUT), triggers log entry
     - identifier: "" # topic/service proxy name (with full namespace, i.e., "/robot/odom")
       proxy: "" # advertised proxy service name (reroutes the service to "identifier" service); if empty (""), "topic"-mode is assumed
-      type: "" # topic/service proxy as string (e.g., "std_msgs/Int32")
+      type: "" # topic/service proxy as string (e.g., "std_srvs.srv.Int32"); supports services ("srv"), topics ("msg") and actions ("Action")
+      timeout: 10 # maximum time in seconds to wait for feedback
+      feedbackTopic: "" # feedback topic for asynchronous command (e.g., "/robot_0/move_base/result"); If using service proxy mode, leave empty ("") to use service proxy result as feedback; If in "topic"-mode and left empty (""), command is considered to be a success without feedback
+      feedbackType: "" # feedback topic type (e.g., "move_base_msgs.MoveBaseActionResult")
+      feedbackField: "" # feedback topic field (e.g., "status.text")
+      feedbackSuccess: "" # regex to consider action as a success (e.g., "Goal reached.")
+      feedbackFailure: "" # regex to consider action as a failure
   outputs: # SUT outputs (monitored values)
     - identifier: "" # topic (with full namespace, i.e., "/robot/odom")
-      type: "" # topic as string (e.g., "std_msgs/Int32")
+      type: "" # topic as string delimited with a period sign (e.g., "std_msgs.Int32")
+      resolution: 0.1 # resolution/rounding to reduce state space (i.e., if resolution is 0.1, then 19.22 -> 19.2 and 19.26 -> 19.3); In case no rounding is desired or type is non-numeric, set resolution to 0
+      bufferSize: 1 # number of elements in the ring buffer
+      bufferHz: 1 # max frequency to update the buffer
+      bufferMode: "max" # the operation to apply on the buffer to compute the logged value ("min", "max" or "avg")
