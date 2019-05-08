@@ -76,16 +76,16 @@ class TestItLogger(object):
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
                             channel[0]['channel'] = 'output'
-                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", " + i + "))")
+                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", " + str(i) + "))")
                             rospy.loginfo("Subscribed to %s" % identifier)
                         else:
                             if "Action" in channel_type:
                                 # Register actionserver
-                                eval("self.action_servers.append(actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + i + ")))", dict(globals().items() + [('self', self)]))
+                                eval("self.action_servers.append(actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + ")))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Registered proxy actionserver %s" % proxy)
                             else:
                                 # Register service
-                                eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + i + "))", dict(globals().items() + [('self', self)]))
+                                eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + str(i) + "))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Registered proxy service %s" % identifier)
 
     def do_import(self, channel_type):
