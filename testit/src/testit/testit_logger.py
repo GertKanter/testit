@@ -64,7 +64,7 @@ class TestItLogger(object):
         if self.configuration.get('inputs', None) is not None:
             for channel in map(lambda x: (x, 'input'), self.configuration.get('inputs', [])) + map(lambda x: (x, 'output'), self.configuration.get('outputs', [])):
                 identifier = channel[0].get('identifier', "")
-                rospy.loginfo("Processing channel: %s" % channel)
+                rospy.loginfo("Processing channel: %s" % str(channel))
                 if identifier != "":
                     channel_type = channel[0].get('type', "")
                     if channel_type != "":
