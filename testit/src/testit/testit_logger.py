@@ -76,7 +76,7 @@ class TestItLogger(object):
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
                             channel[0]['channel'] = 'output'
-                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", " + str(i) + "))")
+                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(" + str(i) + "))")
                             rospy.loginfo("Subscribed to %s" % identifier)
                         else:
                             if "Action" in channel_type:
