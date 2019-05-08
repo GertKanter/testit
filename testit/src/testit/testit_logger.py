@@ -48,6 +48,8 @@ class TestItLogger(object):
         self.load_config_from_file()
         self.configuration = rospy.get_param('testit/configuration', None)
         self.action_servers = []
+        self.buffers = {}
+        self.mapping = {}
         if self.configuration is None:
             rospy.logerr("Logger configuration not defined!")
             sys.exit(-1)
@@ -62,7 +64,8 @@ class TestItLogger(object):
         """
         rospy.loginfo("Subscribing to topics...")
         if self.configuration.get('inputs', None) is not None:
-            for channel in map(lambda x: (x, 'input'), self.configuration.get('inputs', [])) + map(lambda x: (x, 'output'), self.configuration.get('outputs', [])):
+            for i, channel in enumerate(map(lambda x: (x, 'input'), self.configuration.get('inputs', [])) + map(lambda x: (x, 'output'), self.configuration.get('outputs', []))):
+                self.mapping[i] = channel[0]
                 identifier = channel[0].get('identifier', "")
                 rospy.loginfo("Processing channel: %s" % str(channel))
                 if identifier != "":
@@ -72,16 +75,17 @@ class TestItLogger(object):
                         self.do_import(channel_type)
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
-                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", \"" + identifier + "\"))")
+                            channel[0]['channel'] = 'output'
+                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(\"" + channel[1] + "\", " + i + "))")
                             rospy.loginfo("Subscribed to %s" % identifier)
                         else:
                             if "Action" in channel_type:
                                 # Register actionserver
-                                eval("self.action_servers.append(actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, \"" + identifier + "\", \"" + proxy + "\")))", dict(globals().items() + [('self', self)]))
+                                eval("self.action_servers.append(actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + i + ")))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Registered proxy actionserver %s" % proxy)
                             else:
                                 # Register service
-                                eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, \"" + identifier + "\"))", dict(globals().items() + [('self', self)]))
+                                eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + i + "))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Registered proxy service %s" % identifier)
 
     def do_import(self, channel_type):
@@ -89,9 +93,19 @@ class TestItLogger(object):
         rospy.loginfo("Importing '%s'" % import_string)
         exec("import " + import_string, globals())
 
-    def topic_callback(self, data, args):
-        rospy.logwarn(args)
-        rospy.logerr(data)
+    def topic_callback(self, data, mapping):
+        rospy.loginfo("I heard something...")
+        rospy.loginfo(self.mapping[mapping])
+        if self.mapping[mapping]['channel'] == 'output':
+            # Update buffer values
+            topic_buffer = self.buffers.get(self.mapping[mapping]['identifier'], [])
+        else:
+            # Write a log entry
+            self.write_log_entry('trigger')
+
+    def write_log_entry(self, trigger):
+        rospy.loginfo("writing log entry...")
+        return self.add_entry({'trigger': trigger})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
@@ -99,12 +113,18 @@ class TestItLogger(object):
         testit_common.load_config_to_rosparam(testit_common.parse_yaml(filename))
 
     def add_entry(self, data):
-        testit_common.append_to_json_file(data, self.log_file)
+        """
+        Add an entry to the JSON log file.
 
-    def service_handler(self, req, args):
+        Args:
+        data -- dict with values to store
+        """
+        return testit_common.append_to_json_file(data, self.log_file)
+
+    def service_handler(self, req, mapping):
         rospy.loginfo("service_handler")
         rospy.logerr(self.configuration)
-        rospy.logerr(args)
+        rospy.logerr(self.mapping[mapping])
         rospy.logwarn(type(req))
         return ()
 
@@ -114,14 +134,12 @@ class TestItLogger(object):
                 return action_server
         return None
 
-    def action_handler(self, goal, identifier, proxy):
+    def action_handler(self, goal, mapping):
         rospy.loginfo("action_handler")
         rospy.logerr(self.configuration)
         rospy.logerr(self.action_servers)
-        rospy.logerr(identifier)
-        rospy.logerr(proxy)
         rospy.logwarn(type(goal))
-        action_server = self.get_action_server(proxy)
+        action_server = self.get_action_server(self.mapping[mapping]['proxy'])
         if action_server is not None:
             action_server.set_succeeded()
             rospy.loginfo("set succeeded")
