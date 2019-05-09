@@ -62,7 +62,7 @@ class TestItLogger(object):
         """
         Subscribe to topics - both input and output
         """
-        rospy.loginfo("Subscribing to topics...")
+        rospy.loginfo("Logger subscribing to topics and services...")
         if self.configuration.get('inputs', None) is not None:
             for i, channel in enumerate(map(lambda x: (x, 'input'), self.configuration.get('inputs', [])) + map(lambda x: (x, 'output'), self.configuration.get('outputs', []))):
                 self.mapping[i] = channel[0]
@@ -77,8 +77,8 @@ class TestItLogger(object):
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
                             channel[0]['channel'] = 'output'
-                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=(" + str(i) + "))")
-                            rospy.loginfo("Subscribed to %s" % identifier)
+                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=" + str(i) + ")")
+                            rospy.loginfo("Logger subscribed to %s" % identifier)
                         else:
                             if "Action" in channel_type:
                                 # Register actionserver
