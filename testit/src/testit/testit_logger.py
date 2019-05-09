@@ -123,14 +123,13 @@ class TestItLogger(object):
         if self.mapping[identifier]['channel'] == 'output':
             # Update buffer values
             self.buffers[identifier] = self.buffers.get(identifier, [])
-            rospy.loginfo("buffer %s" % self.buffers[identifier])
             if len(self.buffers[identifier]) < self.mapping[identifier].get('bufferSize', 1):
                 self.buffers[identifier].append(data)
             else:
-                buffer_index = self.mapping[identifier].get('buffer_index', 0)
-                self.buffers[identifier][buffer_index%len(self.buffers[identifier])] = data
+                self.mapping[identifier]['buffer_index'] = self.mapping[identifier].get('buffer_index', 0)
+                self.buffers[identifier][self.mapping[identifier]['buffer_index'] % len(self.buffers[identifier])] = data
                 self.mapping[identifier]['buffer_index'] += 1
-            rospy.loginfo("%s  %s" % (self.mapping[identifier].get('buffer_index', 0), self.buffers[identifier]))
+            rospy.loginfo("%s  %s" % (self.mapping[identifier].get('buffer_index', 0), len(self.buffers[identifier])))
         else:
             # Write a log entry
             if not self.write_log_entry('trigger'):
