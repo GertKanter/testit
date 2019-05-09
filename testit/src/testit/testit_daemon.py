@@ -456,6 +456,19 @@ class TestItDaemon:
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
+        # Run logger
+        if self.tests[test].get('loggerConfiguration', None) is not None:
+            rospy.loginfo("Starting logger...")
+            quote_termination = "'"
+            if prefix != "":
+                quote_termination = "'\\''"
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosrun testit testit_logger.py _config:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['loggerConfiguration']) + " _log:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "logger.log" + quote_termination + suffix
+            rospy.loginfo("Executing '%s'" % command)
+            logger_return = subprocess.call(command, shell=True)
+            rospy.loginfo("[%s] logger returned %s" % (pipeline, logger_return))
+        else:
+            rospy.loginfo("Logger not configured ('loggerConfiguration'), skipping logger start!")
+
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         detached = ""
         if self.tests[test]['oracle'] != "":
@@ -515,9 +528,13 @@ class TestItDaemon:
 
         if bag_return == 0 and bag_enabled:
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            subprocess.call(prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder && sleep 4\"" + suffix, shell=True)
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder\"" + suffix
+            rospy.loginfo("Executing '%s'" % command)
+            subprocess.call(command, shell=True)
+            rospy.sleep(2)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
-            subprocess.call(prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
+            subprocess.call(prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
+            rospy.sleep(1)
             # Delete bags if success, merge split bags and keep if fail
             if not return_value or keep_bags:
                 # To avoid adding ROS as a prerequisite for TestIt pipeline, we have to copy the files to local, merge, upload merge, delete remote
@@ -1229,7 +1246,7 @@ class TestItDaemon:
                         path = self.ground_path(self.pipelines[pipeline]['testItVolume'], testit_prefix, testit_suffix)
                         # Add model info to daemon coverage log file (combined from all pipelines and over runs)
                         for entry in data:
-                            entry['model'] = path + 'testit_tests/' + model
+                            entry['model'] = path + model
                         coverage += data
                         # It is up to the user to use "clean" command to avoid erroneous reprocessing
                         rospy.logwarn("Use \"testit_command.py clean\" before using this command again to avoid adding these entries again!")

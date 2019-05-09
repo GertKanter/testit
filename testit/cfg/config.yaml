@@ -57,7 +57,7 @@ pipelines:
     testItIP: "-" # where TestIt docker container is running (used if testitHost is not defined) ("-" means none)
     testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
     sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit/")
-    resultsDirectory: "" # where to store results inside TestIt docker w.r.t sharedDirectory and testItVolume (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
+    resultsDirectory: "" # where to store results inside TestIt docker w.r.t. sharedDirectory and testItVolume (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")
     postSuccessCommand: "" # default command to run after test was SUCCESS (this command is run in [[testItConnection]] shell, not inside TestIt container)
     postFailureCommand: "" # default command to run after test was FAILURE (this command is run in [[testItConnection]] shell, not inside TestIt container)
     postCommand: "" # default command to run after test on either SUCCESS or FAILURE (this command is run in pipeline shell, not inside TestIt container)
@@ -70,7 +70,8 @@ tests:
     priority: 0 # test priority, bigger means more important (exploratory tests check whether higher priority tests are waiting and suspend to let higher priority jobs be completed)
     pipeline: "" # leave empty for any
     verbose: False # if set to True, TestIt daemon logs some additional info
-    uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t testit_tests directory (e.g., "fixtures/01/model.xml"), check tutorials for an example
+    uppaalModel: "" # {uppaal} define the Uppaal TA model (used for TestIt Uppaal functionality), w.r.t. 'sharedDirectory' directory (e.g., "testit_tests/fixtures/01/model.xml"), check tutorials for an example
+    loggerConfiguration: "" # define the TestIt logger configuration file path, w.r.t. 'sharedDirectory' directory (e.g., "testit_tests/fixtures/01/logger.yaml")
     preLaunchCommand: "" # optional command to execute before executing 'launch', useful for sanity check, must return 0 to continue with test (this is executed in [[testItConnection]] shell)
     launch: "" # how to execute this test (run command) in TestIt container (executed in [[testItConnection]] shell)
     oracle: "" #  determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail (executed in [[testItConnection]] shell)

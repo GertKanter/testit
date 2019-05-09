@@ -149,7 +149,6 @@ class TestItLogger(object):
                     self.mapping[identifier]['buffer_index'] = self.mapping[identifier].get('buffer_index', 0)
                     self.buffers[identifier][self.mapping[identifier]['buffer_index'] % len(self.buffers[identifier])] = data
                     self.mapping[identifier]['buffer_index'] += 1
-                rospy.loginfo("%s %s" % (self.mapping[identifier].get('buffer_index', 0), len(self.buffers[identifier])))
                 self.mapping[identifier]['update_timestamp'] = rospy.Time().now()
         else:
             # Write a log entry
