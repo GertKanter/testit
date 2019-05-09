@@ -38,6 +38,7 @@ import rospy
 import testit_common
 import sys
 import actionlib
+import actionlib_msgs.msg
 
 class TestItLogger(object):
     def __init__(self):
