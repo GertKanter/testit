@@ -118,7 +118,7 @@ class TestItLogger(object):
     def get_action_proxy(self, identifier):
         for action_proxy in self.action_proxies:
             if action_proxy[0].action_server.ns == identifier:
-                return action_server
+                return action_proxy
         return None
 
     def topic_callback(self, data, identifier):
