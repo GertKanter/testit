@@ -94,7 +94,7 @@ class TestItLogger(object):
         rospy.loginfo("Importing '%s'" % import_string)
         exec("import " + import_string, globals())
 
-    def write_log_entry(self, trigger):
+    def write_log_entry(self, trigger, event):
         rospy.loginfo("writing log entry...")
         return self.add_entry({'trigger': trigger})
 
