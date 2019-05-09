@@ -49,6 +49,7 @@ class TestItLogger(object):
         self.load_config_from_file()
         self.configuration = rospy.get_param('testit/configuration', None)
         self.action_proxies = []
+        self.service_proxies = []
         self.buffers = {}
         self.mapping = {}
         if self.configuration is None:
@@ -90,7 +91,10 @@ class TestItLogger(object):
                                 rospy.loginfo("Registered action proxy %s" % proxy)
                             else:
                                 # Register service
-                                eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + str(i) + "))", dict(globals().items() + [('self', self)]))
+                                rospy.loginfo("Waiting for '%' service..." % identifier)
+                                rospy.wait_for_service(identifier)
+                                rospy.loginfo("Creating service proxy...")
+                                eval("self.service_proxies.append((rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + str(i) + ")),rospy.ServiceProxy(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Registered proxy service %s" % identifier)
 
     def do_import(self, channel_type):
@@ -122,6 +126,13 @@ class TestItLogger(object):
                 return action_proxy
         return None
 
+    def get_service_proxy(self, identifier):
+        for service_proxy in self.service_proxies:
+            rospy.loginfo("resolved name = %s" % service_proxy[0].resolved_name)
+            if service_proxy[0].resolved_name == identifier:
+                return service_proxy
+        return None
+
     def topic_callback(self, data, identifier):
         if self.mapping[identifier]['channel'] == 'output':
             # Update buffer values if needed (based on buffer.hz)
@@ -150,6 +161,8 @@ class TestItLogger(object):
             rospy.logerr("Failed to write log entry!")
         rospy.logerr(self.mapping[identifier])
         rospy.logwarn(type(req))
+        service_proxy = self.get_service_proxy(self.mapping[identifier]['identifier'])
+        rospy.loginfo(service_proxy)
         # Write a log entry
         if not self.write_log_entry(identifier, event="POST"):
             rospy.logerr("Failed to write log entry!")
@@ -162,21 +175,12 @@ class TestItLogger(object):
         # Write a log entry
         if not self.write_log_entry(identifier, event="PRE"):
             rospy.logerr("Failed to write log entry!")
-        rospy.logerr(self.configuration)
-        rospy.logerr(self.action_proxies)
-        rospy.logwarn(type(goal))
         action_proxy = self.get_action_proxy(self.mapping[identifier]['proxy'])
         if action_proxy is not None:
-            rospy.loginfo("sending goal...")
             action_proxy[1].send_goal(goal)
-            rospy.loginfo("waiting for result...")
             action_proxy[1].wait_for_result()
             state = action_proxy[1].get_state()
-            rospy.loginfo("state = %s" % state)
-            # Possible States Are: PENDING, ACTIVE, RECALLED, REJECTED, PREEMPTED, ABORTED, SUCCEEDED, LOST.
-            # actionlib_msgs.msg.GoalStatus.ACTIVE
             result = action_proxy[1].get_result()
-            rospy.loginfo("result = %s" % type(result))
             # Write a log entry
             if not self.write_log_entry(identifier, event="POST"):
                 rospy.logerr("Failed to write log entry!")
