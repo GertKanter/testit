@@ -120,12 +120,12 @@ class TestItLogger(object):
 
     def topic_callback(self, data, identifier):
         rospy.loginfo("Topic callback: '%s'" % self.mapping[identifier])
-        if self.mapping[mapping]['channel'] == 'output':
-            # Update buffer values
-            topic_buffer = self.buffers.get(identifier, [])
-        else:
-            # Write a log entry
-            self.write_log_entry('trigger')
+        #if self.mapping[mapping]['channel'] == 'output':
+        #    # Update buffer values
+        #    topic_buffer = self.buffers.get(identifier, [])
+        #else:
+        #    # Write a log entry
+        #    self.write_log_entry('trigger')
 
     def service_handler(self, req, mapping):
         rospy.loginfo("service_handler")
