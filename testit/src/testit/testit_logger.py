@@ -96,7 +96,7 @@ class TestItLogger(object):
 
     def write_log_entry(self, trigger, event):
         rospy.loginfo("writing log entry...")
-        return self.add_entry({'trigger': trigger})
+        return self.add_entry({'timestamp': ros.Time.now().to_sec(), 'trigger': trigger, 'event': event})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
@@ -142,6 +142,8 @@ class TestItLogger(object):
 
     def service_handler(self, req, identifier):
         rospy.loginfo("service_handler")
+        if not self.write_log_entry(identifier, event="PRE"):
+            rospy.logerr("Failed to write log entry!")
         rospy.logerr(self.mapping[identifier])
         rospy.logwarn(type(req))
         # Write a log entry
@@ -150,7 +152,9 @@ class TestItLogger(object):
         return ()
 
     def action_handler(self, goal, identifier):
-        rospy.loginfo("action_handler")
+        # Write a log entry
+        if not self.write_log_entry(identifier, event="PRE"):
+            rospy.logerr("Failed to write log entry!")
         rospy.logerr(self.configuration)
         rospy.logerr(self.action_servers)
         rospy.logwarn(type(goal))
