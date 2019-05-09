@@ -170,7 +170,7 @@ class TestItLogger(object):
         # Write a log entry
         if not self.write_log_entry(identifier, event="POST"):
             rospy.logerr("Failed to write log entry!")
-        return ()
+        return result
 
     def action_handler(self, goal, identifier):
         if not self.mapping[identifier].get('ready', False):
