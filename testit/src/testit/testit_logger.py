@@ -130,7 +130,7 @@ class TestItLogger(object):
                 buffer_index = self.mapping[identifier].get('buffer_index', 0)
                 self.buffers[identifier][buffer_index%len(self.buffers[identifier])] = data
                 self.mapping[identifier]['buffer_index'] += 1
-            rospy.loginfo("%s  %s" % (self.mapping[identifier]['buffer_index'], self.buffers[identifier]))
+            rospy.loginfo("%s  %s" % (self.mapping[identifier].get('buffer_index', 0), self.buffers[identifier]))
         else:
             # Write a log entry
             if not self.write_log_entry('trigger'):
