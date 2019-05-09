@@ -76,13 +76,14 @@ class TestItLogger(object):
                     if channel_type != "":
                         rospy.loginfo("%s" % channel[0])
                         self.do_import(channel_type)
+                        rospy.loginfo("Import successful!")
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
                             channel[0]['channel'] = channel[1]
                             eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=" + str(i) + ")")
                             rospy.loginfo("Logger subscribed to %s" % identifier)
                         else:
-                            if "Action" in channel_type:
+                            if channel_type.endswith("Action"):
                                 # Register actionserver and client
                                 eval("self.action_proxies.append((actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + ")), actionlib.SimpleActionClient(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Waiting for '%s' action server..." % identifier)
@@ -91,7 +92,7 @@ class TestItLogger(object):
                                 rospy.loginfo("Registered action proxy %s" % proxy)
                             else:
                                 # Register service
-                                rospy.loginfo("Waiting for '%' service..." % identifier)
+                                rospy.loginfo("Waiting for '%s' service..." % identifier)
                                 rospy.wait_for_service(identifier)
                                 rospy.loginfo("Creating service proxy...")
                                 eval("self.service_proxies.append((rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + str(i) + ")),rospy.ServiceProxy(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
