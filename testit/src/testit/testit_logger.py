@@ -115,9 +115,9 @@ class TestItLogger(object):
         """
         return testit_common.append_to_json_file(data, self.log_file)
 
-    def get_action_server(self, identifier):
-        for action_server in self.action_proxies:
-            if action_server.action_server.ns == identifier:
+    def get_action_proxy(self, identifier):
+        for action_proxy in self.action_proxies:
+            if action_proxy[0].action_server.ns == identifier:
                 return action_server
         return None
 
@@ -164,17 +164,17 @@ class TestItLogger(object):
         rospy.logerr(self.configuration)
         rospy.logerr(self.action_proxies)
         rospy.logwarn(type(goal))
-        action_server = self.get_action_server(self.mapping[identifier]['proxy'])
-        if action_server is not None:
+        action_proxy = self.get_action_proxy(self.mapping[identifier]['proxy'])
+        if action_proxy is not None:
             rospy.loginfo("sending goal...")
-            client.send_goal(goal)
+            action_proxy[1].send_goal(goal)
             rospy.loginfo("waiting for result...")
-            client.wait_for_result()
-            rospy.loginfo("result = %s" % client.get_result())
+            action_proxy[1].wait_for_result()
+            rospy.loginfo("result = %s" % action_proxy[1].get_result())
             # Write a log entry
             if not self.write_log_entry(identifier, event="POST"):
                 rospy.logerr("Failed to write log entry!")
-            action_server.set_succeeded()
+            action_proxy[0].set_succeeded()
             rospy.loginfo("set succeeded")
 
 if __name__ == "__main__":
