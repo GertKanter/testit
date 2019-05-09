@@ -122,7 +122,9 @@ class TestItLogger(object):
         rospy.loginfo("Topic callback: '%s'" % self.mapping[identifier])
         if self.mapping[identifier]['channel'] == 'output':
             # Update buffer values
+            rospy.loginfo("callback output mode")
             if len(self.buffers.get(identifier, [])) < self.mapping[identifier].get('bufferSize', 1):
+                rospy.loginfo("callback appending")
                 self.buffers[identifier].append(data)
             else:
                 buffer_index = self.mapping[identifier].get('buffer_index', 0)
@@ -131,7 +133,8 @@ class TestItLogger(object):
             rospy.loginfo("%s  %s" % (self.mapping[identifier]['buffer_index'], self.buffers[identifier]))
         else:
             # Write a log entry
-            self.write_log_entry('trigger')
+            if not self.write_log_entry('trigger'):
+                rospy.logerr("Failed to write log entry!")
 
     def service_handler(self, req, mapping):
         rospy.loginfo("service_handler")
