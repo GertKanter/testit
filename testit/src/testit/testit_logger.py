@@ -154,7 +154,7 @@ class TestItLogger(object):
         rospy.logerr(self.configuration)
         rospy.logerr(self.action_servers)
         rospy.logwarn(type(goal))
-        action_server = self.get_action_server(self.mapping[mapping]['proxy'])
+        action_server = self.get_action_server(self.mapping[identifier]['proxy'])
         if action_server is not None:
 
             # Write a log entry
