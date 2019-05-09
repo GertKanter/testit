@@ -122,9 +122,8 @@ class TestItLogger(object):
         rospy.loginfo("Topic callback: '%s'" % self.mapping[identifier])
         if self.mapping[identifier]['channel'] == 'output':
             # Update buffer values
-            rospy.loginfo("callback output mode")
-            if len(self.buffers.get(identifier, [])) < self.mapping[identifier].get('bufferSize', 1):
-                rospy.loginfo("callback appending")
+            self.buffers[identifier] = self.buffers.get(identifier, [])
+            if len(self.buffers[identifier]) < self.mapping[identifier].get('bufferSize', 1):
                 self.buffers[identifier].append(data)
             else:
                 buffer_index = self.mapping[identifier].get('buffer_index', 0)
