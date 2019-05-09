@@ -166,7 +166,7 @@ class TestItLogger(object):
         rospy.loginfo(service_proxy)
         rospy.loginfo("Calling service...")
         result = service_proxy[1](req)
-        rospy.loginfo("result = %s" % result)
+        rospy.loginfo("Service call returned!")
         # Write a log entry
         if not self.write_log_entry(identifier, event="POST"):
             rospy.logerr("Failed to write log entry!")
