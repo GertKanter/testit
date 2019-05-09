@@ -170,12 +170,25 @@ class TestItLogger(object):
             action_proxy[1].send_goal(goal)
             rospy.loginfo("waiting for result...")
             action_proxy[1].wait_for_result()
-            rospy.loginfo("result = %s" % action_proxy[1].get_result())
+            state = action_proxy[1].get_state()
+            rospy.loginfo("state = %s" % state)
+            # Possible States Are: PENDING, ACTIVE, RECALLED, REJECTED, PREEMPTED, ABORTED, SUCCEEDED, LOST.
+            # actionlib_msgs.msg.GoalStatus.ACTIVE
+            result = action_proxy[1].get_result()
+            rospy.loginfo("result = %s" % type(result))
             # Write a log entry
             if not self.write_log_entry(identifier, event="POST"):
                 rospy.logerr("Failed to write log entry!")
-            action_proxy[0].set_succeeded()
-            rospy.loginfo("set succeeded")
+            if state == actionlib_msgs.msg.GoalStatus.SUCCEEDED:
+                action_proxy[0].set_succeeded(result)
+                rospy.loginfo("set succeeded")
+            elif state == actionlib_msgs.msg.GoalStatus.PREEMPTED:
+                action_proxy[0].set_preempted(result)
+                rospy.loginfo("set preempted")
+            elif state == actionlib_msgs.msg.GoalStatus.ABORTED:
+                action_proxy[0].set_aborted(result)
+                rospy.loginfo("set aborted")
+
 
 if __name__ == "__main__":
     rospy.init_node('testit_logger')
