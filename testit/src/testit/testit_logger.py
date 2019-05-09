@@ -66,6 +66,7 @@ class TestItLogger(object):
         if self.configuration.get('inputs', None) is not None:
             for i, channel in enumerate(map(lambda x: (x, 'input'), self.configuration.get('inputs', [])) + map(lambda x: (x, 'output'), self.configuration.get('outputs', []))):
                 self.mapping[i] = channel[0]
+                channel[0]['unique_id'] = i
                 identifier = channel[0].get('identifier', "")
                 rospy.loginfo("Processing channel: %s" % str(channel))
                 if identifier != "":
@@ -93,16 +94,6 @@ class TestItLogger(object):
         rospy.loginfo("Importing '%s'" % import_string)
         exec("import " + import_string, globals())
 
-    def topic_callback(self, data, mapping):
-        rospy.loginfo("I heard something...")
-        rospy.loginfo(self.mapping[mapping])
-        if self.mapping[mapping]['channel'] == 'output':
-            # Update buffer values
-            topic_buffer = self.buffers.get(self.mapping[mapping]['identifier'], [])
-        else:
-            # Write a log entry
-            self.write_log_entry('trigger')
-
     def write_log_entry(self, trigger):
         rospy.loginfo("writing log entry...")
         return self.add_entry({'trigger': trigger})
@@ -121,18 +112,27 @@ class TestItLogger(object):
         """
         return testit_common.append_to_json_file(data, self.log_file)
 
+    def get_action_server(self, identifier):
+        for action_server in self.action_servers:
+            if action_server.action_server.ns == identifier:
+                return action_server
+        return None
+
+    def topic_callback(self, data, identifier):
+        rospy.loginfo("Topic callback: '%s'" % self.mapping[identifier])
+        if self.mapping[mapping]['channel'] == 'output':
+            # Update buffer values
+            topic_buffer = self.buffers.get(identifier, [])
+        else:
+            # Write a log entry
+            self.write_log_entry('trigger')
+
     def service_handler(self, req, mapping):
         rospy.loginfo("service_handler")
         rospy.logerr(self.configuration)
         rospy.logerr(self.mapping[mapping])
         rospy.logwarn(type(req))
         return ()
-
-    def get_action_server(self, identifier):
-        for action_server in self.action_servers:
-            if action_server.action_server.ns == identifier:
-                return action_server
-        return None
 
     def action_handler(self, goal, mapping):
         rospy.loginfo("action_handler")
