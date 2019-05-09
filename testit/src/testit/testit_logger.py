@@ -127,8 +127,8 @@ class TestItLogger(object):
             if self.mapping[identifier]['update_timestamp'].to_sec() + (1.0 / self.mapping[identifier]['buffer']['hz']) < rospy.Time.now().to_sec():
                 rospy.loginfo("updating...")
                 self.buffers[identifier] = self.buffers.get(identifier, [])
-                self.buffers[identifier]['buffer']['size'] = self.mapping[identifier]['buffer'].get('size', 1)
-                if len(self.buffers[identifier]) < self.buffers[identifier]['buffer']['size']:
+                self.mapping[identifier]['buffer']['size'] = self.mapping[identifier]['buffer'].get('size', 1)
+                if len(self.buffers[identifier]) < self.mapping[identifier]['buffer']['size']:
                     self.buffers[identifier].append(data)
                 else:
                     self.mapping[identifier]['buffer_index'] = self.mapping[identifier].get('buffer_index', 0)
