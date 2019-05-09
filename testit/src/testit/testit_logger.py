@@ -122,12 +122,9 @@ class TestItLogger(object):
         if self.mapping[identifier]['channel'] == 'output':
             # Update buffer values if needed (based on bufferHz)
             self.mapping[identifier]['buffer'] = self.mapping[identifier].get('buffer', {})
-            rospy.loginfo(self.mapping[identifier]['buffer'])
             self.mapping[identifier]['buffer']['hz'] = self.mapping[identifier]['buffer'].get('hz', 1)
-            rospy.loginfo(self.mapping[identifier]['buffer']['hz'])
             self.mapping[identifier]['update_timestamp'] = self.mapping[identifier].get('update_timestamp', rospy.Time())
-            rospy.loginfo(self.mapping[identifier]['update_timestamp'])
-            if self.mapping[identifier]['update_timestamp'] + (1.0 / self.mapping[identifier]['buffer']['hz']) < rospy.Time.now():
+            if self.mapping[identifier]['update_timestamp'].to_sec() + (1.0 / self.mapping[identifier]['buffer']['hz']) < rospy.Time.now().to_sec():
                 self.buffers[identifier] = self.buffers.get(identifier, [])
                 self.buffers[identifier]['buffer']['size'] = self.mapping[identifier]['buffer'].get('size', 1)
                 if len(self.buffers[identifier]) < self.buffers[identifier]['buffer']['size']:
