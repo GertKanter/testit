@@ -123,6 +123,7 @@ class TestItLogger(object):
         if self.mapping[identifier]['channel'] == 'output':
             # Update buffer values
             self.buffers[identifier] = self.buffers.get(identifier, [])
+            rospy.loginfo("buffer %s" % self.buffers[identifier])
             if len(self.buffers[identifier]) < self.mapping[identifier].get('bufferSize', 1):
                 self.buffers[identifier].append(data)
             else:
