@@ -76,7 +76,7 @@ class TestItLogger(object):
                         self.do_import(channel_type)
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
-                            channel[0]['channel'] = 'output'
+                            channel[0]['channel'] = channel[1]
                             eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=" + str(i) + ")")
                             rospy.loginfo("Logger subscribed to %s" % identifier)
                         else:
@@ -120,12 +120,18 @@ class TestItLogger(object):
 
     def topic_callback(self, data, identifier):
         rospy.loginfo("Topic callback: '%s'" % self.mapping[identifier])
-        #if self.mapping[mapping]['channel'] == 'output':
-        #    # Update buffer values
-        #    topic_buffer = self.buffers.get(identifier, [])
-        #else:
-        #    # Write a log entry
-        #    self.write_log_entry('trigger')
+        if self.mapping[identifier]['channel'] == 'output':
+            # Update buffer values
+            if len(self.buffers.get(identifier, [])) < self.mapping[identifier].get('bufferSize', 1):
+                self.buffers[identifier].append(data)
+            else:
+                buffer_index = self.mapping[identifier].get('buffer_index', 0)
+                self.buffers[identifier][buffer_index%len(self.buffers[identifier])] = data
+                self.mapping[identifier]['buffer_index'] += 1
+            rospy.loginfo("%s  %s" % (self.mapping[identifier]['buffer_index'], self.buffers[identifier]))
+        else:
+            # Write a log entry
+            self.write_log_entry('trigger')
 
     def service_handler(self, req, mapping):
         rospy.loginfo("service_handler")
