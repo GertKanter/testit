@@ -149,7 +149,7 @@ class TestItLogger(object):
             rospy.logerr("Failed to write log entry!")
         return ()
 
-    def action_handler(self, goal, mapping):
+    def action_handler(self, goal, identifier):
         rospy.loginfo("action_handler")
         rospy.logerr(self.configuration)
         rospy.logerr(self.action_servers)
