@@ -47,7 +47,7 @@ class TestItLogger(object):
     def initialize(self):
         self.load_config_from_file()
         self.configuration = rospy.get_param('testit/configuration', None)
-        self.action_servers = []
+        self.action_proxies = []
         self.buffers = {}
         self.mapping = {}
         if self.configuration is None:
@@ -81,9 +81,12 @@ class TestItLogger(object):
                             rospy.loginfo("Logger subscribed to %s" % identifier)
                         else:
                             if "Action" in channel_type:
-                                # Register actionserver
-                                eval("self.action_servers.append(actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + ")))", dict(globals().items() + [('self', self)]))
-                                rospy.loginfo("Registered proxy actionserver %s" % proxy)
+                                # Register actionserver and client
+                                eval("self.action_proxies.append((actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + ")), actionlib.SimpleActionClient(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
+                                rospy.loginfo("Waiting for '%s' action server..." % identifier)
+                                self.action_proxies[-1][1].wait_for_server()
+                                channel[0]['ready'] = True
+                                rospy.loginfo("Registered action proxy %s" % proxy)
                             else:
                                 # Register service
                                 eval("rospy.Service(\"" + proxy + "\", " + channel_type + ", lambda x: self.service_handler(x, " + str(i) + "))", dict(globals().items() + [('self', self)]))
@@ -113,7 +116,7 @@ class TestItLogger(object):
         return testit_common.append_to_json_file(data, self.log_file)
 
     def get_action_server(self, identifier):
-        for action_server in self.action_servers:
+        for action_server in self.action_proxies:
             if action_server.action_server.ns == identifier:
                 return action_server
         return None
@@ -152,15 +155,22 @@ class TestItLogger(object):
         return ()
 
     def action_handler(self, goal, identifier):
+        if not self.mapping[identifier].get('ready', False):
+            rospy.logwarn("Action handler not ready yet (waiting for action server)!")
+            return
         # Write a log entry
         if not self.write_log_entry(identifier, event="PRE"):
             rospy.logerr("Failed to write log entry!")
         rospy.logerr(self.configuration)
-        rospy.logerr(self.action_servers)
+        rospy.logerr(self.action_proxies)
         rospy.logwarn(type(goal))
         action_server = self.get_action_server(self.mapping[identifier]['proxy'])
         if action_server is not None:
-
+            rospy.loginfo("sending goal...")
+            client.send_goal(goal)
+            rospy.loginfo("waiting for result...")
+            client.wait_for_result()
+            rospy.loginfo("result = %s" % client.get_result())
             # Write a log entry
             if not self.write_log_entry(identifier, event="POST"):
                 rospy.logerr("Failed to write log entry!")
