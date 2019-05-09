@@ -96,7 +96,7 @@ class TestItLogger(object):
 
     def write_log_entry(self, trigger, event):
         rospy.loginfo("writing log entry...")
-        return self.add_entry({'timestamp': ros.Time.now().to_sec(), 'trigger': trigger, 'event': event})
+        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'trigger': trigger, 'event': event})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
