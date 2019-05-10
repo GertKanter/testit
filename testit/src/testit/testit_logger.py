@@ -162,12 +162,12 @@ class TestItLogger(object):
                 self.mapping[identifier]['update_timestamp'] = rospy.Time().now()
         else:
             # Write a log entry
-            if not self.write_log_entry(identifier, event="POST", data):
+            if not self.write_log_entry(identifier, "POST", data):
                 rospy.logerr("Failed to write log entry!")
 
     def service_handler(self, req, identifier):
         rospy.loginfo("service_handler")
-        if not self.write_log_entry(identifier, event="PRE", req):
+        if not self.write_log_entry(identifier, "PRE", req):
             rospy.logerr("Failed to write log entry!")
         rospy.logerr(self.mapping[identifier])
         rospy.logwarn(type(req))
@@ -177,7 +177,7 @@ class TestItLogger(object):
         result = service_proxy[1](req)
         rospy.loginfo("Service call returned!")
         # Write a log entry
-        if not self.write_log_entry(identifier, event="POST", req):
+        if not self.write_log_entry(identifier, "POST", req):
             rospy.logerr("Failed to write log entry!")
         return result
 
@@ -186,7 +186,7 @@ class TestItLogger(object):
             rospy.logwarn("Action handler not ready yet (waiting for action server)!")
             return
         # Write a log entry
-        if not self.write_log_entry(identifier, event="PRE", goal):
+        if not self.write_log_entry(identifier, "PRE", goal):
             rospy.logerr("Failed to write log entry!")
         action_proxy = self.get_action_proxy(self.mapping[identifier]['proxy'])
         if action_proxy is not None:
@@ -195,7 +195,7 @@ class TestItLogger(object):
             state = action_proxy[1].get_state()
             result = action_proxy[1].get_result()
             # Write a log entry
-            if not self.write_log_entry(identifier, event="POST", goal):
+            if not self.write_log_entry(identifier, "POST", goal):
                 rospy.logerr("Failed to write log entry!")
             if state == actionlib_msgs.msg.GoalStatus.SUCCEEDED:
                 action_proxy[0].set_succeeded(result)
