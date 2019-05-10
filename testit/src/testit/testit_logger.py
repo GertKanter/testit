@@ -114,8 +114,8 @@ class TestItLogger(object):
         data - the request data that is sent to the proxied service
         """
         rospy.loginfo("writing log entry...")
-        channel = self.mapping[identifier]
-        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': data})
+        #channel = self.mapping[identifier]
+        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': str(data)})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
