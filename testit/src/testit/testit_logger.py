@@ -115,6 +115,7 @@ class TestItLogger(object):
         """
         rospy.loginfo("writing log entry...")
         #channel = self.mapping[identifier]
+        rospy.loginfo("type is %s" % type(data))
         return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': str(data)})
 
     def load_config_from_file(self):
