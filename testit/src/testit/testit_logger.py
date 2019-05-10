@@ -116,6 +116,7 @@ class TestItLogger(object):
         """
         rospy.loginfo("writing log entry...")
         #channel = self.mapping[identifier]
+        rospy.loginfo("data is: %s" % str(data))
         rospy.loginfo("type is %s" % type(data))
         return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(data))})
 
