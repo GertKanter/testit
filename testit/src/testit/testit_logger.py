@@ -39,7 +39,6 @@ import testit_common
 import sys
 import actionlib
 import actionlib_msgs.msg
-import yaml
 import json
 
 class TestItLogger(object):
@@ -118,7 +117,7 @@ class TestItLogger(object):
         rospy.loginfo("writing log entry...")
         #channel = self.mapping[identifier]
         rospy.loginfo("type is %s" % type(data))
-        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(yaml.load(str(data)))})
+        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(data))})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
