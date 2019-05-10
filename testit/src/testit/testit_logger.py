@@ -129,6 +129,7 @@ class TestItLogger(object):
         Args:
         data -- dict with values to store
         """
+        rospy.loginfo("trying to write: %s" % data)
         return testit_common.append_to_json_file(data, self.log_file)
 
     def get_action_proxy(self, identifier):
