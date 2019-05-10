@@ -84,7 +84,7 @@ class TestItLogger(object):
                             rospy.loginfo("Logger subscribed to %s" % identifier)
                         else:
                             if channel_type.endswith("Action"):
-                                # Register actionserver and client
+                                # Register action server and client
                                 eval("self.action_proxies.append((actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + ")), actionlib.SimpleActionClient(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
                                 rospy.loginfo("Waiting for '%s' action server..." % identifier)
                                 self.action_proxies[-1][1].wait_for_server()
@@ -103,9 +103,19 @@ class TestItLogger(object):
         rospy.loginfo("Importing '%s'" % import_string)
         exec("import " + import_string, globals())
 
-    def write_log_entry(self, trigger, event):
+    def write_log_entry(self, identifier, event, data):
+        """
+        Write a log entry to the log file.
+
+        Args:
+        identifier - the index of the mapping dictionary
+        event - triggering event (i.e., "PRE" before sending the command to the
+                service or "POST" after receiving the response from the service)
+        data - the request data that is sent to the proxied service
+        """
         rospy.loginfo("writing log entry...")
-        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'trigger': trigger, 'event': event})
+        channel = self.mapping[identifier]
+        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': data})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
@@ -152,12 +162,12 @@ class TestItLogger(object):
                 self.mapping[identifier]['update_timestamp'] = rospy.Time().now()
         else:
             # Write a log entry
-            if not self.write_log_entry(identifier, event="POST"):
+            if not self.write_log_entry(identifier, event="POST", data):
                 rospy.logerr("Failed to write log entry!")
 
     def service_handler(self, req, identifier):
         rospy.loginfo("service_handler")
-        if not self.write_log_entry(identifier, event="PRE"):
+        if not self.write_log_entry(identifier, event="PRE", req):
             rospy.logerr("Failed to write log entry!")
         rospy.logerr(self.mapping[identifier])
         rospy.logwarn(type(req))
@@ -167,7 +177,7 @@ class TestItLogger(object):
         result = service_proxy[1](req)
         rospy.loginfo("Service call returned!")
         # Write a log entry
-        if not self.write_log_entry(identifier, event="POST"):
+        if not self.write_log_entry(identifier, event="POST", req):
             rospy.logerr("Failed to write log entry!")
         return result
 
@@ -176,7 +186,7 @@ class TestItLogger(object):
             rospy.logwarn("Action handler not ready yet (waiting for action server)!")
             return
         # Write a log entry
-        if not self.write_log_entry(identifier, event="PRE"):
+        if not self.write_log_entry(identifier, event="PRE", goal):
             rospy.logerr("Failed to write log entry!")
         action_proxy = self.get_action_proxy(self.mapping[identifier]['proxy'])
         if action_proxy is not None:
@@ -185,7 +195,7 @@ class TestItLogger(object):
             state = action_proxy[1].get_state()
             result = action_proxy[1].get_result()
             # Write a log entry
-            if not self.write_log_entry(identifier, event="POST"):
+            if not self.write_log_entry(identifier, event="POST", goal):
                 rospy.logerr("Failed to write log entry!")
             if state == actionlib_msgs.msg.GoalStatus.SUCCEEDED:
                 action_proxy[0].set_succeeded(result)
