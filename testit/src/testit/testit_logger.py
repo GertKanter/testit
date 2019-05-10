@@ -40,6 +40,7 @@ import sys
 import actionlib
 import actionlib_msgs.msg
 import json
+import yaml
 
 class TestItLogger(object):
     def __init__(self):
@@ -114,11 +115,11 @@ class TestItLogger(object):
                 service or "POST" after receiving the response from the service)
         data - the request data that is sent to the proxied service
         """
-        rospy.loginfo("writing log entry...")
+        #rospy.loginfo("writing log entry...")
         #channel = self.mapping[identifier]
-        rospy.loginfo("data is: %s" % str(data))
-        rospy.loginfo("type is %s" % type(data))
-        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(data))})
+        #rospy.loginfo("data is: %s" % str(data))
+        #rospy.loginfo("type is %s" % type(data))
+        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(yaml.load(str(data)).replace("'", "\"").replace("None", "null"))})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
@@ -132,7 +133,7 @@ class TestItLogger(object):
         Args:
         data -- dict with values to store
         """
-        rospy.loginfo("trying to write: %s" % data)
+        #rospy.loginfo("trying to write: %s" % data)
         return testit_common.append_to_json_file(data, self.log_file)
 
     def get_action_proxy(self, identifier):
