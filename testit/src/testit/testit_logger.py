@@ -119,7 +119,7 @@ class TestItLogger(object):
         #channel = self.mapping[identifier]
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
-        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(yaml.load(str(data)).replace("'", "\"").replace("None", "null"))})
+        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null"))})
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
