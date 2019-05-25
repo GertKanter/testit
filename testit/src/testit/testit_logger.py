@@ -141,7 +141,7 @@ class TestItLogger(object):
         entry = {'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null"))}
         if self.flush_coverage():
             #rospy.loginfo("Add coverage data to entry!")
-            entry['coverage'] = self.coverage
+            entry['coverage'] =  json.loads(str(yaml.load(str(self.coverage))).replace("'", "\"").replace("None", "null"))
         return self.add_entry(entry)
 
     def load_config_from_file(self):
