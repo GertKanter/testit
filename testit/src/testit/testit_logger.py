@@ -93,7 +93,8 @@ class TestItLogger(object):
                         else:
                             if channel_type.endswith("Action"):
                                 # Register action server and client
-                                eval("self.action_proxies.append((actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + ")), actionlib.SimpleActionClient(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
+                                eval("self.action_proxies.append((actionlib.SimpleActionServer(\"" + proxy + "\", " + channel_type + ", lambda x: self.action_handler(x, " + str(i) + "), auto_start = False), actionlib.SimpleActionClient(\"" + identifier + "\", " + channel_type + ")))", dict(globals().items() + [('self', self)]))
+                                self.action_proxies[-1][0].start()
                                 rospy.loginfo("Waiting for '%s' action server..." % identifier)
                                 self.action_proxies[-1][1].wait_for_server()
                                 channel[0]['ready'] = True
