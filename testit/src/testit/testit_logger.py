@@ -144,7 +144,6 @@ class TestItLogger(object):
             entry['coverage'] = {}
             for coverage_entry in self.coverage:
                 entry['coverage'][coverage_entry.filename] = coverage_entry.lines
-            entry['coverage'] = json.loads(str(yaml.load(str(entry['coverage']))).replace("'", "\"").replace("None", "null"))
         return self.add_entry(entry)
 
     def load_config_from_file(self):
