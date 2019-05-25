@@ -416,12 +416,12 @@ class TestItDaemon:
             if return_value != 0:
                 rospy.logerr("Pre-launch command failed! Test failed!")
                 return False
+        self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
+        self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
         bag_return = 1
         bag_enabled = self.tests[test].get('bagEnabled', False)
         if bag_enabled:
             # Delete old rosbags if present
-            self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
-            self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
             if not self.delete_bag_files(pipeline, test, prefix, suffix):
                 rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
 
@@ -448,7 +448,6 @@ class TestItDaemon:
             exclude = ""
             if topic_exclude != "":
                 exclude = "--exclude \"" + str(topic_exclude) + "\" "
-            self.resolve_configuration_value(self.tests[test], pipeline, 'sharedDirectory')
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
@@ -539,6 +538,7 @@ class TestItDaemon:
             if not return_value or keep_bags:
                 # To avoid adding ROS as a prerequisite for TestIt pipeline, we have to copy the files to local, merge, upload merge, delete remote
                 rospy.loginfo("[%s] Merging bag files..." % pipeline)
+                self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
                 if self.pipelines[pipeline].get('testItConnection', "-") == "-":
                     # Local pipeline
                     bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'], prefix, suffix)

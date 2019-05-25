@@ -7,6 +7,9 @@
 ###############################################
 
 configuration:
+  coverage:
+    enable: True # if True, logs coverage (via service "/testit/flush_coverage")
+
   inputs: # SUT inputs (e.g., commands to SUT), triggers log entry
     - identifier: "" # topic/service proxy name (with full namespace, i.e., "/robot/odom")
       proxy: "" # advertised proxy service name (reroutes the service to "identifier" service); if empty (""), "topic"-mode is assumed

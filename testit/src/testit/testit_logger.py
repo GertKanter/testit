@@ -41,6 +41,7 @@ import actionlib
 import actionlib_msgs.msg
 import json
 import yaml
+import testit_msgs.srv
 
 class TestItLogger(object):
     def __init__(self):
@@ -58,6 +59,11 @@ class TestItLogger(object):
             rospy.logerr("Logger configuration not defined!")
             sys.exit(-1)
         self.log_file = rospy.get_param('~log', None)
+        self.coverage_enabled = True
+        if self.configuration.get('coverage', None) is not None:
+            self.coverage_enabled = self.configuration['coverage'].get("enable", True)
+        if self.coverage_enabled:
+            self.coverage_client = rospy.ServiceProxy("/testit/flush_coverage", testit_msgs.srv.Coverage)
         if self.log_file is None:
             rospy.logerr("Log file not defined!")
             sys.exit(-1)
@@ -105,6 +111,18 @@ class TestItLogger(object):
         rospy.loginfo("Importing '%s'" % import_string)
         exec("import " + import_string, globals())
 
+    def flush_coverage(self):
+        if self.coverage_enabled:
+            try:
+                response = self.coverage_client()
+                if response.result:
+                    self.coverage = response.coverage
+                    rospy.loginfo(self.coverage)
+                return True
+            except rospy.ServiceException, e:
+                rospy.logerr("Coverage flush failed: %s" % e)
+        return False
+
     def write_log_entry(self, identifier, event, data):
         """
         Write a log entry to the log file.
@@ -119,6 +137,8 @@ class TestItLogger(object):
         #channel = self.mapping[identifier]
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
+        if self.flush_coverage():
+            rospy.loginfo("Add coverage data to entry!")
         return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null"))})
 
     def load_config_from_file(self):
