@@ -118,7 +118,7 @@ class TestItLogger(object):
                 response = self.coverage_client()
                 if response.result:
                     self.coverage = response.coverage
-                    rospy.loginfo(self.coverage)
+                    #rospy.loginfo(self.coverage)
                 return True
             except rospy.ServiceException, e:
                 rospy.logerr("Coverage flush failed: %s" % e)
@@ -138,9 +138,11 @@ class TestItLogger(object):
         #channel = self.mapping[identifier]
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
+        entry = {'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null"))}
         if self.flush_coverage():
-            rospy.loginfo("Add coverage data to entry!")
-        return self.add_entry({'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null"))})
+            #rospy.loginfo("Add coverage data to entry!")
+            entry['coverage'] = self.coverage
+        return self.add_entry(entry)
 
     def load_config_from_file(self):
         filename = rospy.get_param('~config')
