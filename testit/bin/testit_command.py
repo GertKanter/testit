@@ -53,6 +53,7 @@ class TestIt:
         rospy.wait_for_service('testit/uppaal/extract/failure')
         rospy.wait_for_service('testit/shutdown')
         rospy.wait_for_service('testit/credits')
+        rospy.wait_for_service('testit/optimize')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
         self.status_service = rospy.ServiceProxy('testit/status', testit.srv.Command)
@@ -64,6 +65,7 @@ class TestIt:
         self.uppaal_extract_failure_service = rospy.ServiceProxy('testit/uppaal/extract/failure', testit.srv.Command)
         self.shutdown_service = rospy.ServiceProxy('testit/shutdown', testit.srv.Command)
         self.credits_service = rospy.ServiceProxy('testit/credits', testit.srv.Command)
+        self.optimize_service = rospy.ServiceProxy('testit/optimize', testit.srv.Command)
 
     def call_service(self, service, args, callback=None):
         try:
@@ -131,6 +133,12 @@ class TestIt:
     def log(self, args):
         rospy.loginfo("Log")
 
+    def optimize(self, args):
+        args.pipeline = args.scenario
+        callback = None
+        if args.output != "":
+            callback = self.results_callback
+        self.call_service(self.optimize_service, args, callback)
 
     def results(self, args):
         if args.xml_sys_out:
@@ -259,6 +267,10 @@ if __name__ == '__main__':
     parser_credits.add_argument("-s", "--set", action="store", default='', help="Set number of credits")
     parser_credits.add_argument("scenario", action="store", nargs="*", help="Scenarios")
     parser_credits.set_defaults(func=testit_instance.credits)
+    parser_optimize = subparsers.add_parser("optimize", help="Optimize scenario based on logger log")
+    parser_optimize.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
+    parser_optimize.add_argument("scenario", action="store", nargs="+", help="Scenarios")
+    parser_optimize.set_defaults(func=testit_instance.optimize)
     testit.opt = parser.parse_args(rospy.myargv()[1:])
     testit.opt.func(testit.opt)
 

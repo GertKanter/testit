@@ -51,6 +51,7 @@ import os
 import rosbag
 import testit_uppaal
 import tempfile
+import testit_optimizer
 
 class TestItDaemon:
     def __init__(self):
@@ -66,6 +67,7 @@ class TestItDaemon:
         rospy.Service('testit/clean', testit.srv.Command, self.handle_clean)
         rospy.Service('testit/shutdown', testit.srv.Command, self.handle_shutdown)
         rospy.Service('testit/credits', testit.srv.Command, self.handle_credits)
+        rospy.Service('testit/optimize', testit.srv.Command, self.handle_optimize_log_scenario)
         self.initialize()
 
     def initialize(self):
@@ -461,7 +463,7 @@ class TestItDaemon:
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosrun testit testit_logger.py _config:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['loggerConfiguration']) + " _log:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "logger.log" + quote_termination + suffix
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosrun testit testit_logger.py _config:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['loggerConfiguration']) + " _test:=\"" + self.tests[test]['tag'].replace(" ", "\\ ") + "\" _log:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "logger.log" + quote_termination + suffix
             rospy.loginfo("Executing '%s'" % command)
             logger_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] logger returned %s" % (pipeline, logger_return))
@@ -1101,15 +1103,18 @@ class TestItDaemon:
         else:
             return temp_filename
         
-    def read_yaml_file(self, test, pipeline, filename, prefix, suffix):
+    def get_file_from_pipeline(self, test, pipeline, filename, prefix, suffix):
+        rospy.loginfo("Getting file '%s' from pipeline..." % filename)
         self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
         # ground testItVolume path
         path = self.ground_path(self.pipelines[pipeline]['testItVolume'], prefix, suffix)
         fullname = path + self.tests[test].get("resultsDirectory", "") + filename
         if self.pipelines[pipeline].get('testItConnection', "-") != "-":
             fullname = self.get_temp_filename(pipeline, fullname)
-            if fullname is None:
-                return
+        return fullname
+
+    def read_yaml_file(self, test, pipeline, filename, prefix, suffix):
+        fullname = self.get_file_from_pipeline(test, pipeline, filename, prefix, suffix)
         # Read the file
         rospy.loginfo("Reading from file '%s'" % fullname)
         data = None
@@ -1311,6 +1316,51 @@ class TestItDaemon:
                     else:
                         rospy.logerr("No entries found for file '%s'!" % req.args)
                         result = False
+        return testit.srv.CommandResponse(result, message)
+
+    def handle_optimize_log_scenario(self, req):
+        """
+        Create an optimal sequential model (optimized test scenario) from the logger log file.
+        """
+        message = "Optimize message"
+        result = True
+        # Read previous log entries
+        data_directory = self.ground_path(self.configuration['dataDirectory'], "", "")
+        rospy.loginfo("Data directory path is '%s'" % data_directory)
+        log_data = []
+        daemon_log_fullname = data_directory + "logger.log"
+        try:
+            log_data = testit_common.parse_json_stream_file(daemon_log_fullname)
+        except:
+            rospy.logwarn("Could not open previous log file '%s'!" % daemon_log_fullname)
+        tokens = set(self.tokenize_arguments(req.args))
+        weights = []
+        for test in self.tests:
+            for token in tokens:
+                if token == test:
+                    pipeline = self.tests[test].get('executor_pipeline', None)
+                    if not pipeline:
+                        rospy.logwarn("Test has not been executed during this runtime, unable to match data to pipeline!")
+                    else:
+                        rospy.loginfo("Ran in %s " % pipeline)
+                        # Get log file from pipeline
+                        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+
+                        fullname  = self.get_file_from_pipeline(test, pipeline, "logger.log", testit_prefix, testit_suffix)
+                        log_data += testit_common.parse_json_stream_file(fullname)
+
+                        # It is up to the user to use "clean" command to avoid erroneous reprocessing
+                        rospy.logwarn("Use \"testit_command.py clean\" before using this command again to avoid adding these entries again!")
+
+                    optimizer = self.tests[test].get('optimizer', {})
+                    weights += optimizer.get('weights', [])
+        optimized_sequence = testit_optimizer.optimize(log_data, weights)
+        message = testit_uppaal.create_sequential_uppaal_xml(testit_uppaal.convert_optimizer_sequence_to_uppaal_synchronizations(optimized_sequence))
+
+        rospy.loginfo("Saving log to TestIt daemon data directory...")
+        for i, entry in enumerate(log_data):
+            testit_common.append_to_json_file(entry, daemon_log_fullname, mode="w" if i == 0 else "a+")
+        rospy.loginfo("Finished!")
         return testit.srv.CommandResponse(result, message)
 
 if __name__ == "__main__":

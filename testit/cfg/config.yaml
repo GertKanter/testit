@@ -117,3 +117,8 @@ tests:
     teardownTestItDelay: 1 # duration to wait after command
     teardownTestItTimeout: 0 # empty string = use default
     teardownTestItFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
+    optimizer:
+      weights:
+       - type: "coverage" # What kind of parameter is specified ("coverage" will specify file line coverage)
+         name: "" # File or monitored value name regex
+         value: 1.0
