@@ -52,6 +52,7 @@ class TestItLogger(object):
         self.load_config_from_file()
         self.configuration = rospy.get_param('testit/configuration', None)
         self.test = rospy.get_param('~test', "")
+        rospy.loginfo("Test is '%s'" % self.test)
         self.action_proxies = []
         self.service_proxies = []
         self.buffers = {}
