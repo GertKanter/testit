@@ -82,9 +82,9 @@ def parse_json_stream_file(filename):
         traceback.print_exc()
         sys.exit(-1)
 
-def append_to_json_file(data, filename):
+def append_to_json_file(data, filename, mode="a+"):
     try:
-        with open(filename, 'a+') as outfile:
+        with open(filename, mode) as outfile:
             outfile.write(json.dumps(data) + "\n")#json.dump(data, outfile, default_flow_style=False)
     except Exception as e:
         import traceback

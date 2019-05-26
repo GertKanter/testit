@@ -51,6 +51,7 @@ class TestItLogger(object):
     def initialize(self):
         self.load_config_from_file()
         self.configuration = rospy.get_param('testit/configuration', None)
+        self.test = rospy.get_param('~test', "")
         self.action_proxies = []
         self.service_proxies = []
         self.buffers = {}
@@ -138,7 +139,7 @@ class TestItLogger(object):
         #channel = self.mapping[identifier]
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
-        entry = {'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null"))}
+        entry = {'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
         if self.flush_coverage():
             #rospy.loginfo("Add coverage data to entry!")
             entry['coverage'] = {}
