@@ -140,7 +140,8 @@ class TestItLogger(object):
         #channel = self.mapping[identifier]
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
-        entry = {'timestamp': rospy.Time.now().to_sec(), 'identifier': identifier, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
+        channel = {'identifier': self.mapping[identifier]['identifier'], 'proxy': self.mapping[identifier]['proxy'], 'type': self.mapping[identifier]['type']}
+        entry = {'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
         if self.flush_coverage():
             #rospy.loginfo("Add coverage data to entry!")
             entry['coverage'] = {}
