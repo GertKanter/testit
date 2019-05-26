@@ -42,6 +42,7 @@ import actionlib_msgs.msg
 import json
 import yaml
 import testit_msgs.srv
+import uuid
 
 class TestItLogger(object):
     def __init__(self):
@@ -69,6 +70,7 @@ class TestItLogger(object):
         if self.log_file is None:
             rospy.logerr("Log file not defined!")
             sys.exit(-1)
+        self.run_id = str(uuid.uuid4())
 
     def register_services_and_subscribe(self):
         """
@@ -141,7 +143,7 @@ class TestItLogger(object):
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
         channel = {'identifier': self.mapping[identifier]['identifier'], 'proxy': self.mapping[identifier]['proxy'], 'type': self.mapping[identifier]['type']}
-        entry = {'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
+        entry = {'run_id': self.run_id, 'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
         if self.flush_coverage():
             #rospy.loginfo("Add coverage data to entry!")
             entry['coverage'] = {}
