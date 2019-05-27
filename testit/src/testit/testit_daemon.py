@@ -407,6 +407,7 @@ class TestItDaemon:
         Returns:
         True if test successful, False otherwise
         """
+        #TODO Generate UUID if needed
         # execute preLaunchCommand, if this returns 0, proceed, if not, fail
         prelaunch_command = self.tests[test].get('preLaunchCommand', None)
         if prelaunch_command is not None:
@@ -1354,7 +1355,7 @@ class TestItDaemon:
 
                     optimizer = self.tests[test].get('optimizer', {})
                     weights += optimizer.get('weights', [])
-        optimized_sequence = testit_optimizer.optimize(log_data, weights)
+        optimized_sequence = testit_optimizer.optimize(log_data, weights, test)
         message = testit_uppaal.create_sequential_uppaal_xml(testit_uppaal.convert_optimizer_sequence_to_uppaal_synchronizations(optimized_sequence))
 
         rospy.loginfo("Saving log to TestIt daemon data directory...")
