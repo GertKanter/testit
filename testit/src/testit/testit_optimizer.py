@@ -59,6 +59,11 @@ class Optimizer:
 
      * we can also identify the largest gain neighborhoods in the state space - we can then create scenarios that start from that state increasing test efficiency
     """
+    # Modes
+    PROBABILISTIC = 1 # Ignores time and state history (best for high degree of controllability systems)
+    PROBABILISTIC_TIMED = 2 # Adds time to the state space (increases optimization graph size, useful for low controllability system, but has the potential to do strutural test optimization in some cases)
+    BEST_TRACE = 3 # Finds the highest gain trace in the log (useful for low controllability systems, i.e., systems where the process takes time and it is not possible to influence it directly and probabilistic approach does not yield good results)
+
     def __init__(self, data, weights, test, max_depth=1):
         self.data = data
         self.weights = weights
@@ -80,7 +85,7 @@ class Optimizer:
         """
         self.graph = self.create_graph(data, test, weights)
         self.print_graph_info()
-        self.graph = self.merge_edges(self.graph)
+        self.graph = self.combine_edges(self.merge_edges(self.graph))
         self.print_graph_info()
 
     def get_list_hash(self, items):
@@ -103,9 +108,9 @@ class Optimizer:
                 if weight['name'] in key:
                     if type(update[key]) == list:
                         for item in update[key]:
-                            parameters[(key, item)] = 1.0
+                            parameters[(key, item)] = weight['weight']
                     else:
-                        parameters[(key, update[key])] = 1.0
+                        parameters[(key, update[key])] = weight['weight']
         return parameters
 
     def create_graph(self, data, test, weights):
@@ -157,7 +162,34 @@ class Optimizer:
                         merged = True
                         break
         return graph
-                    
+
+    def combine_edges(self, graph):
+        """
+        Combine edges that lead from the same node to the same destination.
+        """
+        rospy.loginfo("Combining edges...")
+        for node in graph:
+            node_total = {} # node_total['destination'] = 1+1+1 ...
+            node_data = {} # node_data['destination']['(xx, 1)'] = 1.0 + 1.0
+            edges_total = 0
+            for edge in graph[node]:
+                node_total[edge[0]] = node_total.get(edge[0], 0) + edge[1]
+                edges_total += edge[1]
+                for parameter in edge[2]:
+                    field = node_data.get(edge[0], {})
+                    if len(field) == 0:
+                        node_data[edge[0]] = {}
+                    node_data[edge[0]][parameter] = field.get(parameter, 0.0) + edge[2][parameter] * edge[1]
+            # Normalize parameters according to probability (x / total)
+            for destination in node_data:
+                for parameter in node_data[destination]:
+                    node_data[destination][parameter] /= node_total[destination]
+            # Replace previous edges with new normalized edges
+            graph[node] = []
+            for destination in node_data:
+                graph[node].append([destination, node_total[destination] / edges_total, node_data[destination]])
+        return graph
+
 
     def compute_edge_gains(self, state):
         """
@@ -169,7 +201,7 @@ class Optimizer:
         """
         pass
 
-    def compute_sequence(self, state=None, gain_limit=0.0, step_limit=sys.maxint, time_limit=-1):
+    def compute_sequence(self, state=None, gain_limit=0.0, step_limit=sys.maxint, time_limit=-1, mode=None):
         """
         Compute the optimal sequence from the given state (note that initial state is "undefined" since we do not know in what state the simulation started).
 
@@ -182,6 +214,8 @@ class Optimizer:
         Returns:
          sequence - optimized sequence as a list of tuples (channel, data), e.g., ([({"identifier": "/robot_0/move_base", "type": "move_base_msgs.msg.MoveBaseAction", "proxy": "/robot_0/move_base/proxy"}, {"target_pose": {"header": {"stamp": {"secs": 0, "nsecs": 0}, "frame_id": "map", "seq": 0}, "pose": {"position": {"y": 36.49, "x": 5.95, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.0, "w": 1.0}}}}), ... ])
         """
+        if mode is None:
+            mode = Optimizer.PROBABILISTIC
         pass
 
 
