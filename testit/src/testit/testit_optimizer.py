@@ -280,9 +280,9 @@ class Optimizer:
                 tree = self.update_path_gain(tree, edge[0], edge[2] + gain, path_copy)
         return tree
 
-    def compute_step(self, max_depth, initial_state, parameter_state, previous_step_gain=0):
+    def compute_step(self, max_depth, initial_state, parameter_state):
         self.new_tree_id = 0
-        gain_tree = self.expand_tree_element({}, [0, initial_state, {}, parameter_state], max_depth)
+        gain_tree = self.expand_tree_element({}, [self.new_tree_id, initial_state, {}, parameter_state], max_depth)
         # Find path gain
         self.update_path_gain(gain_tree, 0, 0, [])
         best_gain = 0
@@ -294,12 +294,13 @@ class Optimizer:
                     if child[4] > best_gain or best_gain == 0:
                         best_gain = child[4]
                         best_step = child[5][1]
+        selected_step = None
         for edge in gain_tree[0]:
             if edge[0] == best_step:
-                best_step = edge[1]
+                selected_step = edge[1]
                 best_param_state = edge[3]
                 break
-        return (best_step, best_param_state, best_gain)
+        return (selected_step, best_param_state)
 
     def compute_parameter_state_value(self, state):
         """
@@ -326,7 +327,7 @@ class Optimizer:
         sequence = []
         next_step = [state, {}, 0]
         for _ in range(step_limit):
-            next_step = self.compute_step(max_depth, next_step[0], next_step[1], next_step[2])
+            next_step = self.compute_step(max_depth, next_step[0], next_step[1])
             #print self.compute_parameter_state_value(next_step[1])
             data = self.state_hashes[next_step[0]][1]#.values()[0]
             channel = self.channel_hashes[self.state_hashes[next_step[0]][0].keys()[0]]
