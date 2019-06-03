@@ -52,6 +52,7 @@ import rosbag
 import testit_uppaal
 import tempfile
 import testit_optimizer
+import uuid
 
 class TestItDaemon:
     def __init__(self):
@@ -118,7 +119,7 @@ class TestItDaemon:
                                 if substitution is not None:
                                     params[param][key] = params[param][key].replace(replacement, substitution, 1)
                                 else:
-                                    rospy.logerr("Unable to ground substition '%s' key '%s'" % (param, replacement))
+                                    rospy.logwarn("Unable to ground substition '%s' key '%s'" % (param, replacement))
         return params
 
 
@@ -408,6 +409,10 @@ class TestItDaemon:
         True if test successful, False otherwise
         """
         #TODO Generate UUID if needed
+        if self.tests[test].get('uuid', None) is None:
+            self.tests[test]['uuid'] = str(uuid.uuid4())
+            self.tests = self.substitute_replacement_values(self.tests)
+            rospy.loginfo("[%s] Generated UUID is '%s'" % (pipeline, self.tests[test]['uuid']))
         # execute preLaunchCommand, if this returns 0, proceed, if not, fail
         prelaunch_command = self.tests[test].get('preLaunchCommand', None)
         if prelaunch_command is not None:
