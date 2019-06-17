@@ -526,7 +526,7 @@ class TestItDaemon:
                 else:
                     # oracle reports test failed
                     rospy.logerr("[%s] TEST FAIL!" % pipeline)
-        elif self.call_result['launch'] == -1:
+        elif self.call_result['launch' + str(threading.current_thread().ident)] == -1:
             rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
             if self.tests[test]['timeoutVerdict']:
                 return_value = True
