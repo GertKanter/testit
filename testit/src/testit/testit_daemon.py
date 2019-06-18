@@ -692,8 +692,8 @@ class TestItDaemon:
             if self.execute_system(pipeline, 'TestIt', 'run', testit_prefix, testit_suffix):
                 rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
                 self.tests[tag]['test_start_timestamp'] = rospy.Time.now()
-                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags, testit_prefix, testit_suffix)
                 self.tests[tag]['credits'] -= 1
+                self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags, testit_prefix, testit_suffix)
                 self.tests[tag]['test_end_timestamp'] = rospy.Time.now()
                 self.tests[tag]['executor_pipeline'] = pipeline
                 # execute the post-testing commands if credits are zero
@@ -936,12 +936,11 @@ class TestItDaemon:
             while not finished:
                 finished = True
                 for test in queue:
-                    result = self.tests[test].get('result', None)
-                    credits = self.tests[test].get('credits', 0)
-                    if result is None or credits > 0:
+                    executing = self.tests[test].get('executing', False)
+                    if executing:
                         finished = False
                         break
-                rospy.sleep(0.1)
+                rospy.sleep(0.2)
         return testit.srv.CommandResponse(result, message)
 
     def handle_results(self, req):
