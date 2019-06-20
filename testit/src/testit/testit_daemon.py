@@ -696,25 +696,47 @@ class TestItDaemon:
                 self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, keep_bags, testit_prefix, testit_suffix)
                 self.tests[tag]['test_end_timestamp'] = rospy.Time.now()
                 self.tests[tag]['executor_pipeline'] = pipeline
-                # execute the post-testing commands if credits are zero
+                # execute postTest commands
+                self.resolve_configuration_value(self.tests[tag], pipeline, 'postTestCommand', "")
+                self.resolve_configuration_value(self.tests[tag], pipeline, 'postTestSuccessCommand', "")
+                self.resolve_configuration_value(self.tests[tag], pipeline, 'postTestFailureCommand', "")
+                if self.tests[tag]['result']:
+                    if self.tests[tag]['postTestSuccessCommand'] != "":
+                        rospy.loginfo("Executing post-test success command ('%s')..." % self.tests[tag]['postTestSuccessCommand'])
+                        result = subprocess.call(self.tests[tag]['postTestSuccessCommand'], shell=True)
+                        if result != 0:
+                            rospy.logerr("Post-success command failed!")
+                else:
+                    if self.tests[tag]['postTestFailureCommand'] != "":
+                        rospy.loginfo("Executing post-test failure command ('%s')..." % self.tests[tag]['postTestFailureCommand'])
+                        result = subprocess.call(self.tests[tag]['postTestFailureCommand'], shell=True)
+                        if result != 0:
+                            rospy.logerr("Post-test failure command failed!")
+                if self.tests[tag]['postTestCommand'] != "":
+                    rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postTestCommand'])
+                    result = subprocess.call(self.tests[tag]['postTestCommand'], shell=True)
+                    if result != 0:
+                        rospy.logerr("Post-test command failed!")
+
+                # execute the post commands if credits are zero
                 if self.tests[tag]['credits'] == 0:
                     self.resolve_configuration_value(self.tests[tag], pipeline, 'postCommand', "")
                     self.resolve_configuration_value(self.tests[tag], pipeline, 'postSuccessCommand', "")
                     self.resolve_configuration_value(self.tests[tag], pipeline, 'postFailureCommand', "")
                     if self.tests[tag]['result']:
                         if self.tests[tag]['postSuccessCommand'] != "":
-                            rospy.loginfo("Executing post-success command ('%s')..." % self.tests[tag]['postSuccessCommand'])
+                            rospy.loginfo("Executing post-testing success command ('%s')..." % self.tests[tag]['postSuccessCommand'])
                             result = subprocess.call(self.tests[tag]['postSuccessCommand'], shell=True)
                             if result != 0:
-                                rospy.logerr("Post-success command failed!")
+                                rospy.logerr("Post-testing success command failed!")
                     else:
                         if self.tests[tag]['postFailureCommand'] != "":
-                            rospy.loginfo("Executing post-failure command ('%s')..." % self.tests[tag]['postFailureCommand'])
+                            rospy.loginfo("Executing post-testing failure command ('%s')..." % self.tests[tag]['postFailureCommand'])
                             result = subprocess.call(self.tests[tag]['postFailureCommand'], shell=True)
                             if result != 0:
                                 rospy.logerr("Post-failure command failed!")
                     if self.tests[tag]['postCommand'] != "":
-                        rospy.loginfo("Executing post-test command ('%s')..." % self.tests[tag]['postCommand'])
+                        rospy.loginfo("Executing post-testing command ('%s')..." % self.tests[tag]['postCommand'])
                         result = subprocess.call(self.tests[tag]['postCommand'], shell=True)
                         if result != 0:
                             rospy.logerr("Post-test command failed!")
