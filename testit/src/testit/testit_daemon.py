@@ -94,7 +94,7 @@ class TestItDaemon:
                            self.set_defaults(self.pipelines, 
                                              self.configuration))
 
-    def substitute_replacement_values(self, params, auxiliary={}):
+    def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
         """
         Substitute the values wrapped with '[[]]' with the key value inside the brackets.
 
@@ -106,20 +106,21 @@ class TestItDaemon:
         """
         for param in params:
             for key in params[param]:
-                m = re.findall('(\[\[.*?\]\])', str(params[param][key]))
+                m = re.findall(regex, str(params[param][key]))
                 if m is not None:
                     for replacement in m:
-                        substitution = params[param].get(replacement[2:-2], None)
+                        substitution = params[param].get(replacement[replacement_index:-replacement_index if replacement_index > 0 else None], None)
                         if substitution is not None:
                             params[param][key] = params[param][key].replace(replacement, substitution, 1)
                         else:
                             # Unable to find substitution on the same dictionary level, try auxiliary dictionary
                             if len(auxiliary) > 0:
-                                substitution = auxiliary.get(replacement[2:-2], None)
+                                substitution = auxiliary.get(replacement[replacement_index:-replacement_index if replacement_index > 0 else None], None)
                                 if substitution is not None:
                                     params[param][key] = params[param][key].replace(replacement, substitution, 1)
                                 else:
-                                    rospy.logwarn("Unable to ground substition '%s' key '%s'" % (param, replacement))
+                                    if replacement != "[[testUuid]]":
+                                        rospy.logwarn("Unable to ground substition '%s' key '%s'" % (param, replacement))
         return params
 
 
@@ -408,11 +409,19 @@ class TestItDaemon:
         Returns:
         True if test successful, False otherwise
         """
-        #TODO Generate UUID if needed
+        # Generate scenario UUID if needed
         if self.tests[test].get('uuid', None) is None:
             self.tests[test]['uuid'] = str(uuid.uuid4())
             self.tests = self.substitute_replacement_values(self.tests)
             rospy.loginfo("[%s] Generated UUID is '%s'" % (pipeline, self.tests[test]['uuid']))
+        # Clear the previous test UUID
+        if self.tests[test].get('testUuid', None) is not None:
+            rospy.logwarn("Clearing old")
+            self.tests = self.substitute_replacement_values(self.tests, auxiliary={self.tests[test]['testUuid']: '[[testUuid]]'}, regex='(' + self.tests[test]['testUuid'] + ')', replacement_index=0)
+            rospy.loginfo(self.tests[test])
+        # Generate UUID for the test
+        self.tests[test]['testUuid'] = str(uuid.uuid4())
+        self.tests = self.substitute_replacement_values(self.tests)
         # execute preLaunchCommand, if this returns 0, proceed, if not, fail
         prelaunch_command = self.tests[test].get('preLaunchCommand', None)
         if prelaunch_command is not None:
