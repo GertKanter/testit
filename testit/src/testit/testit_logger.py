@@ -44,6 +44,8 @@ import yaml
 import testit_msgs.srv
 import uuid
 import threading
+import testit_msgs.msg
+import std_msgs.msg
 
 class TestItLogger(object):
     def __init__(self):
