@@ -111,13 +111,21 @@ class TestItDaemon:
                     for replacement in m:
                         substitution = params[param].get(replacement[replacement_index:-replacement_index if replacement_index > 0 else None], None)
                         if substitution is not None:
-                            params[param][key] = params[param][key].replace(replacement, substitution, 1)
+                            if type(params[param][key]) == str:
+                                params[param][key] = params[param][key].replace(replacement, substitution, 1)
+                            else:
+                                for i in range(len(params[param][key])):
+                                    params[param][key][i] = params[param][key][i].replace(replacement, substitution, 1)
                         else:
                             # Unable to find substitution on the same dictionary level, try auxiliary dictionary
                             if len(auxiliary) > 0:
                                 substitution = auxiliary.get(replacement[replacement_index:-replacement_index if replacement_index > 0 else None], None)
                                 if substitution is not None:
-                                    params[param][key] = params[param][key].replace(replacement, substitution, 1)
+                                    if type(params[param][key]) == str:
+                                        params[param][key] = params[param][key].replace(replacement, substitution, 1)
+                                    else:
+                                        for i in range(len(params[param][key])):
+                                            params[param][key][i] = params[param][key][i].replace(replacement, substitution, 1)
                                 else:
                                     if replacement != "[[testUuid]]":
                                         rospy.logwarn("Unable to ground substition '%s' key '%s'" % (param, replacement))
@@ -186,43 +194,70 @@ class TestItDaemon:
         rospy.loginfo("Loading configuration from " + filename + "...")
         testit_common.load_config_to_rosparam(testit_common.parse_yaml(filename))
 
-    def execution_sleep(self, tag, prefix, instance):
+    def execution_sleep(self, tag, prefix, instance, i=None):
         start_time = rospy.Time.now()
-        while self.pipelines[tag]['state'] != "TEARDOWN" and (self.pipelines[tag][prefix + instance + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[tag][prefix + instance + 'Timeout']):
-            if self.pipelines[tag][prefix + instance + 'FinishTrigger'] != '-':
-                # TODO using timeout + trigger
-                pass
+        timeout = self.pipelines[tag][prefix + instance + 'Timeout'] if i is None or type(self.pipelines[tag][prefix + instance + 'Timeout']) != list else self.pipelines[tag][prefix + instance + 'Timeout'][i]
+        trigger = self.pipelines[tag][prefix + instance + 'FinishTrigger'] if i is None or type(self.pipelines[tag][prefix + instance + 'FinishTrigger']) != list else self.pipelines[tag][prefix + instance + 'FinishTrigger'][i]
+        while timeout == 0 or (rospy.Time.now() - start_time).to_sec() < timeout:
+            if trigger != '-':
+                if subprocess.call(trigger, shell=True) == 0:
+                    rospy.loginfo('[%s] Done!' % tag)
+                    return True
+            else:
+                rospy.loginfo('[%s] Done!' % tag)
+                return True
             time.sleep(1.0)
-        rospy.loginfo('[%s] Done!' % tag)
+        rospy.logerr('[%s] Timed out!' % tag)
+        return False
 
-    def instance_execution(self, tag, prefix, instance, set_result):
-        rospy.loginfo('[%s] Executing %s %s...' % (tag, prefix, instance))
-        if subprocess.call(self.pipelines[tag][prefix + instance], shell=True) == 0:
+    def single_instance_execution(self, tag, prefix, instance, set_result, i=None):
+        command = self.pipelines[tag][prefix + instance] if i is None else self.pipelines[tag][prefix + instance][i]
+        rospy.loginfo("[%s] Command is '%s'" % (tag, command))
+        if subprocess.call(command, shell=True) == 0:
             rospy.loginfo('[%s] Done!' % tag)
-            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + instance + 'Delay']))
-            time.sleep(self.pipelines[tag][prefix + instance + 'Delay'])
+            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (tag, self.pipelines[tag][prefix + instance + 'Delay'] if i is None or type(self.pipelines[tag][prefix + instance + 'Delay']) != list else self.pipelines[tag][prefix + instance + 'Delay'][i]))
+            time.sleep(self.pipelines[tag][prefix + instance + 'Delay'] if i is None or type(self.pipelines[tag][prefix + instance + 'Delay']) != list else self.pipelines[tag][prefix + instance + 'Delay'][i])
             rospy.loginfo('[%s] Waiting for the %s to finish...' % (tag, prefix))
-            self.execution_sleep(tag, prefix, instance)
+            if not self.execution_sleep(tag, prefix, instance, i):
+                # Timed out
+                if set_result:
+                    self.threads[tag]['result'] = False
+                return False 
             if self.pipelines[tag].get('state', "OFFLINE") != "TEARDOWN":
                 if set_result:
                     self.threads[tag]['result'] = True
                 return True
             else:
                 rospy.logerr("Pipeline in TEARDOWN state!")
-                self.threads[tag]['result'] = False
+                if set_result:
+                    self.threads[tag]['result'] = False
                 return False
         else:
             rospy.logerr("[%s] Failed to execute %s!" % (tag, instance))
-            self.threads[tag]['result'] = False
+            if set_result:
+                self.threads[tag]['result'] = False
             return False
+
+    def instance_execution(self, tag, prefix, instance, set_result):
+        if type(self.pipelines[tag][prefix + instance]) == str:
+            rospy.loginfo('[%s] Executing %s %s...' % (tag, prefix, instance))
+            return self.single_instance_execution(tag, prefix, instance, set_result)
+        else:
+            for i in range(len(self.pipelines[tag][prefix + instance])):
+                rospy.loginfo('[%s] Executing %s %s (%s of %s)...' % (tag, prefix, instance, i+1, len(self.pipelines[tag][prefix + instance])))
+                if not self.single_instance_execution(tag, prefix, instance, set_result if set_result and i == len(self.pipelines[tag][prefix + instance])-1 else False, i):
+                    return False
+            return True
 
     def thread_worker(self, tag, prefix, post_states):
         rospy.logdebug('[%s] thread_worker started!' % tag)
-        if self.instance_execution(tag, prefix, "SUT", False):
-            if self.instance_execution(tag, prefix, "TestIt", True):
-                self.pipelines[tag]['state'] = post_states['True']
-                return True
+        sut_result = self.instance_execution(tag, prefix, "SUT", False)
+        testit_result = self.instance_execution(tag, prefix, "TestIt", True)
+        if sut_result and testit_result:
+            self.pipelines[tag]['state'] = post_states['True']
+            return True
         self.pipelines[tag]['state'] = post_states['False']
+        return False
 
     def multithreaded_command(self, verb, req, prefix, pre_state, post_states, extra_commands=[]):
         rospy.logdebug(verb + " requested")
@@ -323,6 +358,35 @@ class TestItDaemon:
             time.sleep(0.2)
             rospy.logwarn_throttle(30.0, 'Test \'%s\' (priority %s) waiting for a free pipeline...' % (tag, self.tests[tag].get('priority', 0)))
 
+
+    def single_execute_system(self, pipeline, system, mode, command, i=None):
+        rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, command))
+        if command is not None and subprocess.call(command, shell=True) == 0:
+            delay = self.pipelines[pipeline][mode + system + 'Delay'] if i is None or type(self.pipelines[pipeline][mode + system + 'Delay']) != list else self.pipelines[pipeline][mode + system + 'Delay'][i]
+            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, delay))
+            time.sleep(delay)
+            start_time = rospy.Time.now()
+            timeout = self.pipelines[pipeline][mode + system + 'Timeout'] if i is None or type(self.pipelines[pipeline][mode + system + 'Timeout']) != list else self.pipelines[pipeline][mode + system + 'Timeout'][i]
+            trigger = self.pipelines[pipeline][mode + system + 'FinishTrigger'] if i is None or type(self.pipelines[pipeline][mode + system + 'FinishTrigger']) != list else self.pipelines[pipeline][mode + system + 'FinishTrigger'][i]
+            while self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"] and (timeout == 0 or (rospy.Time.now() - start_time).to_sec() < timeout):
+                if trigger != '-':
+                    if subprocess.call(trigger, shell=True) == 0:
+                        rospy.loginfo('[%s] Trigger successful!' % pipeline)
+                        return True
+                else:
+                    # No trigger means we do not wait for timeout and break immediately
+                    rospy.loginfo('[%s] Execution finished!' % pipeline)
+                    return True
+                rospy.loginfo_throttle(15.0, '[%s] (%s) ..' % (pipeline, mode))
+                time.sleep(1.0) 
+            if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"]:
+                return True
+            rospy.loginfo('[%s] Execution timed out!' % pipeline)
+        else:
+            rospy.logerr('[%s] Execution failed!' % pipeline)
+        return False
+        
+
     def execute_system(self, pipeline, system, mode, prefix="", suffix=""):
         """
         blocking
@@ -331,29 +395,19 @@ class TestItDaemon:
         """
         rospy.loginfo("[%s] Executing %s to %s..." % (pipeline, system, mode))
         quote_termination = ""
-        if prefix != "":
-            quote_termination = "'\\''"
-        command = "/bin/bash -c '" + prefix[:-1] + quote_termination + self.pipelines[pipeline].get(mode + system, None) + suffix[:-1] + quote_termination + "'"
-        rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, command))
-        if command is not None and subprocess.call(command, shell=True) == 0:
-            rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, self.pipelines[pipeline][mode + system + 'Delay']))
-            time.sleep(self.pipelines[pipeline][mode + system + 'Delay'])
-            start_time = rospy.Time.now()
-            while self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"] and (self.pipelines[pipeline][mode + system + 'Timeout'] == 0 or (rospy.Time.now() - start_time).to_sec() < self.pipelines[pipeline][mode + system + 'Timeout']):
-                if self.pipelines[pipeline][mode + system + 'FinishTrigger'] != '-':
-                    # TODO using timeout + trigger
-                    pass
-                else:
-                    # No trigger means we do not wait for timeout and break immediately
-                    break
-                rospy.loginfo_throttle(15.0, '[%s] (%s) ..' % (pipeline, mode))
-                time.sleep(1.0) 
-            rospy.loginfo('[%s] Execution done!' % pipeline)
-            if self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"]:
-                return True
+        if type(prefix) == str:
+            if prefix != "":
+                quote_termination = "'\\''"
+            command = "/bin/bash -c '" + prefix[:-1] + quote_termination + self.pipelines[pipeline].get(mode + system, None) + suffix[:-1] + quote_termination + "'"
+            return self.single_execute_system(pipeline, system, mode, command)
         else:
-            rospy.logerr('[%s] Execution failed!' % pipeline)
-        return False
+            for i in range(len(prefix)):
+                if prefix[i] != "":
+                    quote_termination = "'\\''"
+                command = "/bin/bash -c '" + prefix[i][:-1] + quote_termination + self.pipelines[pipeline].get(mode + system, None)[i] + suffix[i][:-1] + quote_termination + "'"
+                if not self.single_execute_system(pipeline, system, mode, command, i):
+                    return False
+            return True
 
     def thread_call(self, tag, command):
         self.call_result[tag] = -1 # -1 means timeout
@@ -426,7 +480,10 @@ class TestItDaemon:
         prelaunch_command = self.tests[test].get('preLaunchCommand', None)
         if prelaunch_command is not None:
             rospy.loginfo("[%s] Executing pre-launch command..." % pipeline)
-            command = prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && " + prelaunch_command + "\"" + suffix
+            quote_termination = "'"
+            if prefix != "":
+                quote_termination = "'\\''"
+            command = prefix + "docker exec " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + prelaunch_command + quote_termination + suffix
             rospy.loginfo("Executing '%s'" % command)
             return_value = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] Pre-launch command returned %s" % (pipeline, return_value))
@@ -468,7 +525,7 @@ class TestItDaemon:
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder" + quote_termination + suffix
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosbag record --split --max-splits=" + str(max_splits) + " --duration=" + str(duration) + " -O \"" + test + "\" " + exclude + topics + "__name:=testit_rosbag_recorder" + quote_termination + suffix
             rospy.loginfo("Executing '%s'" % command)
             bag_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] rosbag record returned %s" % (pipeline, bag_return))
@@ -478,7 +535,7 @@ class TestItDaemon:
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosrun testit testit_logger.py _config:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['loggerConfiguration']) + " _test:=\"" + self.tests[test]['tag'].replace(" ", "\\ ") + "\" _log:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "logger.log" + quote_termination + suffix
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && mkdir -p " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) +  " && cd " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + " && rosrun testit testit_logger.py _config:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['loggerConfiguration']) + " _test:=\"" + self.tests[test]['tag'].replace(" ", "\\ ") + "\" _log:=" + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "logger.log" + quote_termination + suffix
             rospy.loginfo("Executing '%s'" % command)
             logger_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] logger returned %s" % (pipeline, logger_return))
@@ -487,26 +544,26 @@ class TestItDaemon:
 
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         detached = ""
-        if self.tests[test]['oracle'] != "":
+        self.resolve_configuration_value(self.tests[test], pipeline, 'verbose', False)
+        if self.tests[test]['oracle'] != "" and not self.tests[test]['verbose']:
             # run in detached
             detached = "-d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
-        self.resolve_configuration_value(self.tests[test], pipeline, 'verbose', False)
-        if self.tests[test]['verbose']:
-            rospy.loginfo("[%s] launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
+        rospy.loginfo("[%s] Launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
         launch = self.tests[test].get('launch', "")
         start_time = rospy.Time.now()
         if launch != "":
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + quote_termination + suffix
+            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + quote_termination + suffix
             rospy.loginfo("[%s] Launch command is '%s'" % (pipeline, thread_command))
             thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
             thread.start()
-            thread.join(self.tests[test]['timeout'])
+            if not self.tests[test]['verbose']: # join only if not verbose
+                thread.join(self.tests[test]['timeout'])
         return_value = False
-        if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0:
+        if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "":
             # command returned success
             if detached == "":
                 # test success, because we didn't run in detached
@@ -519,7 +576,7 @@ class TestItDaemon:
                 quote_termination = "'"
                 if prefix != "":
                   quote_termination = "'\\''"
-                thread_command = prefix + "docker exec " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + quote_termination + suffix
+                thread_command = prefix + "docker exec " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + quote_termination + suffix
                 rospy.loginfo("[%s] Oracle command is '%s'" % (pipeline, thread_command))
                 thread = threading.Thread(target=self.thread_call, args=('oracle' + str(threading.current_thread().ident), thread_command))
                 thread.start()
@@ -544,12 +601,12 @@ class TestItDaemon:
 
         if bag_return == 0 and bag_enabled:
             rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder\"" + suffix
+            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder\"" + suffix
             rospy.loginfo("Executing '%s'" % command)
             subprocess.call(command, shell=True)
             rospy.sleep(2)
             rospy.loginfo("[%s] Setting privileges..." % pipeline)
-            subprocess.call(prefix + "docker exec -d " + self.pipelines[pipeline]['testItHost'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
+            subprocess.call(prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
             rospy.sleep(1)
             # Delete bags if success, merge split bags and keep if fail
             if not return_value or keep_bags:
@@ -626,17 +683,32 @@ class TestItDaemon:
         return return_value
 
     def get_command_wrapper(self, parameter, command, pipeline, add_quotes=True, add_space=True):
+        """
+        Returns a list of prefixes if *Connection is a list
+        """
         prefix = command + " "
         suffix = "'" if add_quotes else ""
         connection = self.pipelines[pipeline].get(parameter, "-")
-        if connection == "-":
-            connection = ""
-            suffix = ""
+        identity = self.pipelines[pipeline].get('identityFile', "-")
+        if identity != "-":
+            prefix += "-i " + identity + " "
+        if type(connection) == str:
+            if connection == "-":
+                connection = ""
+                suffix = ""
+            else:
+                connection = prefix + connection + (" " if add_space else "") + ("'" if add_quotes else "")
         else:
-            identity = self.pipelines[pipeline].get('identityFile', "-")
-            if identity != "-":
-                prefix += "-i " + identity + " "
-            connection = prefix + connection + (" " if add_space else "") + ("'" if add_quotes else "")
+            suffixes = []
+            prefixes = []
+            for i in range(len(connection)):
+                if connection[i] != "-":
+                    prefixes.append(prefix + connection[i] + (" " if add_space else "") + ("'" if add_quotes else ""))
+                    suffixes.append("'" if add_quotes else "")
+                else:
+                    prefixes.append("")
+                    suffixes.append("")
+            return prefixes, suffixes
         return connection, suffix
 
     def test_thread_worker(self, tag, keep_bags=False, pipeline=None):

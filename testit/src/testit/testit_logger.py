@@ -43,6 +43,7 @@ import json
 import yaml
 import testit_msgs.srv
 import uuid
+import threading
 
 class TestItLogger(object):
     def __init__(self):
@@ -63,14 +64,43 @@ class TestItLogger(object):
             sys.exit(-1)
         self.log_file = rospy.get_param('~log', None)
         self.coverage_enabled = True
+        self.seq = 0
         if self.configuration.get('coverage', None) is not None:
             self.coverage_enabled = self.configuration['coverage'].get("enable", True)
         if self.coverage_enabled:
-            self.coverage_client = rospy.ServiceProxy("/testit/flush_coverage", testit_msgs.srv.Coverage)
+            self.coverage = {}
+            self.coverage_mode = self.configuration['coverage'].get("mode", "srv")
+            self.reporting_time_limit = self.configuration['coverage'].get("reportingTimeLimit", 1.0)
+            self.coverage_lock = threading.Lock()
+            if self.coverage_mode == "srv":
+                self.coverage_client = rospy.ServiceProxy("/testit/flush_coverage", testit_msgs.srv.Coverage)
+            else:
+                #TODO topic mode
+                self.coverage_publisher = rospy.Publisher("/testit/flush_coverage", std_msgs.msg.UInt32, queue_size=10)
+                self.coverage_subscriber = rospy.Subscriber("/testit/flush_data", testit_msgs.msg.FlushData, self.flush_subscriber)
         if self.log_file is None:
             rospy.logerr("Log file not defined!")
             sys.exit(-1)
         self.run_id = str(uuid.uuid4())
+
+    def process_coverage_list(self, coverage, host_id="", seq=0):
+        self.coverage_lock.acquire()
+        try:
+            for file_coverage in coverage:
+                file_coverage.host_id = host_id
+                file_coverage.seq = seq
+                self.coverage[host_id+str(seq)+file_coverage.filename] = file_coverage
+        except Exception as e:
+            rospy.logerr("Exception from flush subscriber: %s" % e)
+        self.coverage_lock.release()
+
+    def flush_subscriber(self, data):
+        # Received report from SUT host, log it
+        # data is:
+        # str host_id
+        # uint32 seq
+        # FileCoverage[] -- str filename, int32[] lines
+        self.process_coverage_list(data.coverage, data.host_id, data.seq)
 
     def register_services_and_subscribe(self):
         """
@@ -118,15 +148,22 @@ class TestItLogger(object):
 
     def flush_coverage(self):
         if self.coverage_enabled:
-            try:
-                response = self.coverage_client()
-                if response.result:
-                    self.coverage = response.coverage
-                    #rospy.loginfo(self.coverage)
-                return True
-            except rospy.ServiceException, e:
-                rospy.logerr("Coverage flush failed: %s" % e)
-        return False
+            if self.coverage_mode == "srv":
+                try:
+                    response = self.coverage_client()
+                    if response.result:
+                        self.coverage = self.process_coverage_list(response.coverage)
+                    return True
+                except rospy.ServiceException, e:
+                    rospy.logerr("Coverage flush failed: %s" % e)
+            else:
+                # Topic mode
+                self.seq += 1
+                message = std_msgs.msg.UInt32()
+                message.data = self.seq
+                self.coverage_publisher.publish(message)
+                return self.seq
+        return None
 
     def write_log_entry(self, identifier, event, data):
         """
@@ -144,11 +181,34 @@ class TestItLogger(object):
         #rospy.loginfo("type is %s" % type(data))
         channel = {'identifier': self.mapping[identifier]['identifier'], 'proxy': self.mapping[identifier]['proxy'], 'type': self.mapping[identifier]['type']}
         entry = {'run_id': self.run_id, 'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
-        if self.flush_coverage():
-            #rospy.loginfo("Add coverage data to entry!")
-            entry['coverage'] = {}
-            for coverage_entry in self.coverage:
-                entry['coverage'][coverage_entry.filename] = coverage_entry.lines
+        seq = self.flush_coverage()
+        if seq is not None:
+            self.seq = seq
+            if self.seq > 0:
+                t = Timer(self.reporting_time_limit, self.add_coverage_entry, args=[entry, seq])
+                t.start()
+                return True
+            else:
+                return self.add_coverage_entry(entry, seq)
+
+    def add_coverage_entry(self, entry, seq):
+        entry['coverage'] = {}
+        self.coverage_lock.acquire()
+        try:
+            purge_keys = []
+            for entry in self.coverage:
+                if self.coverage[entry].seq != seq:
+                    continue
+                entry['coverage'][self.coverage[entry].filename] = {}
+                host_id = 
+                entry['coverage'][self.coverage[entry].filename][self.coverage[entry].host_id] = self.coverage[entry].lines
+                purge_keys.append(entry)
+            # Trim added entries
+            for key in purge_keys:
+                del self.coverage[key]
+        except Exception as e:
+            rospy.logerr("Exception when adding coverage entry: %s" % e)
+        self.coverage_lock.release()
         return self.add_entry(entry)
 
     def load_config_from_file(self):

@@ -8,7 +8,10 @@
 
 configuration:
   coverage:
-    enable: True # if True, logs coverage (via service "/testit/flush_coverage")
+    enable: True # if True, logs coverage
+    host: "" # unique SUT host identifier
+    mode: "srv" # if  srv=service (via service "/testit/flush_coverage"), msg=topic (via topic "/testit/flush_coverage")
+    reportingTimeLimit: 1.0 # time allocation for SUT hosts to send reports (in sec), only used in "msg" mode
 
   inputs: # SUT inputs (e.g., commands to SUT), triggers log entry
     - identifier: "" # topic/service proxy name (with full namespace, i.e., "/robot/odom")
