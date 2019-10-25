@@ -201,8 +201,7 @@ class TestItLogger(object):
             for entry in self.coverage:
                 if self.coverage[entry].seq != seq:
                     continue
-                entry['coverage'][self.coverage[entry].filename] = {}
-                host_id = 
+                entry['coverage'][self.coverage[entry].filename] = entry['coverage'].get(self.coverage[entry].filename, {})
                 entry['coverage'][self.coverage[entry].filename][self.coverage[entry].host_id] = self.coverage[entry].lines
                 purge_keys.append(entry)
             # Trim added entries
