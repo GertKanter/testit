@@ -44,6 +44,8 @@ import yaml
 import testit_msgs.srv
 import uuid
 import threading
+import testit_msgs.msg
+import std_msgs.msg
 
 class TestItLogger(object):
     def __init__(self):
@@ -87,9 +89,7 @@ class TestItLogger(object):
         self.coverage_lock.acquire()
         try:
             for file_coverage in coverage:
-                file_coverage.host_id = host_id
-                file_coverage.seq = seq
-                self.coverage[host_id+str(seq)+file_coverage.filename] = file_coverage
+                self.coverage[host_id+str(seq)+file_coverage.filename] = {'host_id': host_id, 'seq': seq, 'filename': file_coverage.filename,  'lines': file_coverage.lines}
         except Exception as e:
             rospy.logerr("Exception from flush subscriber: %s" % e)
         self.coverage_lock.release()
@@ -185,7 +185,7 @@ class TestItLogger(object):
         if seq is not None:
             self.seq = seq
             if self.seq > 0:
-                t = Timer(self.reporting_time_limit, self.add_coverage_entry, args=[entry, seq])
+                t = threading.Timer(self.reporting_time_limit, self.add_coverage_entry, args=[entry, seq])
                 t.start()
                 return True
             else:
@@ -196,12 +196,12 @@ class TestItLogger(object):
         self.coverage_lock.acquire()
         try:
             purge_keys = []
-            for entry in self.coverage:
-                if self.coverage[entry].seq != seq:
+            for key in self.coverage:
+                if self.coverage[key]["seq"] != seq:
                     continue
-                entry['coverage'][self.coverage[entry].filename] = entry['coverage'].get(self.coverage[entry].filename, {})
-                entry['coverage'][self.coverage[entry].filename][self.coverage[entry].host_id] = self.coverage[entry].lines
-                purge_keys.append(entry)
+                entry['coverage'][self.coverage[key]["filename"]] = entry['coverage'].get(self.coverage[key]["filename"], {})
+                entry['coverage'][self.coverage[key]["filename"]][self.coverage[key]["host_id"]] = self.coverage[key]["lines"]
+                purge_keys.append(key)
             # Trim added entries
             for key in purge_keys:
                 del self.coverage[key]
