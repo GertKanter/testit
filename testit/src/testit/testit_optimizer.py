@@ -138,18 +138,28 @@ class Optimizer:
                 channel = self.get_list_hash(entry['channel'].values())
                 self.channel_hashes[channel] = entry['channel']
                 if entry['event'] == "PRE":
-                    pre[channel] = entry
+                    pre[channel] = self.flatten_coverage(entry)
                 else:
                     # Only process after receiving "POST"
                     state_vector[channel] = str(entry['data'])
                     new_state = self.get_list_hash(state_vector.values())
                     self.state_hashes[new_state] = (state_vector, entry['data'])
                     edges = graph.get(current_state, [])
+                    entry = self.flatten_coverage(entry)
                     pre[channel]['coverage'].update(entry['coverage'])
                     edges.append([new_state, 1, self.create_parameter_dictionary(pre[channel]['coverage'], weights), self.create_parameter_dictionary(pre[channel]['coverage'], weights, weighted=True)])
                     graph[current_state] = edges
                     current_state = new_state
         return graph
+
+    def flatten_coverage(self, entry):
+        for key in entry['coverage']:
+            coverage = set()
+            if type(entry['coverage'][key]) == dict:
+                for host in entry['coverage'][key]:
+                    coverage.update(entry['coverage'][key][host])
+                entry['coverage'][key] = sorted(list(coverage))
+        return entry
 
     def merge_edges(self, graph):
         """
@@ -213,7 +223,10 @@ class Optimizer:
          {'id': [90, {newparams}]}
         """
         gains = {}
-        for edge in self.graph[state]: # All possible neighbors of the state
+        #rospy.loginfo(self.graph)
+        #rospy.logwarn(state)
+        edges = self.graph.get(state, [])
+        for edge in edges: # All possible neighbors of the state
             # edge[0] = destination
             # edge[2] = probabilities dictionary
             # edge[3] = weights dictionary
@@ -283,23 +296,35 @@ class Optimizer:
     def compute_step(self, max_depth, initial_state, parameter_state):
         self.new_tree_id = 0
         gain_tree = self.expand_tree_element({}, [self.new_tree_id, initial_state, {}, parameter_state], max_depth)
+        #rospy.loginfo("gain_tree = {}".format(gain_tree))
         # Find path gain
         self.update_path_gain(gain_tree, 0, 0, [])
-        best_gain = 0
+        #rospy.loginfo("gain_tree = {}".format(gain_tree))
+        best_gain = None
+        best_step = None
+        best_param_state = parameter_state
         for key in gain_tree:
             for child in gain_tree[key]:
                 node = gain_tree.get(child[0], None)
+                #rospy.loginfo("child = {}".format(child))
+                if best_gain is None and len(child[5]) > 1:
+                    best_gain = child[4]
+                    best_step = child[5][1]
                 if node is None:
                     # Terminal node
-                    if child[4] > best_gain or best_gain == 0:
+                    if child[4] > best_gain or best_gain is None:
                         best_gain = child[4]
                         best_step = child[5][1]
         selected_step = None
         for edge in gain_tree[0]:
+            if selected_step is None:
+                selected_step = edge[1]
+                best_param_state = edge[3]
             if edge[0] == best_step:
                 selected_step = edge[1]
                 best_param_state = edge[3]
                 break
+        #rospy.logwarn("selected_step = {}".format(selected_step))
         return (selected_step, best_param_state)
 
     def compute_parameter_state_value(self, state):
@@ -328,10 +353,14 @@ class Optimizer:
         next_step = [state, {}, 0]
         for _ in range(step_limit):
             next_step = self.compute_step(max_depth, next_step[0], next_step[1])
-            #print self.compute_parameter_state_value(next_step[1])
-            data = self.state_hashes[next_step[0]][1]#.values()[0]
-            channel = self.channel_hashes[self.state_hashes[next_step[0]][0].keys()[0]]
-            sequence.append((channel, data))
+            rospy.logwarn("next_step = {}".format(next_step))
+            if next_step[0] is not None:
+                data = self.state_hashes[next_step[0]][1]
+                channel = self.channel_hashes[self.state_hashes[next_step[0]][0].keys()[0]]
+                sequence.append((channel, data))
+            else:
+                # Dead end
+                break
         return sequence
 
 
@@ -350,14 +379,4 @@ def optimize(log_data, weights, test):
     optimizer = Optimizer(log_data, weights, test)
     sequence = optimizer.compute_sequence(step_limit = 100, max_depth = 2)
     
-    #run = log_data[0]['run_id']
-    #sequence = []
-    #for entry in log_data:
-        #if entry['run_id'] != run:
-        #    break
-        #if entry['event'] == "PRE":
-        #    continue
-        #step = (entry['channel'], entry['data'])
-        #rospy.loginfo(step[1]['target_pose']['pose']['position'])
-        #sequence.append(step)
     return sequence
