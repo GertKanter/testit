@@ -76,13 +76,13 @@ class TestItRunner:
                     rospy.loginfo("Waiting for '%s' action server..." % channel['identifier'])
                     self.action_clients[channel['identifier']].wait_for_server()
                 # Send command via client
-                self.goal = []
-                eval("self.goal.append(" + channel_type + "Goal())", dict(globals().items() + [('self', self)]))
+                #self.goal = []
+                #eval("self.goal.append(" + channel_type.replace("Action", "") + "Goal())", dict(globals().items() + [('self', self)]))
                 message_type = channel_type.replace("Action", "").replace(".msg", "").replace(".", "/") + "Goal"
                 rospy.loginfo(message_type)
-                self.goal[0].goal = message_converter.convert_dictionary_to_ros_message(message_type, data)
-                rospy.loginfo(self.goal)
-                self.action_clients[channel['identifier']].send_goal(self.goal[0])
+                #self.goal[0].goal = 
+                #rospy.loginfo(self.goal)
+                self.action_clients[channel['identifier']].send_goal(message_converter.convert_dictionary_to_ros_message(message_type, data))
                 self.action_clients[channel['identifier']].wait_for_result()
 
     def do_import(self, channel_type):
