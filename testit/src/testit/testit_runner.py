@@ -57,9 +57,13 @@ class TestItRunner:
         self.imports = []
         self.optimizer = testit_optimizer.Optimizer(log_data, weights, test)
 
+    def run(self):
         next_step = ["INIT", {}, 0]
         while True:
             next_step = self.optimizer.compute_step(2, next_step[0], next_step[1])
+            if next_step[0] is None:
+                rospy.logerr("No next step!")
+                break
             data = self.optimizer.state_hashes[next_step[0]][1]
             channel = self.optimizer.channel_hashes[self.optimizer.state_hashes[next_step[0]][0].keys()[0]]
 
@@ -105,8 +109,6 @@ if __name__ == "__main__":
         rospy.logerr("weights not specified!")
         sys.exit(-1)
     testit_runner = TestItRunner(filename, weights, test)
-    rospy.loginfo("TestIt runner started...")
+    rospy.loginfo("TestIt runner initialized...")
+    testit_runner.run()
 
-
-    rospy.spin()
-    rospy.loginfo("Shut down everything!")
