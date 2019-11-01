@@ -69,6 +69,7 @@ class TestItDaemon:
         rospy.Service('testit/shutdown', testit.srv.Command, self.handle_shutdown)
         rospy.Service('testit/credits', testit.srv.Command, self.handle_credits)
         rospy.Service('testit/optimize', testit.srv.Command, self.handle_optimize_log_scenario)
+        rospy.Service('testit/online', testit.srv.Command, self.handle_online_test)
         self.initialize()
 
     def initialize(self):
@@ -404,7 +405,10 @@ class TestItDaemon:
             for i in range(len(prefix)):
                 if prefix[i] != "":
                     quote_termination = "'\\''"
-                command = "/bin/bash -c '" + prefix[i][:-1] + quote_termination + self.pipelines[pipeline].get(mode + system, None)[i] + suffix[i][:-1] + quote_termination + "'"
+                configured_command = self.pipelines[pipeline].get(mode + system, None)
+                if type(configured_command) == list:
+                    configured_command = configured_command[i]
+                command = "/bin/bash -c '" + prefix[i][:-1] + quote_termination + configured_command + suffix[i][:-1] + quote_termination + "'"
                 if not self.single_execute_system(pipeline, system, mode, command, i):
                     return False
             return True
@@ -539,6 +543,8 @@ class TestItDaemon:
             rospy.loginfo("Executing '%s'" % command)
             logger_return = subprocess.call(command, shell=True)
             rospy.loginfo("[%s] logger returned %s" % (pipeline, logger_return))
+            rospy.loginfo("[%s] Setting privileges..." % pipeline)
+            subprocess.call(prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
         else:
             rospy.loginfo("Logger not configured ('loggerConfiguration'), skipping logger start!")
 
@@ -556,16 +562,16 @@ class TestItDaemon:
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + quote_termination + suffix
+            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItContainerName'] + " stdbuf -i0 -o0 -e0 /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + quote_termination + suffix
             rospy.loginfo("[%s] Launch command is '%s'" % (pipeline, thread_command))
             thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
             thread.start()
-            if not self.tests[test]['verbose']: # join only if not verbose
+            if not self.tests[test]['verbose'] or self.tests[test]['oracle'] == "": # join only if not verbose or no oracle
                 thread.join(self.tests[test]['timeout'])
         return_value = False
-        if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "":
-            # command returned success
-            if detached == "":
+        if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "" or self.tests[test]['verbose']:
+            # command returned success or in verbose mode (run oracle in parallel)
+            if detached == "" and launch != "":
                 # test success, because we didn't run in detached
                 rospy.loginfo("[%s] TEST PASS!" % pipeline)
                 return_value = True
@@ -1425,6 +1431,18 @@ class TestItDaemon:
                     else:
                         rospy.logerr("No entries found for file '%s'!" % req.args)
                         result = False
+        return testit.srv.CommandResponse(result, message)
+
+    def handle_online_test(self, req):
+        """
+        Prepare for online testing by sending log file to each testItConnection
+        """
+        message = "Prepare for online testing"
+        result = True
+        
+        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+        # Send log
+        
         return testit.srv.CommandResponse(result, message)
 
     def handle_optimize_log_scenario(self, req):
