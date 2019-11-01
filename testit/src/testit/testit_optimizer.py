@@ -293,7 +293,11 @@ class Optimizer:
                 tree = self.update_path_gain(tree, edge[0], edge[2] + gain, path_copy)
         return tree
 
-    def compute_step(self, max_depth, initial_state, parameter_state):
+    def compute_step(self, max_depth, initial_state, parameter_state, selection_mode=0):
+        """
+        Args:
+         selection_mode - 0=best, 1=random, 2=worst
+        """
         self.new_tree_id = 0
         gain_tree = self.expand_tree_element({}, [self.new_tree_id, initial_state, {}, parameter_state], max_depth)
         #rospy.loginfo("gain_tree = {}".format(gain_tree))
@@ -303,6 +307,7 @@ class Optimizer:
         best_gain = None
         best_step = None
         best_param_state = parameter_state
+        options = []
         for key in gain_tree:
             for child in gain_tree[key]:
                 node = gain_tree.get(child[0], None)
@@ -312,9 +317,12 @@ class Optimizer:
                     best_step = child[5][1]
                 if node is None:
                     # Terminal node
-                    if child[4] > best_gain or best_gain is None:
+                    if (child[4] > best_gain and selection_mode == 0) or (child[4] < best_gain and selection_mode == 2) or (selection_mode == 1) or best_gain is None:
+                        options.append(child[5][1])
                         best_gain = child[4]
                         best_step = child[5][1]
+        if selection_mode == 1: # random
+            best_step = random.choice(options)
         selected_step = None
         for edge in gain_tree[0]:
             if selected_step is None:
