@@ -1,6 +1,10 @@
 TestIt: a Scalable Long-Term Autonomy Testing Toolkit for ROS
 =============================================================
 
+## Citation
+
+For academic use, please cite our journal paper in [JRIE](http://link.springer.com/article/10.1007/s40860-019-00095-w)
+
 ## Overview
 
 TestIt toolkit aims to simplify, optimize and automate testing for ROS-based autonomous robots in a CI-friendly way.
