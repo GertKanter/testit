@@ -15,7 +15,8 @@ add_service_files(
 catkin_python_setup()
 
 generate_messages(
-  # DEPENDENCIES
+  DEPENDENCIES
+  std_msgs
 )
 
 catkin_package(
@@ -26,11 +27,11 @@ install(PROGRAMS bin/testit_command.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 ## Configure Tests
-if(CATKIN_ENABLE_TESTING)
-  find_package(rostest REQUIRED)
+# if(CATKIN_ENABLE_TESTING)
+  # find_package(rostest REQUIRED)
 
-  execute_process(COMMAND docker pull ros:latest)
-  execute_process(COMMAND rosrun testit build_local_testit_docker.sh)
+  # execute_process(COMMAND docker pull ros:latest)
+  # execute_process(COMMAND rosrun testit build_local_testit_docker.sh)
 
-  add_rostest(test/01/config.test)
-endif()
+  # add_rostest(test/01/config.test)
+# endif()
