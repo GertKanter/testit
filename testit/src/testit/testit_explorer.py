@@ -464,7 +464,8 @@ class Explorer:
         print("getting state machine")
         if self.state_machine is not None:
             return self.state_machine
-        path = self.test_config.get('state_machine', None)
+        print(self.test_config)
+        path = self.test_config.get('stateMachine', None)
         print(path)
         if path is None:
             return None
