@@ -5,6 +5,7 @@ from __future__ import print_function
 import importlib
 import json
 import re
+import subprocess
 import threading
 import yaml
 from collections import OrderedDict
@@ -65,6 +66,21 @@ def lmap(fn, xs):
     return list(map(fn, xs))
 
 
+def execute_command(command, prefix='', suffix=''):
+    """
+    Process paths with bash commands.
+    E.g., '$(rospack find testit)/data/' to '/home/user/catkin_ws/src/testit/testit/data/'
+    """
+    if prefix == "":
+        process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command], stdout=subprocess.PIPE)
+    else:
+        cmd = prefix + "/bin/bash -c '\\''echo " + command + "'\\''" + suffix
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    out, err = process.communicate()
+    out = out.replace("\n", "")
+    return out
+
+
 class Action:
     def __init__(self, index, step):
         self.index = index
@@ -90,7 +106,7 @@ class ModelRefinementMoveStrategy:
         self.state_machine = kwargs['state_machine']
         self.state_values = self.state_machine['state_values']
         self.edges = self.state_machine['edges']
-        self.edge_labeks = self.state_machine['edge_labels']
+        self.edge_labels = self.state_machine['edge_labels']
 
         self.topics = []
         self.actions = []
@@ -363,6 +379,7 @@ class Explorer:
         self.goal_type = None
         self.feedback_type = None
         self.initial_state = None
+        self.state_machine = None
         self.topics = None
         self.synced_topics = None
         self.log = None
@@ -412,7 +429,8 @@ class Explorer:
     def init_synced_topics_robot_movers(self):
         for synced_topics in self.synced_topics:
             initial_state = []
-            robot_move_strategy = self.move_strategy_factory()  # type: MoveStrategy or ModelRefinementMoveStrategy
+            robot_move_strategy = self.move_strategy_factory(
+                state_machine=self.get_state_machine())  # type: MoveStrategy or ModelRefinementMoveStrategy
             synced_topics_configs = []
             for i in synced_topics:
                 topic = self.topics[i]
@@ -429,8 +447,8 @@ class Explorer:
             if i in flattened_synced_topics:
                 continue
             actions, constants, initial_state = self.get_actions_constants_initial_of_topic(topic)
-            robot_move_strategy = self.move_strategy_factory()
-            robot_move_strategy.add(actions)
+            robot_move_strategy = self.move_strategy_factory(state_machine=self.get_state_machine())
+            robot_move_strategy.add(actions, topic)
             robot_move_strategy.set_initial_state(initial_state)
             self.robot_movers.append(self.robot_mover_factory(robot_move_strategy, topic))
 
@@ -438,6 +456,17 @@ class Explorer:
         self.init_synced_topics_robot_movers()
         self.init_not_synced_topics_robot_movers()
         rospy.sleep(1)
+
+    def get_state_machine(self):
+        if self.state_machine is not None:
+            return self.state_machine
+        path = self.test_config.get('state_machine', None)
+        if path is None:
+            return None
+        state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
+        with open(state_machine_path, 'r') as file:
+            self.state_machine = yaml.load(file)
+        return self.state_machine
 
     def read_log(self):
         logger_path = rospy.get_param('/testit_logger/log')

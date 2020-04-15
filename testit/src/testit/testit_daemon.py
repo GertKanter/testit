@@ -777,6 +777,7 @@ class TestItDaemon:
                 return
             else:
                 rospy.loginfo("Continuing with pipeline %s" % pipeline)
+        rospy.set_param('testit/pipeline', self.pipelines[pipeline])
         self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
         # runSUT
         rospy.loginfo("[%s] Running SUT..." % pipeline)
