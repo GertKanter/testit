@@ -117,16 +117,19 @@ class ModelRefinementMoveStrategy:
         self.initial_state = None
         self.visited = set()
         self.path = []
-        self.path_cursor = 0;
+        self.path_cursor = 0
+        self.state = None
 
     def set_initial_state(self, state):
         self.initial_state = state
+        self.state = state
 
     def set_previous_states(self, states):
         pass
 
     def give_feedback(self, success):
-        pass
+        if success:
+            self.visited.add(self.state)
 
     def add(self, actions, topic):
         self.actions += actions
@@ -152,9 +155,11 @@ class ModelRefinementMoveStrategy:
             self.path_cursor += 1
             if self.path_cursor > len(self.path):
                 return None
-            return self.path[::-1][self.path_cursor - 1]
+            self.state = self.path[::-1][self.path_cursor - 1]
+            return self.state
 
         states = self.state_value_to_states(value)
+        self.state = states
         self.path.append(states)
         print("Returning states:")
         print(states)
