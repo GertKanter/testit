@@ -117,8 +117,10 @@ class ModelRefinementMoveStrategy:
         self.initial_state = None
         self.visited = set()
         self.path = []
+        self.closest_pairs = self.get_closest_pairs()
         self.path_cursor = 0
         self.state = None
+        self.next_state = None
 
     def set_initial_state(self, state):
         self.initial_state = state
@@ -130,6 +132,7 @@ class ModelRefinementMoveStrategy:
     def give_feedback(self, success):
         if success:
             self.visited.add(self.state)
+            self.path.append(self.state)
 
     def add(self, actions, topic):
         self.actions += actions
@@ -144,26 +147,44 @@ class ModelRefinementMoveStrategy:
             last_i = i
         return states
 
-    def get_next_states(self):
-        value = None
-        for state in self.state_values:
-            if state not in self.visited:
-                value = self.state_values[state]
-                break
+    def get_distance(self, state1, state2):
+        return sqrt(sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(state1, state2))))
 
-        if value is None:
-            self.path_cursor += 1
-            if self.path_cursor > len(self.path):
-                return None
-            self.state = self.path[::-1][self.path_cursor - 1]
+    def get_closest_pairs(self):
+        pairs_by_distance = []
+        for state1 in self.state_values:
+            value1 = self.state_values[state1]
+            for state2 in self.state_values:
+                if state1 == state2:
+                    continue
+                value2 = self.state_values[state2]
+                distance = self.get_distance(value1, value2)
+                pairs_by_distance.append((distance, (state1, state2)))
+        pairs_by_distance.sort(key=lambda triple: triple[0])
+        return dict(lmap(lambda x: x[1], pairs_by_distance))
+
+    def get_next_states(self):
+        if self.next_state is not None:
+            self.state = self.next_state
+            self.next_state = None
             return self.state
 
-        states = self.state_value_to_states(value)
-        self.state = states
-        self.path.append(states)
-        print("Returning states:")
-        print(states)
-        return states
+        for state in self.state_values:
+            if state not in self.visited:
+                if state in self.closest_pairs:
+                    self.state = self.state_value_to_states(self.state_values[state])
+                    self.next_state = self.state_value_to_states(self.state_values[self.closest_pairs[state]])
+                    return self.state
+
+                self.state = self.state_value_to_states(self.state_values[state])
+                return self.state
+
+        if self.path_cursor >= len(self.path):
+            return None
+
+        self.state = self.path[::-1][self.path_cursor]
+        self.path_cursor += 1
+        return self.state
 
 
 class MoveStrategy:
