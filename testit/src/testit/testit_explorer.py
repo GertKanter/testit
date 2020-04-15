@@ -129,7 +129,7 @@ class ModelRefinementMoveStrategy:
         pass
 
     def add(self, actions, topic):
-        print("adding actions n " + str(len(actions)) + " in topic " + topic)
+        print("adding actions n " + str(len(actions)) + " in topic " + str(topic))
         self.actions += actions
         self.action_lens.append(len(self.actions))
         print(self.action_lens)
