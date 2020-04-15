@@ -461,6 +461,7 @@ class Explorer:
         rospy.sleep(1)
 
     def get_state_machine(self):
+        print("getting state machine")
         if self.state_machine is not None:
             return self.state_machine
         path = self.test_config.get('state_machine', None)
