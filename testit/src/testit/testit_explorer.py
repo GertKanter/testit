@@ -391,7 +391,7 @@ class Explorer:
     def read_test_config(self):
         param = rospy.get_param('testit/tests')
         print(param)
-        tests = json.loads(param)
+        tests = lmap(json.loads, rospy.get_param('testit/tests'))
         test_tag = rospy.get_param('testit_logger/test')
         for test in tests:
             if test['tag'] == test_tag:
