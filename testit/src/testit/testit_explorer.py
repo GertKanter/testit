@@ -389,9 +389,7 @@ class Explorer:
         self.topics = logger_config['configuration']['inputs']
 
     def read_test_config(self):
-        param = rospy.get_param('testit/tests')
-        print(param)
-        tests = lmap(json.loads, rospy.get_param('testit/tests').replace("'", '"'))
+        tests = rospy.get_param('testit/tests')
         test_tag = rospy.get_param('testit_logger/test')
         for test in tests:
             if test['tag'] == test_tag:
