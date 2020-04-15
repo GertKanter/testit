@@ -129,15 +129,19 @@ class ModelRefinementMoveStrategy:
         pass
 
     def add(self, actions, topic):
+        print("adding actions n " + str(len(actions)) + " in topic " + topic)
         self.actions += actions
         self.action_lens.append(len(self.actions))
+        print(self.action_lens)
         self.topics.append(topic)
 
     def state_value_to_states(self, value):
         states = []
         last_i = 0
+        print(self.action_lens)
         for i in self.action_lens:
             states.append(value[last_i:i])
+            last_i = i
         return states
 
     def get_next_states(self):
