@@ -390,8 +390,7 @@ class Explorer:
 
     def read_test_config(self):
         param = rospy.get_param('testit/tests')
-        print(param)
-        tests = yaml.load(param)
+        tests = json.loads(param)
         test_tag = rospy.get_param('testit_logger/test')
         for test in tests:
             if test['tag'] == test_tag:
