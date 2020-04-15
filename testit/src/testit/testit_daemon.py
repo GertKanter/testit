@@ -562,7 +562,16 @@ class TestItDaemon:
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
-            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItContainerName'] + " stdbuf -i0 -o0 -e0 /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['launch'] + quote_termination + suffix
+            launch = self.tests[test].get('launch', '')
+            launch_addition = ""
+            mode = self.tests[test].get('mode', 'test')
+            launch_addition += " &&" if launch != "" else ""
+            if mode == "explore" or mode == "model refinement":
+                launch_addition += "rosrun testit testit_explorer.py"
+            launch += launch_addition
+            source = "source /catkin_ws/devel/setup.bash"
+            source += " &&" if launch != "" else ""
+            thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItContainerName'] + " stdbuf -i0 -o0 -e0 /bin/bash -c " + quote_termination + source + launch + launch_addition + quote_termination + suffix
             rospy.loginfo("[%s] Launch command is '%s'" % (pipeline, thread_command))
             thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
             thread.start()

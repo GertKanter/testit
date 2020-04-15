@@ -389,7 +389,9 @@ class Explorer:
         self.topics = logger_config['configuration']['inputs']
 
     def read_test_config(self):
-        tests = yaml.load(rospy.get_param('testit/tests'))
+        param = rospy.get_param('testit/tests')
+        print(param)
+        tests = yaml.load(param)
         test_tag = rospy.get_param('testit_logger/test')
         for test in tests:
             if test['tag'] == test_tag:
