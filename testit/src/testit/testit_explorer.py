@@ -85,8 +85,64 @@ class Action:
         return actions
 
 
+class ModelRefinementMoveStrategy:
+    def __init__(self, **kwargs):
+        self.state_machine = kwargs['state_machine']
+        self.state_values = self.state_machine['state_values']
+        self.edges = self.state_machine['edges']
+        self.edge_labeks = self.state_machine['edge_labels']
+
+        self.topics = []
+        self.actions = []
+        self.action_lens = []
+        self.initial_state = None
+        self.visited = set()
+        self.path = []
+        self.path_cursor = 0;
+
+    def set_initial_state(self, state):
+        self.initial_state = state
+
+    def set_previous_states(self, states):
+        pass
+
+    def give_feedback(self, success):
+        pass
+
+    def add(self, actions, topic):
+        self.actions += actions
+        self.action_lens.append(len(self.actions))
+        self.topics.append(topic)
+
+    def state_value_to_states(self, value):
+        states = []
+        last_i = 0
+        for i in self.action_lens:
+            states.append(value[last_i:i])
+        return states
+
+    def get_next_states(self):
+        value = None
+        for state in self.state_values:
+            if state not in self.visited:
+                value = self.state_values[state]
+                break
+
+        if value is None:
+            self.path_cursor += 1
+            if self.path_cursor > len(self.path):
+                return None
+            return self.path[::-1][self.path_cursor - 1]
+
+        states = self.state_value_to_states(value)
+        self.path.append(states)
+        print("Returning states:")
+        print(states)
+        return states
+
+
 class MoveStrategy:
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.initial_state = tuple()
         self.state = tuple()
         self.next_state = tuple()
@@ -100,7 +156,7 @@ class MoveStrategy:
 
         self.current_path = []
 
-    def add(self, actions):
+    def add(self, actions, topic):
         self.add_actions(actions)
         self.add_split()
 
@@ -300,10 +356,9 @@ class RobotMover:
 
 
 class Explorer:
-    def __init__(self, move_strategy_factory=MoveStrategy, robot_mover_factory=RobotMover):
-        # type: (type(MoveStrategy), type(RobotMover)) -> None
-        self.move_strategy_factory = move_strategy_factory
-        self.robot_mover_factory = robot_mover_factory
+    def __init__(self):
+        self.robot_mover_factory = RobotMover
+        self.move_strategy_factory = MoveStrategy
 
         self.goal_type = None
         self.feedback_type = None
@@ -311,12 +366,15 @@ class Explorer:
         self.topics = None
         self.synced_topics = None
         self.log = None
+        self.test_config = None
         self.actions = []
-        self.robot_movers = []  # type: List[robot_mover_factory]
+        self.robot_movers = []  # type: List[RobotMover]
 
         self.init_ros()
         self.read_config()
+        self.read_test_config()
         self.read_log()
+        self.set_move_strategy_factory()
         self.init_robot_movers()
 
     def init_ros(self):
@@ -330,6 +388,20 @@ class Explorer:
         self.synced_topics = logger_config['configuration'].get('syncedExploreTopics', [])
         self.topics = logger_config['configuration']['inputs']
 
+    def read_test_config(self):
+        tests = yaml.load(rospy.get_param('testit/tests'))
+        test_tag = rospy.get_param('testit_logger/test')
+        for test in tests:
+            if test['tag'] == test_tag:
+                self.test_config = test
+                return
+
+    def set_move_strategy_factory(self):
+        if self.test_config['mode'] == 'model refinement':
+            self.move_strategy_factory = ModelRefinementMoveStrategy
+        else:
+            self.move_strategy_factory = MoveStrategy
+
     def get_actions_constants_initial_of_topic(self, topic):
         constants, variables = topic['explore'].get('constants', []), topic['explore'].get('variables', [])
         steps = lmap(lambda variable: variable['step'], variables)
@@ -340,14 +412,14 @@ class Explorer:
     def init_synced_topics_robot_movers(self):
         for synced_topics in self.synced_topics:
             initial_state = []
-            robot_move_strategy = self.move_strategy_factory()  # type: MoveStrategy
+            robot_move_strategy = self.move_strategy_factory()  # type: MoveStrategy or ModelRefinementMoveStrategy
             synced_topics_configs = []
             for i in synced_topics:
                 topic = self.topics[i]
                 synced_topics_configs.append(topic)
                 topic_actions, topic_constants, initial = self.get_actions_constants_initial_of_topic(topic)
                 initial_state += initial
-                robot_move_strategy.add(topic_actions)
+                robot_move_strategy.add(topic_actions, topic)
             robot_move_strategy.set_initial_state(initial_state)
             self.robot_movers.append(self.robot_mover_factory(robot_move_strategy, synced_topics_configs))
 
@@ -476,6 +548,8 @@ class Explorer:
         return states_matrix
 
     def move_to_last_state_in_log(self):
+        if self.test_config['mode'] != 'explore':
+            return
         logs_by_tests = self.get_logs_by_tests()
         test_tag = rospy.get_param('/testit_logger/test')
         logs = logs_by_tests.get(test_tag, [])
