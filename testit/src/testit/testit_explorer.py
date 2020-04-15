@@ -104,6 +104,9 @@ class Action:
 class ModelRefinementMoveStrategy:
     def __init__(self, **kwargs):
         self.state_machine = kwargs['state_machine']
+        if not self.state_machine:
+            rospy.logerr("stateMachine not specified in config")
+            raise RuntimeError("stateMachine not specified in config")
         self.state_values = self.state_machine['state_values']
         self.edges = self.state_machine['edges']
         self.edge_labels = self.state_machine['edge_labels']
@@ -461,11 +464,14 @@ class Explorer:
         if self.state_machine is not None:
             return self.state_machine
         path = self.test_config.get('state_machine', None)
+        print(path)
         if path is None:
             return None
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
+        print(state_machine_path)
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
+        print(self.state_machine)
         return self.state_machine
 
     def read_log(self):
