@@ -565,8 +565,8 @@ class TestItDaemon:
             launch = self.tests[test].get('launch', '')
             launch_addition = ""
             mode = self.tests[test].get('mode', 'test')
-            launch_addition += " && " if launch != "" else ""
             if mode == "explore" or mode == "model refinement":
+                launch_addition += " && " if launch != "" else ""
                 launch_addition += "rosrun testit testit_explorer.py"
             launch += launch_addition
             source = "source /catkin_ws/devel/setup.bash"
