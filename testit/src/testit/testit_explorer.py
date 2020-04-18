@@ -210,6 +210,7 @@ class ModelRefinementMoveStrategy:
             return None
 
         self.state = self.path[::-1][self.path_cursor]
+        print("Going back in path: " + str(self.state))
         self.path_cursor += 1
         return self.state_value()
 
