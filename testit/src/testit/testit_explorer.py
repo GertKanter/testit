@@ -122,26 +122,27 @@ class ModelRefinementMoveStrategy:
         self.prev_state = None
         self.state = None
         self.next_state = None
+        self.connecting = False
 
         self.closest_pairs = self.get_closest_pairs()
 
     def set_initial_state(self, state):
-        self.initial_state = state
-        self.state = state
+        self.initial_state = self.get_state_label(state)
+        self.state = self.initial_state
+        self.give_feedback(True)
 
     def set_previous_states(self, states):
         pass
 
     def give_feedback(self, success):
-        flat_state = flatten(self.state, tuple)
         if success:
             self.prev_state = self.state
-            self.visited.add(flat_state)
-            self.path.append(flat_state)
+            self.visited.add(self.state)
+            self.path.append(self.state)
         else:
             if self.prev_state:
+                self.inaccessible[self.prev_state] = self.state
                 self.state = self.prev_state
-                self.inaccessible[flatten(self.prev_state, tuple)] = self.state
 
     def add(self, actions, topic):
         self.actions += actions
@@ -164,7 +165,7 @@ class ModelRefinementMoveStrategy:
         for state1 in self.state_values:
             value1 = self.state_values[state1]
             for state2 in self.state_values:
-                if state1 == state2 or state2 in self.edges[state1] or state2 in self.inaccessible[flatten(state1)]:
+                if state1 == state2 or state2 in self.edges[state1] or state2 in self.inaccessible[state1]:
                     continue
                 value2 = self.state_values[state2]
                 distance = self.get_distance(value1, value2)
@@ -172,28 +173,39 @@ class ModelRefinementMoveStrategy:
         pairs_by_distance.sort(key=lambda triple: triple[0])
         return dict(lmap(lambda x: x[1], pairs_by_distance))
 
+    def get_state_label(self, state):
+        return min(self.state_values, key=lambda s: self.get_distance(state, flatten(self.state_values[s])))
+
+    def state_value(self):
+        return self.state_value_to_states(self.state_values[self.state])
+
     def get_next_states(self):
         if self.next_state is not None:
             self.state = self.next_state
-            self.next_state = None
-            return self.state
+            if self.connecting:
+                self.next_state = self.prev_state
+                self.connecting = False
+            else:
+                self.next_state = None
+            return self.state_value()
 
-        for state in self.state_values:
+        for state in self.edges[self.prev_state]:
             if state not in self.visited:
-                if state in self.closest_pairs:
-                    self.state = self.state_value_to_states(self.state_values[state])
-                    self.next_state = self.state_value_to_states(self.state_values[self.closest_pairs[state]])
-                    return self.state
+                if state in self.closest_pairs and not self.closest_pairs[state] in self.inaccessible[state]:
+                    self.state = state
+                    self.next_state = self.closest_pairs[state]
+                    self.connecting = True
+                    return self.state_value()
 
                 self.state = self.state_value_to_states(self.state_values[state])
-                return self.state
+                return self.state_value()
 
         if self.path_cursor >= len(self.path):
             return None
 
         self.state = self.path[::-1][self.path_cursor]
         self.path_cursor += 1
-        return self.state
+        return self.state_value()
 
 
 class MoveStrategy:
