@@ -116,11 +116,14 @@ class ModelRefinementMoveStrategy:
         self.action_lens = []
         self.initial_state = None
         self.visited = set()
+        self.inaccessible = {}
         self.path = []
-        self.closest_pairs = self.get_closest_pairs()
         self.path_cursor = 0
+        self.prev_state = None
         self.state = None
         self.next_state = None
+
+        self.closest_pairs = self.get_closest_pairs()
 
     def set_initial_state(self, state):
         self.initial_state = state
@@ -130,9 +133,15 @@ class ModelRefinementMoveStrategy:
         pass
 
     def give_feedback(self, success):
+        flat_state = flatten(self.state, tuple)
         if success:
-            self.visited.add(self.state)
-            self.path.append(self.state)
+            self.prev_state = self.state
+            self.visited.add(flat_state)
+            self.path.append(flat_state)
+        else:
+            if self.prev_state:
+                self.state = self.prev_state
+                self.inaccessible[flatten(self.prev_state, tuple)] = self.state
 
     def add(self, actions, topic):
         self.actions += actions
@@ -155,7 +164,7 @@ class ModelRefinementMoveStrategy:
         for state1 in self.state_values:
             value1 = self.state_values[state1]
             for state2 in self.state_values:
-                if state1 == state2:
+                if state1 == state2 or state2 in self.edges[state1] or state2 in self.inaccessible[flatten(state1)]:
                     continue
                 value2 = self.state_values[state2]
                 distance = self.get_distance(value1, value2)
