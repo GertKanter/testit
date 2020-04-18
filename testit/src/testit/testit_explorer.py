@@ -175,7 +175,7 @@ class ModelRefinementMoveStrategy:
         return dict(lmap(lambda x: x[1], pairs_by_distance))
 
     def get_state_label(self, state):
-        return min(self.state_values, key=lambda s: self.get_distance(state, flatten(self.state_values[s])))
+        return min(self.state_values, key=lambda s: self.get_distance(state, self.state_values[s]))
 
     def state_value(self):
         return self.state_value_to_states(self.state_values[self.state])
