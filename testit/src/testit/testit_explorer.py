@@ -178,15 +178,19 @@ class ModelRefinementMoveStrategy:
         return min(self.state_values, key=lambda s: self.get_distance(state, self.state_values[s]))
 
     def state_value(self):
-        return self.state_value_to_states(self.state_values[self.state])
+        states = self.state_value_to_states(self.state_values[self.state])
+        print(states)
+        return states
 
     def get_next_states(self):
         if self.next_state is not None:
             self.state = self.next_state
             if self.connecting:
+                print("Going back to path")
                 self.next_state = self.prev_state
                 self.connecting = False
             else:
+                print("Going to closest pair state: " + str(self.state))
                 self.next_state = None
             return self.state_value()
 
@@ -195,10 +199,11 @@ class ModelRefinementMoveStrategy:
                 if state in self.closest_pairs and not self.closest_pairs[state] in self.inaccessible.get(state, []):
                     self.state = state
                     self.next_state = self.closest_pairs[state]
+                    print("Found closest pair: " + str(self.state) + " -> " + str(self.next_state))
                     self.connecting = True
                     return self.state_value()
-
-                self.state = self.state_value_to_states(self.state_values[state])
+                print("Going to regular state: " + str(state))
+                self.state = state
                 return self.state_value()
 
         if self.path_cursor >= len(self.path):
