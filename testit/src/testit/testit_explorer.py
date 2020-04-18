@@ -184,9 +184,15 @@ class ModelRefinementMoveStrategy:
 
     def get_next_states(self):
         if self.next_state is not None:
+            self.prev_state = self.state
             self.state = self.next_state
-            print("Going to closest pair state: " + str(self.state))
-            self.next_state = None
+            if self.connecting:
+                print("Going to closest pair state: " + str(self.state))
+                self.next_state = self.prev_state
+                self.connecting = False
+            else:
+                print("Going back to path: " + str(self.state))
+                self.next_state = None
             return self.state_value()
 
         for state in self.edges[self.prev_state]:
@@ -194,7 +200,9 @@ class ModelRefinementMoveStrategy:
                 if state in self.closest_pairs and not self.closest_pairs[state] in self.inaccessible.get(state, []):
                     self.state = state
                     self.next_state = self.closest_pairs[state]
+                    self.connecting = True
                     print("Found closest pair: " + str(self.state) + " -> " + str(self.next_state))
+                    print("Going to state: " + str(self.state))
                     return self.state_value()
                 print("Going to regular state: " + str(state))
                 self.state = state
