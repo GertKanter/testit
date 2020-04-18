@@ -165,7 +165,8 @@ class ModelRefinementMoveStrategy:
         for state1 in self.state_values:
             value1 = self.state_values[state1]
             for state2 in self.state_values:
-                if state1 == state2 or state2 in self.edges[state1] or state2 in self.inaccessible[state1]:
+                if state1 == state2 or state2 in self.edges.get(state1, []) or state2 in self.inaccessible.get(state1,
+                                                                                                               []):
                     continue
                 value2 = self.state_values[state2]
                 distance = self.get_distance(value1, value2)
