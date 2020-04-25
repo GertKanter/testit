@@ -60,8 +60,7 @@ def execute_command(command, prefix='', suffix=''):
 
 
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, StateMachineToUppaalResponse, \
-    LogToUppaal, LogToUppaalRequest, \
-    LogToUppaalResponse, WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse
+    WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse
 
 
 class ServiceProvider:
@@ -72,9 +71,10 @@ class ServiceProvider:
         # cts_service = rospy.Service('/testit/learn/statemachine', ClusterToStateMachine,
         #                             self.cluster_to_statemachine_service)
         self.statemachine_to_uppaal = rospy.Service('/testit/learn/statemachine/uppaal', StateMachineToUppaal,
-                                    self.statemachine_to_uppaal_model_service)
+                                                    self.statemachine_to_uppaal_model_service)
         self.log_to_uppaal = rospy.Service('/testit/learn/log/uppaal', LogToUppaal, self.log_to_uppaal_model_service)
-        self.write_uppaal = rospy.Service('/testit/learn/write/uppaal', WriteUppaalModel, self.write_uppaal_model_service)
+        self.write_uppaal = rospy.Service('/testit/learn/write/uppaal', WriteUppaalModel,
+                                          self.write_uppaal_model_service)
 
     def get_main(self, log_path=None):
         return Main(log_path) \
@@ -988,7 +988,8 @@ class Main:
                 self.test_it.write_model(uppaal_automata, test, input_types)
 
     def write_uppaal_automata(self, test, input_types, automata):
-        directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/')
+        directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
+                    rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/')
         self.test_it.write_model(automata, test, input_types,
                                  directory=directory)
 
