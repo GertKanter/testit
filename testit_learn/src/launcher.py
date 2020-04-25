@@ -20,7 +20,8 @@ class Launcher:
         self.read_config()
 
     def read_config(self):
-        logger_config_path = self.test_config['loggerConfiguration']
+        logger_config_path = rospy.get_param('testit/pipeline/sharedDirectory') + self.test_config[
+            'loggerConfiguration']
         with open(logger_config_path, 'r') as file:
             self.logger_config = yaml.load(file)
 
