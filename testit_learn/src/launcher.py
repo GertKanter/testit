@@ -16,8 +16,8 @@ class Launcher:
         self.test_config = None
         self.test_tag = None
 
-        self.read_config()
         self.read_test_config()
+        self.read_config()
 
     def read_config(self):
         logger_config_path = self.test_config['loggerConfiguration']
