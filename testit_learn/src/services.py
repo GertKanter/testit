@@ -60,19 +60,18 @@ def execute_command(command, prefix='', suffix=''):
 
 
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, StateMachineToUppaalResponse, \
-    WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse
+    WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse, LogToCluster, ClusterToStateMachine
 
 
 class ServiceProvider:
     def __init__(self):
         rospy.init_node("testit_learn", anonymous=True)
 
-        # ltc_service = rospy.Service('/testit/learn/cluster', LogToCluster, self.log_to_cluster_service)
-        # cts_service = rospy.Service('/testit/learn/statemachine', ClusterToStateMachine,
-        #                             self.cluster_to_statemachine_service)
+        self.log_to_cluster = rospy.Service('/testit/learn/log/cluster', LogToCluster, self.log_to_cluster_service)
+        self.cluster_to_statemachine = rospy.Service('/testit/learn/cluster/statemachine', ClusterToStateMachine,
+                                     self.cluster_to_statemachine_service)
         self.statemachine_to_uppaal = rospy.Service('/testit/learn/statemachine/uppaal', StateMachineToUppaal,
                                                     self.statemachine_to_uppaal_model_service)
-        self.log_to_uppaal = rospy.Service('/testit/learn/log/uppaal', LogToUppaal, self.log_to_uppaal_model_service)
         self.write_uppaal = rospy.Service('/testit/learn/write/uppaal', WriteUppaalModel,
                                           self.write_uppaal_model_service)
 
@@ -82,15 +81,17 @@ class ServiceProvider:
             .set_clusterer(Clusterer) \
             .set_uppaal_automata(UppaalAutomata)
 
+    def log_to_cluster_service(self, req):
+        pass
+
+    def cluster_to_statemachine_service(self, req):
+        pass
+
     def statemachine_to_uppaal_model_service(self, req):
         # type: (StateMachineToUppaalRequest) -> StateMachineToUppaalResponse
         uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test)
 
         return StateMachineToUppaalResponse(str(uppaal_automata))
-
-    def log_to_uppaal_model_service(self, req):
-        # type: (LogToUppaalRequest) -> LogToUppaalResponse
-        return LogToUppaalResponse(self.get_main(req.log_path).get_uppaal_automatas(req.test))
 
     def write_uppaal_model_service(self, req):
         # type: (WriteUppaalModelRequest) -> WriteUppaalModelResponse
