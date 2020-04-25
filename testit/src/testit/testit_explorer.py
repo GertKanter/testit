@@ -13,6 +13,8 @@ from math import sqrt
 
 import rospy
 
+from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
+
 try:
     from typing import *
 except:
@@ -129,13 +131,17 @@ class ModelRefinementMoveStrategy:
     def set_initial_state(self, state):
         self.initial_state = self.get_state_label(state)
         self.state = self.initial_state
-        self.give_feedback(True)
+        self.give_feedback([True] * len(self.topics))
 
     def set_previous_states(self, states):
         pass
 
-    def give_feedback(self, success):
-        if success:
+    def give_feedback(self, successes):
+        if any(successes):
+            if self.state not in self.edges.get(self.prev_state, []):
+                self.edges[self.prev_state].append(self.state)
+                index = successes.index(True)
+                self.edge_labels[(self.prev_state, self.state)] = self.topics[index]
             self.prev_state = self.state
             self.visited.add(self.state)
             self.path.append(self.state)
@@ -347,8 +353,8 @@ class MoveStrategy:
         self.find_new_path()
         return self.get_next_states(True)
 
-    def give_feedback(self, success):
-        if not success:
+    def give_feedback(self, successes):
+        if not any(successes):
             self.inaccessible.add(self.next_state)
             self.next_state = None
         else:
@@ -427,7 +433,7 @@ class RobotMover:
 
             responses = lmap(lambda args: self.move_to_state(*args), enumerate(states))
 
-            self.robot_move_strategy.give_feedback(any(responses))
+            self.robot_move_strategy.give_feedback(responses)
             self.log_for_each_topic(' goal reached?: ', responses)
 
 
@@ -521,16 +527,12 @@ class Explorer:
         print("getting state machine")
         if self.state_machine is not None:
             return self.state_machine
-        print(self.test_config)
         path = self.test_config.get('stateMachine', None)
-        print(path)
         if path is None:
             return None
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
-        print(state_machine_path)
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
-        print(self.state_machine)
         return self.state_machine
 
     def read_log(self):
@@ -657,12 +659,39 @@ class Explorer:
         for thread in threads:
             thread.join()
 
+    def maybe_write_new_model(self):
+        if self.test_config['mode'] == 'model refinement':
+            path = self.test_config('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
+            get_uppaal = rospy.ServiceProxy(path, StateMachineToUppaal)
+
+            input_types_matrix = list(map(lambda topics: [self.topics[i] for i in topics], self.synced_topics))
+            for input_types in input_types_matrix:
+                get_uppaal.wait_for_service()
+
+                request = StateMachineToUppaalRequest()
+                request.test = self.test_config['tag']
+                request.stateMachine = self.state_machine
+                request.inputTypes = input_types
+
+                response = get_uppaal(request)  # type: StateMachineToUppaalResponse
+
+                file_name = ''.join(
+                    map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))), input_types))
+                model_path = file_name + '-refined_model.xml'
+                file_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + model_path
+
+                with open(file_path, 'w') as file:
+                    file.write(response.uppaalModel)
+
     def explore(self):
+
         self.move_to_last_state_in_log()
 
         for i, robot_mover in enumerate(self.robot_movers):
             rospy.loginfo('Exploring topics: ' + str(robot_mover.topic_identifiers))
             threading.Thread(target=robot_mover.move).start()
+
+        self.maybe_write_new_model()
 
 
 if __name__ == '__main__':

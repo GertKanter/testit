@@ -60,6 +60,7 @@ class TestItDaemon:
         rospy.Service('testit/teardown', testit.srv.Command, self.handle_teardown)
         rospy.Service('testit/status', testit.srv.Command, self.handle_status)
         rospy.Service('testit/test', testit.srv.Command, self.handle_test)
+        rospy.Service('testit/learn', testit.srv.Command, self.handle_learn)
         rospy.Service('testit/results', testit.srv.Command, self.handle_results)
         rospy.Service('testit/bag/collect', testit.srv.Command, self.handle_bag_collect)
         rospy.Service('testit/coverage', testit.srv.Command, self.handle_coverage)
@@ -70,6 +71,7 @@ class TestItDaemon:
         rospy.Service('testit/credits', testit.srv.Command, self.handle_credits)
         rospy.Service('testit/optimize', testit.srv.Command, self.handle_optimize_log_scenario)
         rospy.Service('testit/online', testit.srv.Command, self.handle_online_test)
+
         self.initialize()
 
     def initialize(self):
@@ -82,7 +84,9 @@ class TestItDaemon:
         if self.configuration is None:
             rospy.logerror("No configuration defaults defined in configuration!")
             sys.exit(-1)
-        self.tests = self.set_defaults(self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag'), self.configuration)
+        tests = self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag')
+        tests.update(self.rosparam_list_to_dict(rospy.get_param('testit/jobs', None), 'tag'))
+        self.tests = self.set_defaults(tests, self.configuration)
         self.tests = self.substitute_replacement_values(self.tests)
         if self.tests is None:
             rospy.logerror("No tests defined in configuration!")
@@ -556,7 +560,6 @@ class TestItDaemon:
             detached = "-d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
         rospy.loginfo("[%s] Launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
-        launch = self.tests[test].get('launch', "")
         start_time = rospy.Time.now()
         if launch != "":
             quote_termination = "'"
@@ -565,9 +568,15 @@ class TestItDaemon:
             launch = self.tests[test].get('launch', '')
             launch_addition = ""
             mode = self.tests[test].get('mode', 'test')
-            if mode == "explore" or mode == "model refinement":
+            if mode == "explore":
                 launch_addition += " && " if launch != "" else ""
                 launch_addition += "rosrun testit testit_explorer.py"
+            elif mode == "model-refinement":
+                launch_addition += " && " if launch != "" else ""
+                launch_addition += "rosrun testit testit_explorer.py && rosrun testit_learn testit_learn.py _launch=False"
+            elif mode == "learn":
+                launch_addition += " && " if launch != "" else ""
+                launch_addition += "rosrun testit_learn testit_learn.py _launch=True"
             launch += launch_addition
             source = "source /catkin_ws/devel/setup.bash"
             source += " &&" if launch != "" else ""
@@ -614,88 +623,7 @@ class TestItDaemon:
         else:
             rospy.logerr("[%s] Test FAIL!" % pipeline)
 
-        if bag_return == 0 and bag_enabled:
-            rospy.loginfo("[%s] Stop rosbag recording..." % pipeline)
-            command = prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosnode kill /testit_rosbag_recorder\"" + suffix
-            rospy.loginfo("Executing '%s'" % command)
-            subprocess.call(command, shell=True)
-            rospy.sleep(2)
-            rospy.loginfo("[%s] Setting privileges..." % pipeline)
-            subprocess.call(prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
-            rospy.sleep(1)
-            # Delete bags if success, merge split bags and keep if fail
-            if not return_value or keep_bags:
-                # To avoid adding ROS as a prerequisite for TestIt pipeline, we have to copy the files to local, merge, upload merge, delete remote
-                rospy.loginfo("[%s] Merging bag files..." % pipeline)
-                self.resolve_configuration_value(self.tests[test], pipeline, 'testItVolume')
-                if self.pipelines[pipeline].get('testItConnection', "-") == "-":
-                    # Local pipeline
-                    bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'], prefix, suffix)
-                else:
-                    # Remote pipeline
-                    rospy.loginfo("[%s] Copying bag files from pipeline..." % pipeline )
-                    bags_directory = tempfile.mkdtemp()
-                    rospy.loginfo("Local temp directory is '%s'" % bags_directory)
-                    remote_bags_directory = self.ground_path(self.tests[test]['testItVolume'] + self.tests[test]['resultsDirectory'], prefix, suffix)
-                    testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "scp", pipeline, False, False)
-                    command = testit_prefix + ":" + remote_bags_directory + "*bag " + bags_directory
-                    rospy.loginfo("Executing '%s'" % command)
-                    copy_return_value = subprocess.call(command, shell=True)
-                    if copy_return_value != 0:
-                        rospy.logerr("[%s] Unable to copy bags from pipeline!" % pipeline)
-                        return return_value
-                try:
-                    files = sorted([f for f in os.listdir(bags_directory) if os.path.isfile(os.path.join(bags_directory, f)) and f.startswith(test) and f.endswith(".bag")])
-                except Exception as e:
-                    rospy.logerr("Path not found ('%s')!" % bags_directory)
-                bags = []
-                for f in files:
-                   bags.append((f, os.stat(os.path.join(bags_directory, f)).st_mtime))
-                bags = sorted(bags, key=lambda x: x[1])
-                # Merge bags
-                merged_filename = os.path.join(bags_directory, str(test) + ".bag")
-                testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
-                with rosbag.Bag(merged_filename, 'w') as outfile:
-                    for i, bag in enumerate(bags):
-                        rospy.loginfo("[%s] Merging '%s'... (%s/%s)" % (pipeline, bag[0], str(i+1), str(len(bags))))
-                        with rosbag.Bag(os.path.join(bags_directory, bag[0]), 'r') as infile:
-                            for topic, msg, t in infile:
-                                outfile.write(topic, msg, t)
-                        # Remove the individual bag file
-                        if self.pipelines[pipeline].get('testItConnection', "-") == "-":
-                            os.remove(os.path.join(bags_directory, bag[0]))
-                        else:
-                            rospy.loginfo("[%s] Removing pipeline bag file..." % pipeline)
-                            command = testit_prefix + "rm -rf \"" + remote_bags_directory + bag[0] + "\"" + testit_suffix
-                            remove_result = subprocess.call(command, shell=True)
-                            if remove_result != 0:
-                                rospy.logerr("[%s] Unable to remove bag file from pipeline!" % pipeline)
-                rospy.loginfo("[%s] Done!" % pipeline)
-                # Upload to remote if needed
-                if self.pipelines[pipeline].get('testItConnection', "-") != "-":
-                    rospy.loginfo("[%s] Uploading bag file to pipeline..." % pipeline)
-                    identity = self.pipelines[pipeline].get('identityFile', "-")
-                    if identity != "-":
-                        identity = "-i " + identity
-                    else:
-                        identity = ""
-                    command = "scp " + identity + " \"" + merged_filename + "\" " + self.pipelines[pipeline]['testItConnection'] + ":" + remote_bags_directory
-                    rospy.loginfo("[%s] Executing '%s'" % (pipeline, command))
-                    upload_return_value = subprocess.call(command, shell=True)
-                    rospy.loginfo("[%s] Done!" % pipeline)
-                    if upload_return_value != 0:
-                        rospy.logerr("[%s] Unable to upload bag file to pipeline!" % pipeline)
-                    rospy.loginfo("[%s] Removing local temp bag directory..." % pipeline)
-                    remove_result = subprocess.call("rm -rf " + bags_directory, shell=True)
-                    if remove_result != 0:
-                        rospy.logerr("[%s] Unable to remove local temp bag directory!" % pipeline)
-                    rospy.loginfo("[%s] Done!" % pipeline)
-            else:
-                # Delete bags
-                rospy.loginfo("[%s] Removing bag files..." % pipeline)
-                if not self.delete_bag_files(pipeline, test, prefix, suffix):
-                    rospy.logwarn("[%s] Rosbag deletion failed!" % pipeline)
-        return return_value
+        return True
 
     def get_command_wrapper(self, parameter, command, pipeline, add_quotes=True, add_space=True):
         """
@@ -725,6 +653,74 @@ class TestItDaemon:
                     suffixes.append("")
             return prefixes, suffixes
         return connection, suffix
+
+    def learn_thread_worker(self, tag, pipeline=None):
+        self.tests[tag]['reserved_credits'] = self.tests[tag].get('reserved_credits', 0)
+        # check whether credits > 0, or return
+
+        if pipeline is None:
+            #TODO if specific pipeline is specified for a test, acquire that specific pipeline
+            while self.test_threads.get(threading.current_thread().ident, 0) == 0:
+                time.sleep(0.01) # Wait until main thread has created the thread entry in the dictionary
+            self.test_threads[threading.current_thread().ident]['queued'] = True
+            pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
+            self.test_threads[threading.current_thread().ident]['queued'] = False
+            rospy.loginfo("Acquired pipeline '%s' for test '%s'" % (pipeline, tag))
+        else:
+            # We have to free the pipeline if higher priority tasks are waiting in test_thread pool
+            highest_queued_priority = None
+            for thread in self.test_threads:
+                test = self.test_threads[thread]['tag']
+                priority = self.tests[test].get('priority', 0)
+                queued = self.test_threads[thread].get('queued', False)
+                requested_pipeline = self.tests[test].get('pipeline', "")
+                if test != tag and queued and (highest_queued_priority is None or priority > highest_queued_priority):
+                    #TODO consider wildcards for pipeline
+                    if requested_pipeline == "" or pipeline == requested_pipeline:
+                        highest_queued_priority = priority
+            rospy.loginfo("Highest queued priority is %s" % highest_queued_priority)
+            priority = self.tests[tag].get('priority', 0)
+            if highest_queued_priority is not None and highest_queued_priority > priority:
+                rospy.loginfo("Releasing the pipeline to higher priority test...")
+                self.free_pipeline(pipeline)
+                rospy.loginfo("Pipeline freed!")
+                rospy.loginfo("Add to queue again in 5 sec...")
+                time.sleep(5.0)
+                self.tests[tag]['reserved_credits'] -= 1
+                rospy.loginfo("Adding to queue...")
+                #FIXME this will raise recursion limit exceeded if the project has scenarios with large number of credits or complex priority/queuing!
+                self.learn_thread_worker(tag)
+                return
+            else:
+                rospy.loginfo("Continuing with pipeline %s" % pipeline)
+        rospy.set_param('testit/pipeline', self.pipelines[pipeline])
+        self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
+        # runSUT
+        rospy.loginfo("[%s] Running SUT..." % pipeline)
+        sut_prefix, sut_suffix = self.get_command_wrapper("sutConnection", "ssh", pipeline)
+        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+
+        rospy.loginfo("[%s] Running TestIt..." % pipeline)
+        if self.execute_system(pipeline, 'TestIt', 'run', testit_prefix, testit_suffix):
+            rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
+            self.tests[tag]['test_start_timestamp'] = rospy.Time.now()
+            self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, False, testit_prefix, testit_suffix)
+            self.tests[tag]['test_end_timestamp'] = rospy.Time.now()
+            self.tests[tag]['executor_pipeline'] = pipeline
+            # stopTestIt
+            rospy.loginfo("[%s] Stopping TestIt container..." % pipeline)
+            self.execute_system(pipeline, 'TestIt', 'stop', testit_prefix, testit_suffix)
+        else:
+            # unable to run TestIt
+            rospy.logerr("[%s] Unable to run TestIt!" % pipeline)
+            rospy.sleep(1.0)
+
+        self.tests[tag]['reserved_credits'] -= 1
+        if self.tests[tag]['credits'] > 0:
+            rospy.loginfo("Test '%s' has %s credits remaining! Continuing..." % (tag, self.tests[tag]['credits']))
+            self.test_thread_worker(tag, keep_bags, pipeline)
+        else:
+            self.free_pipeline(pipeline)
 
     def test_thread_worker(self, tag, keep_bags=False, pipeline=None):
         """
@@ -993,6 +989,38 @@ class TestItDaemon:
                         message += self.log(True, "Test '%s' credits: %s" % (test['tag'], test.get('credits', 0)), "info")
         return testit.srv.CommandResponse(result, message)
 
+    def handle_learn(self, req):
+        rospy.logdebug("Test requested")
+        result = True
+        message = ""
+        # Create list with tests to execute
+        queue = [test for test in self.tests if test.get('mode', 'test') == 'learn']
+        no_credit_increment = False
+
+        rospy.loginfo("Learn scenarios queued: " + str(queue))
+        for test in queue: # key
+            self.tests[test]['executing'] = self.tests[test].get('executing', False)
+            if not self.tests[test]['executing']:
+                self.tests[test]['result'] = None
+                if not no_credit_increment:
+                    self.tests[test]['credits'] = self.tests[test].get('credits', 0)
+                    if self.tests[test]['credits'] == 0:
+                        rospy.loginfo("Auto incrementing '%s' test credits..." % test)
+                        self.tests[test]['credits'] += 1
+                self.tests[test]['executing'] = True
+                threads = 0
+                concurrency = self.tests[test].get('concurrency', 1)
+                for _ in self.pipelines:
+                    thread = threading.Thread(target=self.learn_thread_worker, args=(test, ))
+                    thread.start()
+                    threads += 1
+                    if concurrency != 0 and threads >= concurrency:
+                        break
+            else:
+                rospy.logerr("Learning '%s' is already executing!" % test)
+
+        return testit.srv.CommandResponse(result, message)
+
     def handle_test(self, req):
         rospy.logdebug("Test requested")
         result = True
@@ -1002,6 +1030,7 @@ class TestItDaemon:
         blocking = False
         keep_bags = False
         no_credit_increment = False
+        mode = "test"
         if len(req.args) > 0:
             # Determine whether to block or not
             if "--keep-bags" in req.args:
@@ -1013,8 +1042,15 @@ class TestItDaemon:
             if "--no-credit-increment" in req.args:
                 no_credit_increment = True
                 req.args = req.args.replace("--no-credit-increment", "", 1)
+            if "--explore" in req.args:
+                mode = "explore"
+            if "--refine-model" in req.args:
+                mode = "refine-model"
+            if "--learn" in req.args:
+                mode = "learn"
             if len(req.args.strip()) > 0:
                 queue = []
+            queue = list(filter(lambda test: test.get('mode') == mode, queue))
             scenarios = set(self.tokenize_arguments(req.args)) # Remove duplicates
             for scenario in scenarios:
                 found = False
@@ -1499,6 +1535,7 @@ class TestItDaemon:
             testit_common.append_to_json_file(entry, daemon_log_fullname, mode="w" if i == 0 else "a+")
         rospy.loginfo("Finished!")
         return testit.srv.CommandResponse(result, message)
+
 
 if __name__ == "__main__":
     rospy.init_node('testit_daemon')
