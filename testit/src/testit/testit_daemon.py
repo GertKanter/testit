@@ -84,8 +84,11 @@ class TestItDaemon:
         if self.configuration is None:
             rospy.logerror("No configuration defaults defined in configuration!")
             sys.exit(-1)
-        tests = self.rosparam_list_to_dict(rospy.get_param('testit/tests', None), 'tag')
-        tests.update(self.rosparam_list_to_dict(rospy.get_param('testit/jobs', None), 'tag'))
+        tests = rospy.get_param('testit/tests', [])
+        tests += rospy.get_param('testit/jobs', [])
+        rospy.set_param('testit/tests', tests)
+        rospy.set_param('testit/jobs', tests)
+        tests = self.rosparam_list_to_dict(rospy.get_param('testit/tests', {}), 'tag')
         self.tests = self.set_defaults(tests, self.configuration)
         self.tests = self.substitute_replacement_values(self.tests)
         if self.tests is None:
@@ -560,14 +563,15 @@ class TestItDaemon:
             detached = "-d "
         rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
         rospy.loginfo("[%s] Launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
+        launch = self.tests[test].get('launch', "")
         start_time = rospy.Time.now()
-        if launch != "":
+        mode = self.tests[test].get('mode', 'test')
+        if launch != "" or mode == 'learn':
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
             launch = self.tests[test].get('launch', '')
             launch_addition = ""
-            mode = self.tests[test].get('mode', 'test')
             if mode == "explore":
                 launch_addition += " && " if launch != "" else ""
                 launch_addition += "rosrun testit testit_explorer.py"
@@ -576,10 +580,10 @@ class TestItDaemon:
                 launch_addition += "rosrun testit testit_explorer.py && rosrun testit_learn testit_learn.py _launch=False"
             elif mode == "learn":
                 launch_addition += " && " if launch != "" else ""
-                launch_addition += "rosrun testit_learn testit_learn.py _launch=True"
+                launch_addition += "rosrun testit_learn launcher.py"
             launch += launch_addition
             source = "source /catkin_ws/devel/setup.bash"
-            source += " &&" if launch != "" else ""
+            source += " &&" if launch.strip() != "" else ""
             thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline]['testItContainerName'] + " stdbuf -i0 -o0 -e0 /bin/bash -c " + quote_termination + source + launch + quote_termination + suffix
             rospy.loginfo("[%s] Launch command is '%s'" % (pipeline, thread_command))
             thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
@@ -589,33 +593,8 @@ class TestItDaemon:
         return_value = False
         if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "" or self.tests[test]['verbose']:
             # command returned success or in verbose mode (run oracle in parallel)
-            if detached == "" and launch != "":
-                # test success, because we didn't run in detached
-                rospy.loginfo("[%s] TEST PASS!" % pipeline)
-                return_value = True
-            else:
-                # running detached, run oracle to assess test pass/fail
-                # execute oracle in TestIt docker
-                rospy.loginfo("[%s] Executing oracle..." % pipeline)
-                quote_termination = "'"
-                if prefix != "":
-                  quote_termination = "'\\''"
-                thread_command = prefix + "docker exec " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c " + quote_termination + "source /catkin_ws/devel/setup.bash && " + self.tests[test]['oracle'] + quote_termination + suffix
-                rospy.loginfo("[%s] Oracle command is '%s'" % (pipeline, thread_command))
-                thread = threading.Thread(target=self.thread_call, args=('oracle' + str(threading.current_thread().ident), thread_command))
-                thread.start()
-                thread.join(max(0.1, self.tests[test]['timeout'] - (rospy.Time.now() - start_time).to_sec()))
-                if self.call_result['oracle' + str(threading.current_thread().ident)] == 0:
-                    # oracle reports test pass
-                    rospy.loginfo("[%s] TEST PASS!" % pipeline)
-                    return_value = True
-                elif self.call_result['oracle' + str(threading.current_thread().ident)] == -1:
-                    rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
-                    if self.tests[test]['timeoutVerdict']:
-                        return_value = True
-                else:
-                    # oracle reports test failed
-                    rospy.logerr("[%s] TEST FAIL!" % pipeline)
+            rospy.loginfo("[%s] TEST PASS!" % pipeline)
+            return_value = True
         elif self.call_result['launch' + str(threading.current_thread().ident)] == -1:
             rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
             if self.tests[test]['timeoutVerdict']:
@@ -623,7 +602,7 @@ class TestItDaemon:
         else:
             rospy.logerr("[%s] Test FAIL!" % pipeline)
 
-        return True
+        return return_value
 
     def get_command_wrapper(self, parameter, command, pipeline, add_quotes=True, add_space=True):
         """
@@ -655,13 +634,14 @@ class TestItDaemon:
         return connection, suffix
 
     def learn_thread_worker(self, tag, pipeline=None):
-        self.tests[tag]['reserved_credits'] = self.tests[tag].get('reserved_credits', 0)
-        # check whether credits > 0, or return
-
+        rospy.loginfo("Learn thread worker: " + tag)
         if pipeline is None:
             #TODO if specific pipeline is specified for a test, acquire that specific pipeline
+            rospy.loginfo("Waiting for main thread")
             while self.test_threads.get(threading.current_thread().ident, 0) == 0:
                 time.sleep(0.01) # Wait until main thread has created the thread entry in the dictionary
+            rospy.loginfo("Done waiting for main thread")
+
             self.test_threads[threading.current_thread().ident]['queued'] = True
             pipeline = self.acquire_pipeline(tag) # find a free pipeline (blocking)
             self.test_threads[threading.current_thread().ident]['queued'] = False
@@ -695,14 +675,11 @@ class TestItDaemon:
                 rospy.loginfo("Continuing with pipeline %s" % pipeline)
         rospy.set_param('testit/pipeline', self.pipelines[pipeline])
         self.tests = self.substitute_replacement_values(self.tests, self.pipelines[pipeline])
-        # runSUT
-        rospy.loginfo("[%s] Running SUT..." % pipeline)
-        sut_prefix, sut_suffix = self.get_command_wrapper("sutConnection", "ssh", pipeline)
         testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
 
         rospy.loginfo("[%s] Running TestIt..." % pipeline)
         if self.execute_system(pipeline, 'TestIt', 'run', testit_prefix, testit_suffix):
-            rospy.loginfo("[%s] Executing tests in TestIt container..." % pipeline)
+            rospy.loginfo("[%s] Executing learn in TestIt container..." % pipeline)
             self.tests[tag]['test_start_timestamp'] = rospy.Time.now()
             self.tests[tag]['result'] = self.execute_in_testit_container(pipeline, tag, False, testit_prefix, testit_suffix)
             self.tests[tag]['test_end_timestamp'] = rospy.Time.now()
@@ -715,12 +692,6 @@ class TestItDaemon:
             rospy.logerr("[%s] Unable to run TestIt!" % pipeline)
             rospy.sleep(1.0)
 
-        self.tests[tag]['reserved_credits'] -= 1
-        if self.tests[tag]['credits'] > 0:
-            rospy.loginfo("Test '%s' has %s credits remaining! Continuing..." % (tag, self.tests[tag]['credits']))
-            self.test_thread_worker(tag, keep_bags, pipeline)
-        else:
-            self.free_pipeline(pipeline)
 
     def test_thread_worker(self, tag, keep_bags=False, pipeline=None):
         """
@@ -994,25 +965,20 @@ class TestItDaemon:
         result = True
         message = ""
         # Create list with tests to execute
-        queue = [test for test in self.tests if test.get('mode', 'test') == 'learn']
-        no_credit_increment = False
+        queue = [test for test in self.tests if self.tests[test].get('mode', 'test') == 'learn']
 
         rospy.loginfo("Learn scenarios queued: " + str(queue))
         for test in queue: # key
             self.tests[test]['executing'] = self.tests[test].get('executing', False)
             if not self.tests[test]['executing']:
                 self.tests[test]['result'] = None
-                if not no_credit_increment:
-                    self.tests[test]['credits'] = self.tests[test].get('credits', 0)
-                    if self.tests[test]['credits'] == 0:
-                        rospy.loginfo("Auto incrementing '%s' test credits..." % test)
-                        self.tests[test]['credits'] += 1
                 self.tests[test]['executing'] = True
                 threads = 0
                 concurrency = self.tests[test].get('concurrency', 1)
                 for _ in self.pipelines:
                     thread = threading.Thread(target=self.learn_thread_worker, args=(test, ))
                     thread.start()
+                    self.test_threads[thread.ident] = {'thread': thread, 'result': None, 'tag': test}
                     threads += 1
                     if concurrency != 0 and threads >= concurrency:
                         break
@@ -1026,11 +992,11 @@ class TestItDaemon:
         result = True
         message = ""
         # Create list with tests to execute
+        mode = "test"
         queue = [test for test in self.tests]
         blocking = False
         keep_bags = False
         no_credit_increment = False
-        mode = "test"
         if len(req.args) > 0:
             # Determine whether to block or not
             if "--keep-bags" in req.args:
@@ -1042,15 +1008,18 @@ class TestItDaemon:
             if "--no-credit-increment" in req.args:
                 no_credit_increment = True
                 req.args = req.args.replace("--no-credit-increment", "", 1)
+            if "--test" in req.args:
+                mode = "test"
+                req.args = req.args.replace("--test", "", 1)
             if "--explore" in req.args:
                 mode = "explore"
+                req.args = req.args.replace("--explore", "", 1)
             if "--refine-model" in req.args:
                 mode = "refine-model"
-            if "--learn" in req.args:
-                mode = "learn"
+                req.args = req.args.replace("--refine-model", "", 1)
+
             if len(req.args.strip()) > 0:
                 queue = []
-            queue = list(filter(lambda test: test.get('mode') == mode, queue))
             scenarios = set(self.tokenize_arguments(req.args)) # Remove duplicates
             for scenario in scenarios:
                 found = False
@@ -1060,6 +1029,8 @@ class TestItDaemon:
                         queue.append(scenario)
                 if not found:
                     rospy.logwarn("Unknown test tag specified '%s'" % scenario)
+
+        queue = list(filter(lambda test: self.tests[test].get('mode', 'test') == mode, queue))
         rospy.loginfo("Test scenarios queued: " + str(queue))
         for test in queue: # key
             self.tests[test]['executing'] = self.tests[test].get('executing', False)

@@ -1,0 +1,4 @@
+string[] log
+string test
+---
+ClusterPoint[] data

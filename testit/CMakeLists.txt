@@ -29,8 +29,8 @@ install(PROGRAMS bin/testit_command.py
 if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
 
-  execute_process(COMMAND docker pull ros:latest)
-  execute_process(COMMAND rosrun testit build_local_testit_docker.sh)
+  #execute_process(COMMAND docker pull ros:latest)
+  #execute_process(COMMAND rosrun testit build_local_testit_docker.sh)
 
   add_rostest(test/01/config.test)
 endif()

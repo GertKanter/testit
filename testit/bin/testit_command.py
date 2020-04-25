@@ -54,10 +54,12 @@ class TestIt:
         rospy.wait_for_service('testit/shutdown')
         rospy.wait_for_service('testit/credits')
         rospy.wait_for_service('testit/optimize')
+        rospy.wait_for_service('testit/learn')
         self.bringup_service = rospy.ServiceProxy('testit/bringup', testit.srv.Command)
         self.teardown_service = rospy.ServiceProxy('testit/teardown', testit.srv.Command)
         self.status_service = rospy.ServiceProxy('testit/status', testit.srv.Command)
         self.test_service = rospy.ServiceProxy('testit/test', testit.srv.Command)
+        self.learn_service = rospy.ServiceProxy('testit/learn', testit.srv.Command)
         self.results_service = rospy.ServiceProxy('testit/results', testit.srv.Command)
         self.bag_collect_service = rospy.ServiceProxy('testit/bag/collect', testit.srv.Command)
         self.clean_service = rospy.ServiceProxy('testit/clean', testit.srv.Command)
@@ -112,16 +114,24 @@ class TestIt:
     def status(self, args):
         self.call_service(self.status_service, args)
 
-    def test(self, args):
-        rospy.loginfo("Starting testing...")
+    def get_job(self, mode):
+        def job(args):
+            rospy.loginfo("Starting testing with mode " + mode + " ...")
+            args.pipeline = args.scenario
+            if args.keep_bags:
+                args.pipeline.insert(0, "--keep-bags")
+            if args.blocking:
+                args.pipeline.insert(0, "--blocking")
+            if args.no_credit_increment:
+                args.pipeline.insert(0, "--no-credit-increment")
+            args.pipeline.insert(0, "--" + mode)
+            self.call_service(self.test_service, args)
+        return job
+
+    def learn(self, args):
+        rospy.loginfo("Starting learning ...")
         args.pipeline = args.scenario
-        if args.keep_bags:
-            args.pipeline.insert(0, "--keep-bags")
-        if args.blocking:
-            args.pipeline.insert(0, "--blocking")
-        if args.no_credit_increment:
-            args.pipeline.insert(0, "--no-credit-increment")
-        self.call_service(self.test_service, args)
+        self.call_service(self.learn_service, args)
 
     def credits(self, args):
         args.pipeline = []
@@ -167,7 +177,6 @@ class TestIt:
                 unrecognized(args)
         else:
             unrecognized(args)
-
 
     def uppaal(self, args):
         def unrecognized(args):
@@ -240,7 +249,14 @@ if __name__ == '__main__':
     parser_test.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
     parser_test.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
     parser_test.add_argument("scenario", nargs="*")
-    parser_test.set_defaults(func=testit_instance.test)
+    parser_test.set_defaults(func=testit_instance.get_job('test'))
+    parser_explore = subparsers.add_parser("explore", help="explore help")
+    parser_explore.set_defaults(func=testit_instance.get_job('explore'))
+    parser_learn = subparsers.add_parser("learn", help="learn help")
+    parser_learn.add_argument("scenario", nargs="*")
+    parser_learn.set_defaults(func=testit_instance.learn)
+    parser_model_refine = subparsers.add_parser("refine-model", help="refine-model help")
+    parser_model_refine.set_defaults(func=testit_instance.get_job('refine-model'))
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
     parser_teardown.add_argument("pipeline", nargs="*")
     parser_teardown.set_defaults(func=testit_instance.teardown)
