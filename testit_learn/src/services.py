@@ -606,6 +606,7 @@ class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
         self.edges, self.edge_labels, _, self.centroids_by_state = state_machine
         if model is not None:
+            print(model)
             self.map = json.loads(model.modelConfig)
             self.adapter_config = json.loads(model.adapterConfig)
             self.model = json.loads(model.uppaalModel)
