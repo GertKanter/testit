@@ -115,7 +115,7 @@ class ServiceProvider:
         response.uppaalModel.stateMachine = req.stateMachine
         response.uppaalModel.adapterConfig = uppaal_automata.adapter_config
         response.uppaalModel.modelConfig = uppaal_automata.map
-        return StateMachineToUppaalResponse(str(uppaal_automata))
+        return response
 
     def write_uppaal_model_service(self, req):
         # type: (WriteUppaalModelRequest) -> WriteUppaalModelResponse
