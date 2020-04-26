@@ -2,4 +2,4 @@ StateMachine stateMachine
 string test
 string[] inputTypes
 ---
-string uppaalModel # xml
+UppaalAutomata uppaalModel # xml

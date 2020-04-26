@@ -110,6 +110,11 @@ class ServiceProvider:
         # type: (StateMachineToUppaalRequest) -> StateMachineToUppaalResponse
         uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test,
                                                                              tuple(req.inputTypes))
+        response = StateMachineToUppaalResponse()
+        response.uppaalModel.uppaalModel = str(uppaal_automata)
+        response.uppaalModel.stateMachine = req.stateMachine
+        response.uppaalModel.adapterConfig = uppaal_automata.adapter_config
+        response.uppaalModel.modelConfig = uppaal_automata.map
         return StateMachineToUppaalResponse(str(uppaal_automata))
 
     def write_uppaal_model_service(self, req):
@@ -451,7 +456,7 @@ class Clusterer:
                 except ConvergenceWarning:
                     break
                 except Exception as e:
-                    rospy.loginfo(e)
+                    rospy.logwarn(e)
 
         return best_clusters
 
@@ -536,7 +541,6 @@ class Clusterer:
         add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
 
         clusters = get_labels(clusters)
-        rospy.loginfo(list(enumerate(clusters)))
         topic = next(iter(self.dicts_by_topic))
         for i, prev_cluster_label in enumerate(clusters[:-1]):
             cluster_label = clusters[i + 1]
@@ -547,7 +551,6 @@ class Clusterer:
         cluster_counter = count(max(clusters) + 1)
         for topic in list(self.dicts_by_topic.keys())[1:]:
             dicts = self.dicts_by_topic[topic]
-            rospy.loginfo(list(enumerate(dicts)))
             for i, attributes_dict in enumerate(dicts):
                 if not attributes_dict['success']:
                     continue
@@ -601,7 +604,9 @@ class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
         self.edges, self.edge_labels, _, self.centroids_by_state = state_machine
         if model is not None:
-            self.model = model
+            self.map = model.modelConfig
+            self.adapter_config = model.adapterConfig
+            self.model = model.uppaalModel
             return
 
         self.model = None
@@ -959,7 +964,7 @@ class UppaalAutomata:
             .add_queries()
 
     @staticmethod
-    def from_model_string(model, state_machine):
+    def from_model(model, state_machine):
         return UppaalAutomata(state_machine, None, None, model)
 
     def __str__(self):
@@ -1043,7 +1048,6 @@ class Main:
         self.test_configs = self.test_it.logger_configs_by_tests
         test_config = self.test_configs[test]['configuration']
         state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(state_machine)
-        rospy.loginfo(state_machine)
         return self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
 
     def get_uppaal_automatas(self, test):
@@ -1065,11 +1069,11 @@ class Main:
                 uppaal_automata = self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
                 self.test_it.write_model(uppaal_automata, test, input_types)
 
-    def write_uppaal_automata(self, test, input_types, automata, state_machine):
+    def write_uppaal_automata(self, test, input_types, model):
         directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
                     rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/')
-        state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(state_machine)
-        automata = UppaalAutomata.from_model_string(automata, state_machine)
+        state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(model.state_machine)
+        automata = UppaalAutomata.from_model(model, state_machine)
         self.test_it.write_model(automata, test, input_types,
                                  directory=directory)
 

@@ -85,7 +85,6 @@ class Launcher:
         request = WriteUppaalModelRequest()
         request.test = self.test_tag
         request.inputTypes = self.input_types
-        request.stateMachine = state_machine.stateMachine
         request.model = uppaal.uppaalModel
         return service(request)
 

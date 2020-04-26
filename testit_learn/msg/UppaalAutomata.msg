@@ -1,0 +1,4 @@
+string uppaalModel
+string modelConfig
+string adapterConfig
+StateMachine stateMachine

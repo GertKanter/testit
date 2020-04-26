@@ -53,6 +53,7 @@ add_message_files(
    FILES
    ClusterPoint.msg
    StateMachine.msg
+   UppaalAutomata.msg
 )
 
 ## Generate services in the 'srv' folder

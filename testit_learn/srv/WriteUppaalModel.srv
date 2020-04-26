@@ -1,5 +1,4 @@
-string model
-StateMachine stateMachine
+UppaalAutomata model
 string test
 string[] inputTypes
 ---
