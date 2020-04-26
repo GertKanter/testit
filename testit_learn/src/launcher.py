@@ -19,7 +19,6 @@ class Launcher:
 
         self.read_test_config()
         self.read_config()
-        self.set_input_types()
 
     def read_config(self):
         logger_config_path = rospy.get_param('testit/pipeline/sharedDirectory') + self.test_config[
@@ -35,11 +34,11 @@ class Launcher:
                 self.test_config = test
                 return
 
-    def set_input_types(self):
+    def get_input_types(self):
         synced_inputs_matrix = self.logger_config['configuration'].get('syncedExploreTopics', [])
         inputs = self.logger_config['configuration']['inputs']
 
-        self.input_types = list(
+        return list(
             map(lambda synced_inputs: [inputs[i]['identifier'] for i in synced_inputs], synced_inputs_matrix))
 
     def get_log(self):
@@ -107,13 +106,19 @@ class Launcher:
         state_machine_to_uppaal = rospy.ServiceProxy(state_machine_to_uppaal_service, StateMachineToUppaal)
         write = rospy.ServiceProxy(write_service, WriteUppaalModel)
 
-        log = self.get_log()
-        cluster = self.log_to_cluster(log_to_cluster, log)
-        state_machine = self.cluster_to_state_machine(cluster_to_state_machine, cluster)
-        uppaal = self.state_machine_to_uppaal(state_machine_to_uppaal, state_machine)
-        writing = self.write(write, uppaal)
+        result = True
+        for input_types in self.get_input_types():
+            self.input_types = input_types
 
-        return writing.result
+            log = self.get_log()
+            cluster = self.log_to_cluster(log_to_cluster, log)
+            state_machine = self.cluster_to_state_machine(cluster_to_state_machine, cluster)
+            uppaal = self.state_machine_to_uppaal(state_machine_to_uppaal, state_machine)
+            writing = self.write(write, uppaal)
+
+            result = result and writing.result
+
+        return result
 
 
 if __name__ == '__main__':
