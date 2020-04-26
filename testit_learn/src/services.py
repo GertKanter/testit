@@ -992,8 +992,8 @@ class Main:
                                       test_config.get('cluster_reduction_factor', {}))
 
     def log_to_clusters(self, test, input_types):
-        test_data = self.data_by_test_and_input[test][input_types]
         clusterer = self.get_clusterer(test, input_types)
+        test_data = self.data_by_test_and_input[test][input_types]
         clusters = clusterer.get_clusters()
         return zip(clusters.labels_, test_data)
 
