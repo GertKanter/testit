@@ -78,8 +78,8 @@ class ServiceProvider:
         rospy.loginfo("Started services")
         rospy.spin()
 
-    def get_main(self, log_path=None):
-        return Main(log_path) \
+    def get_main(self):
+        return Main() \
             .set_test_it(TestIt) \
             .set_clusterer(Clusterer) \
             .set_uppaal_automata(UppaalAutomata)
@@ -946,7 +946,7 @@ class UppaalAutomata:
 
 
 class Main:
-    def __init__(self, log_path=None):
+    def __init__(self):
         self.test_it = None
         self.clusterer_factory = None
         self.uppaal_automata = None
@@ -954,11 +954,10 @@ class Main:
         self.data_by_test_and_input = None
         self.dicts_by_test_and_input = None
         self.test_configs = None
-        self.log_path = log_path
 
     def set_test_it(self, test_it_factory):
         # type: (type(TestIt)) -> Main
-        self.test_it = test_it_factory(self.log_path)
+        self.test_it = test_it_factory()
         return self
 
     def set_clusterer(self, clusterer_factory):
