@@ -120,7 +120,7 @@ class ServiceProvider:
     def write_uppaal_model_service(self, req):
         # type: (WriteUppaalModelRequest) -> WriteUppaalModelResponse
         try:
-            self.get_main().write_uppaal_automata(req.test, tuple(req.inputTypes), req.model, req.stateMachine)
+            self.get_main().write_uppaal_automata(req.test, tuple(req.inputTypes), req.model)
             return WriteUppaalModelResponse(True)
         except Exception as e:
             rospy.logerr(e)
