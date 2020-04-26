@@ -97,7 +97,8 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        edges, edge_labels, _, centroids = self.get_main().clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
+        edges, edge_labels, _, centroids = self.get_main().clusters_to_state_machine(req.data, req.test,
+                                                                                     tuple(req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
@@ -1018,7 +1019,8 @@ class Main:
         self.test_configs = self.test_it.logger_configs_by_tests
         test_config = self.test_configs[test]['configuration']
         convert = lambda dictionary: {eval(key): json.loads(dictionary[key]) for key in dictionary}
-        state_machine = convert(json.loads(state_machine.edges)), convert(json.loads(state_machine.labels)), None, convert(json.loads(state_machine.values))
+        state_machine = convert(eval(state_machine.edges)), convert(eval(state_machine.labels)), None, convert(
+            eval(state_machine.values))
         rospy.loginfo(state_machine)
         return self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
 
