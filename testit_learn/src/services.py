@@ -98,10 +98,11 @@ class ServiceProvider:
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
         edges, edge_labels, _, centroids = self.get_main().clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
+        convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
-        response.stateMachine.edges = edges
-        response.stateMachine.labels = edge_labels
-        response.stateMachine.values = centroids
+        response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
+        response.stateMachine.labels = json.dumps(convert(edge_labels, str))
+        response.stateMachine.values = json.dumps(convert(centroids, list))
         return response
 
     def statemachine_to_uppaal_model_service(self, req):
@@ -342,8 +343,8 @@ class TestIt:
         with open(state_machine_path, 'w') as file:
             convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
             file.write(json.dumps({'edges': convert(uppaal_automata.edges, lambda value: list(map(str, value))),
-                                   'edge_labels': convert(uppaal_automata.edge_labels, str),
-                                   'state_values': convert(uppaal_automata.centroids_by_state, list)}, indent=2))
+                                   'labels': convert(uppaal_automata.edge_labels, str),
+                                   'values': convert(uppaal_automata.centroids_by_state, list)}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
             file.write(yaml.dump(dict(uppaal_automata.map), indent=2))
