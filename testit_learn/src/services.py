@@ -75,6 +75,8 @@ class ServiceProvider:
         self.write_uppaal = rospy.Service('/testit/learn/write/uppaal', WriteUppaalModel,
                                           self.write_uppaal_model_service)
 
+        rospy.loginfo("Started services")
+
     def get_main(self, log_path=None):
         return Main(log_path) \
             .set_test_it(TestIt) \
@@ -104,7 +106,6 @@ class ServiceProvider:
     def statemachine_to_uppaal_model_service(self, req):
         # type: (StateMachineToUppaalRequest) -> StateMachineToUppaalResponse
         uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test, req.inputTypes)
-
         return StateMachineToUppaalResponse(str(uppaal_automata))
 
     def write_uppaal_model_service(self, req):
@@ -1033,4 +1034,4 @@ class Main:
 
 
 if __name__ == '__main__':
-    ServiceProvider()
+    _ = ServiceProvider()
