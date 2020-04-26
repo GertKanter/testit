@@ -161,6 +161,7 @@ class TestIt:
     def normalise_columns(self, points, columns):
         if not columns:
             return points
+        rospy.loginfo(points)
         for column in columns:
             columns_to_normalise_after = list(filter(lambda x: x not in columns, range(points.shape[1])))
             round_to = 1
