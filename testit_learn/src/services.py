@@ -21,6 +21,10 @@ import numpy as np
 import rospy
 import xml.dom.minidom as xmldom
 from scipy.spatial import distance
+from testit_learn.msg import ClusterPoint
+from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, StateMachineToUppaalResponse, \
+    WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse, LogToCluster, ClusterToStateMachine, \
+    LogToClusterResponse, LogToClusterRequest, ClusterToStateMachineResponse, ClusterToStateMachineRequest
 
 
 def flatten(array):
@@ -59,17 +63,13 @@ def execute_command(command, prefix='', suffix=''):
     return out
 
 
-from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, StateMachineToUppaalResponse, \
-    WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse, LogToCluster, ClusterToStateMachine
-
-
 class ServiceProvider:
     def __init__(self):
         rospy.init_node("testit_learn", anonymous=True)
 
         self.log_to_cluster = rospy.Service('/testit/learn/log/cluster', LogToCluster, self.log_to_cluster_service)
         self.cluster_to_statemachine = rospy.Service('/testit/learn/cluster/statemachine', ClusterToStateMachine,
-                                     self.cluster_to_statemachine_service)
+                                                     self.cluster_to_statemachine_service)
         self.statemachine_to_uppaal = rospy.Service('/testit/learn/statemachine/uppaal', StateMachineToUppaal,
                                                     self.statemachine_to_uppaal_model_service)
         self.write_uppaal = rospy.Service('/testit/learn/write/uppaal', WriteUppaalModel,
@@ -82,21 +82,35 @@ class ServiceProvider:
             .set_uppaal_automata(UppaalAutomata)
 
     def log_to_cluster_service(self, req):
-        pass
+        # type: (LogToClusterRequest) -> LogToClusterResponse
+        cluster_points = self.get_main().log_to_clusters(req.test, req.inputTypes)
+        response = LogToClusterResponse()
+        for (cluster, data) in cluster_points:
+            point = ClusterPoint()
+            point.cluster = cluster
+            point.point = data
+            response.data.append(point)
+        return response
 
     def cluster_to_statemachine_service(self, req):
-        pass
+        # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
+        state_machine = self.get_main().clusters_to_state_machine(req.data, req.test, req.inputTypes)
+        response = ClusterToStateMachineResponse()
+        response.stateMachine.edges = state_machine['edges']
+        response.stateMachine.labels = state_machine['edge_labels']
+        response.stateMachine.values = state_machine['state_values']
+        return response
 
     def statemachine_to_uppaal_model_service(self, req):
         # type: (StateMachineToUppaalRequest) -> StateMachineToUppaalResponse
-        uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test)
+        uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test, req.inputTypes)
 
         return StateMachineToUppaalResponse(str(uppaal_automata))
 
     def write_uppaal_model_service(self, req):
         # type: (WriteUppaalModelRequest) -> WriteUppaalModelResponse
         try:
-            self.get_main().write_uppaal_automata(req.test, req.input_types, req.model)
+            self.get_main().write_uppaal_automata(req.test, req.inputTypes, req.model)
             return WriteUppaalModelResponse(True)
         except Exception as e:
             rospy.logerr(e)
@@ -318,17 +332,23 @@ class TestIt:
     def write_model(self, uppaal_automata, test, input_types, directory=""):
         file_name = directory + '/' + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))), input_types))
-        with open(file_name + '.xml', 'w') as file:
+        model_path = file_name + '.xml'
+        with open(model_path, 'w') as file:
             file.write(str(uppaal_automata))
-        with open(file_name + '-state_machine.json', 'w') as file:
+        state_machine_path = file_name + '-state_machine.json'
+        with open(state_machine_path, 'w') as file:
             convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
             file.write(json.dumps({'edges': convert(uppaal_automata.edges, lambda value: list(map(str, value))),
                                    'edge_labels': convert(uppaal_automata.edge_labels, str),
                                    'state_values': convert(uppaal_automata.centroids_by_state, list)}, indent=2))
-        with open(file_name + '.yaml', 'w') as file:
+        model_config_path = file_name + '.yaml'
+        with open(model_config_path, 'w') as file:
             file.write(yaml.dump(dict(uppaal_automata.map), indent=2))
-        with open(file_name + '-adapter_config.yaml', 'w') as file:
+        model_adapter_config_path = file_name + '-adapter_config.yaml'
+        with open(model_adapter_config_path, 'w') as file:
             file.write(yaml.dump(dict(uppaal_automata.adapter_config), indent=2))
+
+        return model_path, state_machine_path, model_config_path, model_adapter_config_path
 
     def get_logger_configurations_by_tests(self):
         confs_by_tests = dict()
@@ -962,10 +982,27 @@ class Main:
         return next(test_conf for test_conf in self.test_configs[test]['configuration']['inputs'] if
                     test_conf['identifier'] in input_types)
 
-    def uppaal_automata_from_state_machine(self, state_machine, test):
+    def get_clusterer(self, test, input_types):
+        self.data_by_test_and_input, self.dicts_by_test_and_input = self.test_it.get_np_arrays_by_test_and_input()
+        test_data = self.data_by_test_and_input[test][input_types]
+        dicts_by_topic = self.dicts_by_test_and_input[test][input_types]
+        test_config = self.test_configs[test]['configuration']
+        return self.clusterer_factory(test_data, dicts_by_topic,
+                                      test_config.get('cluster_reduction_factor', {}))
+
+    def log_to_clusters(self, test, input_types):
+        test_data = self.data_by_test_and_input[test][input_types]
+        clusterer = self.get_clusterer(test, input_types)
+        clusters = clusterer.get_clusters()
+        return zip(clusters.labels_, test_data)
+
+    def clusters_to_state_machine(self, clusters, test, input_types):
+        clusterer = self.get_clusterer(test, input_types)
+        return clusterer.clusters_to_state_machine(clusters, get_labels=lambda x: x.cluster)
+
+    def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests
         test_config = self.test_configs[test]['configuration']
-        input_types = list(set(state_machine['labels'].values()))
 
         return self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
 

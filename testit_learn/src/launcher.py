@@ -41,6 +41,7 @@ class Launcher:
 
     def log_to_cluster(self, service, log):
         # type: (rospy.ServiceProxy, list) -> LogToClusterResponse
+        rospy.loginfo("Waiting for log to cluster service")
         service.wait_for_service()
         request = LogToClusterRequest()
         request.test = self.test_tag
@@ -49,6 +50,7 @@ class Launcher:
 
     def cluster_to_state_machine(self, service, cluster):
         # type: (rospy.ServiceProxy, LogToClusterResponse) -> ClusterToStateMachineResponse
+        rospy.loginfo("Waiting for cluster to state machine service")
         service.wait_for_service()
         request = ClusterToStateMachineRequest()
         request.test = self.test_tag
@@ -57,6 +59,7 @@ class Launcher:
 
     def state_machine_to_uppaal(self, service, state_machine):
         # type: (rospy.ServiceProxy, ClusterToStateMachineResponse) -> StateMachineToUppaalResponse
+        rospy.loginfo("Waiting for state machine to uppaal service")
         service.wait_for_service()
         request = StateMachineToUppaalRequest()
         request.test = self.test_tag
@@ -65,6 +68,7 @@ class Launcher:
 
     def write(self, service, uppaal):
         # type: (rospy.ServiceProxy, StateMachineToUppaalResponse) -> WriteUppaalModelResponse
+        rospy.loginfo("Waiting for write service")
         service.wait_for_service()
         synced_inputs_matrix = self.logger_config['configuration'].get('syncedExploreTopics', [])
         inputs = self.logger_config['configuration']['inputs']
