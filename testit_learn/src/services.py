@@ -5,6 +5,7 @@ import math
 import re
 import seaborn as sns
 import subprocess
+import traceback
 import warnings
 import xml.etree.cElementTree as xml
 import yaml
@@ -124,6 +125,7 @@ class ServiceProvider:
             return WriteUppaalModelResponse(True)
         except Exception as e:
             rospy.logerr(e)
+            traceback.print_exc()
             return WriteUppaalModelResponse(False)
 
 
@@ -604,9 +606,9 @@ class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
         self.edges, self.edge_labels, _, self.centroids_by_state = state_machine
         if model is not None:
-            self.map = model.modelConfig
-            self.adapter_config = model.adapterConfig
-            self.model = model.uppaalModel
+            self.map = json.loads(model.modelConfig)
+            self.adapter_config = json.loads(model.adapterConfig)
+            self.model = json.loads(model.uppaalModel)
             return
 
         self.model = None
