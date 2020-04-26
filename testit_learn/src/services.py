@@ -1018,10 +1018,13 @@ class Main:
     def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
         # type: (StateMachine) -> tuple
         edges_ = json.loads(state_machine.edges)
+        print(edges_)
         edges = {int(key): int(edges_[key]) for key in edges_}
         values_ = json.loads(state_machine.values)
+        print(values_)
         values = {int(key): eval(values_[key]) for key in values_}
         labels_ = json.loads(state_machine.labels)
+        print(labels_)
         labels = {eval(key): labels_[key] for key in labels_}
         return edges, labels, None, values
 
