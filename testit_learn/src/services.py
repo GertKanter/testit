@@ -67,7 +67,7 @@ class ServiceProvider:
     def __init__(self):
         rospy.init_node("testit_learn", anonymous=True)
 
-        self.log_to_cluster = rospy.Service('/testit/learn/log/cluster', LogToCluster, self.log_to_cluster_service)
+        self.log_to_cluster = rospy.Service('/testit/leaern/log/cluster', LogToCluster, self.log_to_cluster_service)
         self.cluster_to_statemachine = rospy.Service('/testit/learn/cluster/statemachine', ClusterToStateMachine,
                                                      self.cluster_to_statemachine_service)
         self.statemachine_to_uppaal = rospy.Service('/testit/learn/statemachine/uppaal', StateMachineToUppaal,

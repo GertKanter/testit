@@ -84,7 +84,7 @@ class Launcher:
         cluster_to_state_machine_service = self.test_config.get('clusterToStateMachineService',
                                                                 '/testit/learn/cluster/statemachine')
         state_machine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
-                                                               '/testit/learn/cluster/uppaal')
+                                                               '/testit/learn/statemachine/uppaal')
         write_service = self.test_config.get('writeUppaalService', '/testit/learn/write/uppaal')
 
         rospy.loginfo(log_to_cluster_service)
