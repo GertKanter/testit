@@ -584,15 +584,16 @@ class Clusterer:
             for i, data_dict in enumerate(self.dicts_by_topic[topic]):
                 topics_data[i].append(data_dict['attributes'])
         centroid_finder = NearestCentroid().fit(cluster_data, cluster_labels)
-        print(cluster_labels)
-        print(centroid_finder.centroids_)
         for cluster in cluster_labels:
-            logical_centroid = centroid_finder.centroids_[cluster]
-            centroid = topics_data[
-                min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
-                        states_by_clusters[cluster]), key=lambda x: x[0])[1]
-            ]
-            centroids_by_clusters[cluster] = centroid
+            try:
+                logical_centroid = centroid_finder.centroids_[cluster]
+                centroid = topics_data[
+                    min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
+                            states_by_clusters[cluster]), key=lambda x: x[0])[1]
+                ]
+                centroids_by_clusters[cluster] = centroid
+            except Exception as e:
+                rospy.logerr(e)
         return centroids_by_clusters
 
 
