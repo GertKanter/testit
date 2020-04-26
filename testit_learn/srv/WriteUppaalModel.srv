@@ -1,4 +1,5 @@
 string model
+StateMachine stateMachine
 string test
 string[] inputTypes
 ---

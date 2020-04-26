@@ -115,7 +115,7 @@ class ServiceProvider:
     def write_uppaal_model_service(self, req):
         # type: (WriteUppaalModelRequest) -> WriteUppaalModelResponse
         try:
-            self.get_main().write_uppaal_automata(req.test, tuple(req.inputTypes), req.model)
+            self.get_main().write_uppaal_automata(req.test, tuple(req.inputTypes), req.model, req.stateMachine)
             return WriteUppaalModelResponse(True)
         except Exception as e:
             rospy.logerr(e)
@@ -595,7 +595,11 @@ class Clusterer:
 
 
 class UppaalAutomata:
-    def __init__(self, state_machine, test_config, input_types):
+    def __init__(self, state_machine, test_config, input_types, model=None):
+        if model is not None:
+            self.model = model
+            return
+
         self.model_xml = xml.Element('nta')
         self.template_map = None
         self.template_sut = None
@@ -950,7 +954,13 @@ class UppaalAutomata:
             .add_system() \
             .add_queries()
 
+    @staticmethod
+    def from_model_string(model, state_machine):
+        return UppaalAutomata(state_machine, None, None, model)
+
     def __str__(self):
+        if self.model is not None:
+            return self.model
         return xmldom.parseString(xml.tostring(self.model_xml)).toprettyxml()
 
 
@@ -1018,13 +1028,10 @@ class Main:
     def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
         # type: (StateMachine) -> tuple
         edges_ = json.loads(state_machine.edges)
-        print(edges_)
         edges = {int(key): list(map(int, edges_[key])) for key in edges_}
         values_ = json.loads(state_machine.values)
-        print(values_)
         values = {int(key): values_[key] for key in values_}
         labels_ = json.loads(state_machine.labels)
-        print(labels_)
         labels = {eval(key): labels_[key] for key in labels_}
         return edges, labels, None, values
 
@@ -1054,9 +1061,11 @@ class Main:
                 uppaal_automata = self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
                 self.test_it.write_model(uppaal_automata, test, input_types)
 
-    def write_uppaal_automata(self, test, input_types, automata):
+    def write_uppaal_automata(self, test, input_types, automata, state_machine):
         directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
                     rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/')
+        state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(state_machine)
+        automata = UppaalAutomata.from_model_string(automata, state_machine)
         self.test_it.write_model(automata, test, input_types,
                                  directory=directory)
 

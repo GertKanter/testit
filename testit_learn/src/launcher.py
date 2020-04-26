@@ -78,13 +78,14 @@ class Launcher:
         request.stateMachine = state_machine.stateMachine
         return service(request)
 
-    def write(self, service, uppaal):
-        # type: (rospy.ServiceProxy, StateMachineToUppaalResponse) -> WriteUppaalModelResponse
+    def write(self, service, uppaal, state_machine):
+        # type: (rospy.ServiceProxy, StateMachineToUppaalResponse, ClusterToStateMachineResponse) -> WriteUppaalModelResponse
         rospy.loginfo("Waiting for write service")
         service.wait_for_service()
         request = WriteUppaalModelRequest()
         request.test = self.test_tag
         request.inputTypes = self.input_types
+        request.stateMachine = state_machine.stateMachine
         request.model = uppaal.uppaalModel
         return service(request)
 
@@ -114,7 +115,7 @@ class Launcher:
             cluster = self.log_to_cluster(log_to_cluster, log)
             state_machine = self.cluster_to_state_machine(cluster_to_state_machine, cluster)
             uppaal = self.state_machine_to_uppaal(state_machine_to_uppaal, state_machine)
-            writing = self.write(write, uppaal)
+            writing = self.write(write, uppaal, state_machine)
 
             result = result and writing.result
 
