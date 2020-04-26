@@ -600,6 +600,7 @@ class UppaalAutomata:
             self.model = model
             return
 
+        self.model = None
         self.model_xml = xml.Element('nta')
         self.template_map = None
         self.template_sut = None
