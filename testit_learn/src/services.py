@@ -106,7 +106,8 @@ class ServiceProvider:
 
     def statemachine_to_uppaal_model_service(self, req):
         # type: (StateMachineToUppaalRequest) -> StateMachineToUppaalResponse
-        uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test, tuple(req.inputTypes))
+        uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test,
+                                                                             tuple(req.inputTypes))
         return StateMachineToUppaalResponse(str(uppaal_automata))
 
     def write_uppaal_model_service(self, req):
@@ -1006,7 +1007,8 @@ class Main:
 
     def clusters_to_state_machine(self, clusters, test, input_types):
         clusterer = self.get_clusterer(test, input_types)
-        return clusterer.clusters_to_state_machine(clusters, get_labels=lambda x: x.cluster)
+        return clusterer.clusters_to_state_machine(clusters, get_labels=lambda clusters: list(
+            map(lambda cluster: cluster.cluster, clusters)))
 
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests
