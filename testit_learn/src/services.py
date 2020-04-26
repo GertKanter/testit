@@ -988,12 +988,12 @@ class Main:
 
     def get_clusterer(self, test, input_types):
         self.data_by_test_and_input, self.dicts_by_test_and_input = self.test_it.get_np_arrays_by_test_and_input()
+        self.test_configs = self.test_it.logger_configs_by_tests
+
         test_data = self.data_by_test_and_input[test][input_types]
         dicts_by_topic = OrderedDict(
             (input_type, self.dicts_by_test_and_input[test][input_type]) for input_type in
             input_types)
-        rospy.loginfo(test)
-        rospy.loginfo(self.test_configs)
         test_config = self.test_configs[test]['configuration']
         return self.clusterer_factory(test_data, dicts_by_topic,
                                       test_config.get('cluster_reduction_factor', {}))
