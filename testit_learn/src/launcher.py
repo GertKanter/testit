@@ -54,6 +54,7 @@ class Launcher:
         service.wait_for_service()
         request = LogToClusterRequest()
         request.test = self.test_tag
+        rospy.loginfo(self.input_types)
         request.inputTypes = self.input_types
         request.log = log
         return service(request)
