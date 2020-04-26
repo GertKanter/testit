@@ -1017,9 +1017,8 @@ class Main:
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests
         test_config = self.test_configs[test]['configuration']
-        convert = lambda dictionary: {eval(key): eval(dictionary[key]) for key in dictionary}
-        rospy.loginfo(state_machine)
-        state_machine = convert(eval(state_machine.edges)), convert(eval(state_machine.labels)), None, convert(eval(state_machine.values))
+        convert = lambda dictionary: {eval(key): json.loads(dictionary[key]) for key in dictionary}
+        state_machine = convert(json.loads(state_machine.edges)), convert(json.loads(state_machine.labels)), None, convert(json.loads(state_machine.values))
         rospy.loginfo(state_machine)
         return self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
 
