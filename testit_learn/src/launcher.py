@@ -15,9 +15,11 @@ class Launcher:
         self.logger_config = None
         self.test_config = None
         self.test_tag = None
+        self.input_types = None
 
         self.read_test_config()
         self.read_config()
+        self.set_input_types()
 
     def read_config(self):
         logger_config_path = rospy.get_param('testit/pipeline/sharedDirectory') + self.test_config[
@@ -33,6 +35,13 @@ class Launcher:
                 self.test_config = test
                 return
 
+    def set_input_types(self):
+        synced_inputs_matrix = self.logger_config['configuration'].get('syncedExploreTopics', [])
+        inputs = self.logger_config['configuration']['inputs']
+
+        self.input_types = list(
+            map(lambda synced_inputs: [inputs[i]['identifier'] for i in synced_inputs], synced_inputs_matrix))
+
     def get_log(self):
         logger_path = rospy.get_param('/testit_logger/log')
         with open(logger_path) as file:
@@ -45,6 +54,7 @@ class Launcher:
         service.wait_for_service()
         request = LogToClusterRequest()
         request.test = self.test_tag
+        request.inputTypes = self.input_types
         request.log = log
         return service(request)
 
@@ -54,6 +64,7 @@ class Launcher:
         service.wait_for_service()
         request = ClusterToStateMachineRequest()
         request.test = self.test_tag
+        request.inputTypes = self.input_types
         request.data = cluster.data
         return service(request)
 
@@ -63,6 +74,7 @@ class Launcher:
         service.wait_for_service()
         request = StateMachineToUppaalRequest()
         request.test = self.test_tag
+        request.inputTypes = self.input_types
         request.stateMachine = state_machine.stateMachine
         return service(request)
 
@@ -70,12 +82,9 @@ class Launcher:
         # type: (rospy.ServiceProxy, StateMachineToUppaalResponse) -> WriteUppaalModelResponse
         rospy.loginfo("Waiting for write service")
         service.wait_for_service()
-        synced_inputs_matrix = self.logger_config['configuration'].get('syncedExploreTopics', [])
-        inputs = self.logger_config['configuration']['inputs']
         request = WriteUppaalModelRequest()
         request.test = self.test_tag
-        request.inputTypes = list(
-            map(lambda synced_inputs: [inputs[i]['identifier'] for i in synced_inputs], synced_inputs_matrix))
+        request.inputTypes = self.input_types
         request.model = uppaal.uppaalModel
         return service(request)
 
