@@ -3,5 +3,4 @@
   <node pkg="testit" type="testit_daemon.py" name="testit_daemon" output="screen">
     <param name="config" value="$(arg config)"/>
   </node>
-  <node pkg="testit_learn" type="services.py" name="testit_learn_services" output="screen"/>
 </launch>
