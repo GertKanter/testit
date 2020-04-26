@@ -1072,7 +1072,7 @@ class Main:
     def write_uppaal_automata(self, test, input_types, model):
         directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
                     rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/')
-        state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(model.state_machine)
+        state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(model.stateMachine)
         automata = UppaalAutomata.from_model(model, state_machine)
         self.test_it.write_model(automata, test, input_types,
                                  directory=directory)
