@@ -1022,7 +1022,7 @@ class Main:
         edges = {int(key): list(map(int, edges_[key])) for key in edges_}
         values_ = json.loads(state_machine.values)
         print(values_)
-        values = {int(key): eval(values_[key]) for key in values_}
+        values = {int(key): values_[key] for key in values_}
         labels_ = json.loads(state_machine.labels)
         print(labels_)
         labels = {eval(key): labels_[key] for key in labels_}
