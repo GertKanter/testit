@@ -989,6 +989,7 @@ class Main:
     def get_clusterer(self, test, input_types):
         self.data_by_test_and_input, self.dicts_by_test_and_input = self.test_it.get_np_arrays_by_test_and_input()
         rospy.loginfo(self.data_by_test_and_input)
+        rospy.loginfo(self.dicts_by_test_and_input)
         test_data = self.data_by_test_and_input[test][input_types]
         dicts_by_topic = self.dicts_by_test_and_input[test][input_types]
         test_config = self.test_configs[test]['configuration']
