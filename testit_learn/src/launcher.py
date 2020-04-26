@@ -87,6 +87,11 @@ class Launcher:
                                                                '/testit/learn/cluster/uppaal')
         write_service = self.test_config.get('writeUppaalService', '/testit/learn/write/uppaal')
 
+        rospy.loginfo(log_to_cluster_service)
+        rospy.loginfo(cluster_to_state_machine_service)
+        rospy.loginfo(state_machine_to_uppaal_service)
+        rospy.loginfo(write_service)
+
         log_to_cluster = rospy.ServiceProxy(log_to_cluster_service, LogToCluster)
         cluster_to_state_machine = rospy.ServiceProxy(cluster_to_state_machine_service, ClusterToStateMachine)
         state_machine_to_uppaal = rospy.ServiceProxy(state_machine_to_uppaal_service, StateMachineToUppaal)
