@@ -161,7 +161,6 @@ class TestIt:
     def normalise_columns(self, points, columns):
         if not columns:
             return points
-        rospy.loginfo(points)
         for column in columns:
             columns_to_normalise_after = list(filter(lambda x: x not in columns, range(points.shape[1])))
             round_to = 1
@@ -396,20 +395,23 @@ class TestIt:
     def post_response_success(self, i, require_success_response=True):
         success, value = self.maybe_get_response_and_input_config(i, require_success_response)
         if not success:
-            return value
+            return False, value
 
         response, input_config = value
         field_value = get_attribute(response['data'], input_config['feedback']['field'])
         timestamp = get_attribute(response, 'timestamp')
-        return {'value': input_config['feedback'].get('success', field_value) == field_value or \
-                         re.match(str(input_config['feedback']['success']), str(field_value)) is not None,
-                'timestamp': timestamp}
+        return True, {'value': input_config['feedback'].get('success', field_value) == field_value or \
+                               re.match(str(input_config['feedback']['success']), str(field_value)) is not None,
+                      'timestamp': timestamp}
 
     def get_logs_by_tests(self):
         logs_by_tests = OrderedDict()
         for i, line in enumerate(self.log):
             test_tag = line['test']
-            line['success'] = self.post_response_success(i)
+            success, response = self.post_response_success(i)
+            if not success:
+                continue
+            line['success'] = response
             add_to_list_dict(logs_by_tests, test_tag, line)
 
         return logs_by_tests
