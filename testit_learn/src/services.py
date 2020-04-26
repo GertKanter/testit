@@ -75,7 +75,7 @@ class ServiceProvider:
         self.write_uppaal = rospy.Service('/testit/learn/write/uppaal', WriteUppaalModel,
                                           self.write_uppaal_model_service)
 
-        rospy.loginfo("Started services")
+        rospy.loginfo("Started testit_learn services")
         rospy.spin()
 
     def get_main(self):
@@ -86,7 +86,7 @@ class ServiceProvider:
 
     def log_to_cluster_service(self, req):
         # type: (LogToClusterRequest) -> LogToClusterResponse
-        cluster_points = self.get_main().log_to_clusters(req.test, req.inputTypes)
+        cluster_points = self.get_main().log_to_clusters(req.test, tuple(req.inputTypes))
         response = LogToClusterResponse()
         for (cluster, data) in cluster_points:
             point = ClusterPoint()
@@ -97,7 +97,7 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        state_machine = self.get_main().clusters_to_state_machine(req.data, req.test, req.inputTypes)
+        state_machine = self.get_main().clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = state_machine['edges']
         response.stateMachine.labels = state_machine['edge_labels']
@@ -106,13 +106,13 @@ class ServiceProvider:
 
     def statemachine_to_uppaal_model_service(self, req):
         # type: (StateMachineToUppaalRequest) -> StateMachineToUppaalResponse
-        uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test, req.inputTypes)
+        uppaal_automata = self.get_main().uppaal_automata_from_state_machine(req.stateMachine, req.test, tuple(req.inputTypes))
         return StateMachineToUppaalResponse(str(uppaal_automata))
 
     def write_uppaal_model_service(self, req):
         # type: (WriteUppaalModelRequest) -> WriteUppaalModelResponse
         try:
-            self.get_main().write_uppaal_automata(req.test, req.inputTypes, req.model)
+            self.get_main().write_uppaal_automata(req.test, tuple(req.inputTypes), req.model)
             return WriteUppaalModelResponse(True)
         except Exception as e:
             rospy.logerr(e)
