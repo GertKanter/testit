@@ -536,7 +536,6 @@ class Clusterer:
         add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
 
         clusters = get_labels(clusters)
-        rospy.loginfo(clusters)
         topic = next(iter(self.dicts_by_topic))
         for i, prev_cluster_label in enumerate(clusters[:-1]):
             cluster_label = clusters[i + 1]
@@ -547,7 +546,6 @@ class Clusterer:
         cluster_counter = count(max(clusters) + 1)
         for topic in list(self.dicts_by_topic.keys())[1:]:
             dicts = self.dicts_by_topic[topic]
-            rospy.loginfo(enumerate(dicts))
             for i, attributes_dict in enumerate(dicts):
                 if not attributes_dict['success']:
                     continue
