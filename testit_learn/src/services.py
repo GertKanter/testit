@@ -21,7 +21,7 @@ import numpy as np
 import rospy
 import xml.dom.minidom as xmldom
 from scipy.spatial import distance
-from testit_learn.msg import ClusterPoint
+from testit_learn.msg import ClusterPoint, StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, StateMachineToUppaalResponse, \
     WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse, LogToCluster, ClusterToStateMachine, \
     LogToClusterResponse, LogToClusterRequest, ClusterToStateMachineResponse, ClusterToStateMachineRequest
@@ -1015,12 +1015,20 @@ class Main:
         return clusterer.clusters_to_state_machine(clusters, get_labels=lambda clusters: list(
             map(lambda cluster: cluster.cluster, clusters)))
 
+    def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
+        # type: (StateMachine) -> tuple
+        edges_ = json.loads(state_machine.edges)
+        edges = {int(key): int(edges_[key]) for key in edges_}
+        values_ = json.loads(state_machine.values)
+        values = {int(key): eval(values_[key]) for key in values_}
+        labels_ = json.loads(state_machine.labels)
+        labels = {eval(key): labels_[key] for key in labels_}
+        return edges, labels, None, values
+
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests
         test_config = self.test_configs[test]['configuration']
-        convert = lambda dictionary: {eval(key): json.loads(dictionary[key]) for key in dictionary}
-        state_machine = convert(eval(state_machine.edges)), convert(eval(state_machine.labels)), None, convert(
-            eval(state_machine.values))
+        state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(state_machine)
         rospy.loginfo(state_machine)
         return self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
 
