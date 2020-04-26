@@ -97,11 +97,11 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        state_machine = self.get_main().clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
+        edges, edge_labels, _, centroids = self.get_main().clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
         response = ClusterToStateMachineResponse()
-        response.stateMachine.edges = state_machine['edges']
-        response.stateMachine.labels = state_machine['edge_labels']
-        response.stateMachine.values = state_machine['state_values']
+        response.stateMachine.edges = edges
+        response.stateMachine.labels = edge_labels
+        response.stateMachine.values = centroids
         return response
 
     def statemachine_to_uppaal_model_service(self, req):
