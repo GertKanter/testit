@@ -992,6 +992,8 @@ class Main:
         dicts_by_topic = OrderedDict(
             (input_type, self.dicts_by_test_and_input[test][input_type]) for input_type in
             input_types)
+        rospy.loginfo(test)
+        rospy.loginfo(self.test_configs)
         test_config = self.test_configs[test]['configuration']
         return self.clusterer_factory(test_data, dicts_by_topic,
                                       test_config.get('cluster_reduction_factor', {}))
