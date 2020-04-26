@@ -598,6 +598,7 @@ class Clusterer:
 
 class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
+        self.edges, self.edge_labels, _, self.centroids_by_state = state_machine
         if model is not None:
             self.model = model
             return
@@ -607,7 +608,6 @@ class UppaalAutomata:
         self.template_map = None
         self.template_sut = None
 
-        self.edges, self.edge_labels, _, self.centroids_by_state = state_machine
         self.scale_x, self.scale_y = self.get_scaling(150)
         self.test_config = test_config
         self.input_types = input_types
