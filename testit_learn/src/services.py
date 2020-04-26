@@ -113,8 +113,8 @@ class ServiceProvider:
         response = StateMachineToUppaalResponse()
         response.uppaalModel.uppaalModel = str(uppaal_automata)
         response.uppaalModel.stateMachine = req.stateMachine
-        response.uppaalModel.adapterConfig = uppaal_automata.adapter_config
-        response.uppaalModel.modelConfig = uppaal_automata.map
+        response.uppaalModel.adapterConfig = json.dumps(uppaal_automata.adapter_config)
+        response.uppaalModel.modelConfig = json.dumps(uppaal_automata.map)
         return response
 
     def write_uppaal_model_service(self, req):
