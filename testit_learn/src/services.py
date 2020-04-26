@@ -1019,7 +1019,7 @@ class Main:
         # type: (StateMachine) -> tuple
         edges_ = json.loads(state_machine.edges)
         print(edges_)
-        edges = {int(key): int(edges_[key]) for key in edges_}
+        edges = {int(key): list(map(int, edges_[key])) for key in edges_}
         values_ = json.loads(state_machine.values)
         print(values_)
         values = {int(key): eval(values_[key]) for key in values_}
