@@ -355,10 +355,10 @@ class TestIt:
                                    'values': convert(uppaal_automata.centroids_by_state, list)}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
-            file.write(yaml.dump(dict(uppaal_automata.map), indent=2))
+            file.write(yaml.safe_dump(dict(uppaal_automata.map), indent=2))
         model_adapter_config_path = file_name + '-adapter_config.yaml'
         with open(model_adapter_config_path, 'w') as file:
-            file.write(yaml.dump(dict(uppaal_automata.adapter_config), indent=2))
+            file.write(yaml.safe_dump(dict(uppaal_automata.adapter_config), indent=2))
 
         return model_path, state_machine_path, model_config_path, model_adapter_config_path
 
