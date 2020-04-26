@@ -1,4 +1,5 @@
 string[] log
+string[] inputTypes
 string test
 ---
 ClusterPoint[] data

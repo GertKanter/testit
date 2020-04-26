@@ -54,6 +54,7 @@ import tempfile
 import testit_optimizer
 import uuid
 
+
 class TestItDaemon:
     def __init__(self):
         rospy.Service('testit/bringup', testit.srv.Command, self.handle_bringup)
@@ -580,7 +581,7 @@ class TestItDaemon:
                 launch_addition += "rosrun testit testit_explorer.py && rosrun testit_learn testit_learn.py _launch=False"
             elif mode == "learn":
                 launch_addition += " && " if launch != "" else ""
-                launch_addition += "rosrun testit_learn services.py && rosrun testit_learn launcher.py"
+                launch_addition += "rosrun testit_learn launcher.py"
             launch += launch_addition
             source = "source /catkin_ws/devel/setup.bash"
             source += " &&" if launch.strip() != "" else ""
