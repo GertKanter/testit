@@ -76,6 +76,7 @@ class ServiceProvider:
                                           self.write_uppaal_model_service)
 
         rospy.loginfo("Started services")
+        rospy.spin()
 
     def get_main(self, log_path=None):
         return Main(log_path) \
