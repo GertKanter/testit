@@ -350,7 +350,8 @@ class TestIt:
         state_machine_path = file_name + '-state_machine.json'
         with open(state_machine_path, 'w') as file:
             file.write(json.dumps({'edges': uppaal_automata.edges,
-                                   'labels': uppaal_automata.edge_labels,
+                                   'labels': {str(key): uppaal_automata.edge_labels[key] for key in
+                                              uppaal_automata.edge_labels},
                                    'values': uppaal_automata.centroids_by_state}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
