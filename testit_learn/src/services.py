@@ -349,9 +349,9 @@ class TestIt:
             file.write(str(uppaal_automata))
         state_machine_path = file_name + '-state_machine.json'
         with open(state_machine_path, 'w') as file:
-            file.write(json.safe_dump({'edges': uppaal_automata.edges,
-                                       'labels': uppaal_automata.edge_labels,
-                                       'values': uppaal_automata.centroids_by_state}, indent=2))
+            file.write(json.dumps({'edges': uppaal_automata.edges,
+                                   'labels': uppaal_automata.edge_labels,
+                                   'values': uppaal_automata.centroids_by_state}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
             file.write(yaml.safe_dump(dict(uppaal_automata.map), indent=2))
@@ -571,6 +571,7 @@ class Clusterer:
                 else:
                     states_by_clusters[cluster].remove(i)
                     states_by_clusters[new_cluster].append(i)
+
         return edges, edge_labels, states_by_clusters, self.get_centroids(states_by_clusters)
 
     def get_centroids(self, states_by_clusters):
@@ -585,8 +586,8 @@ class Clusterer:
 
         topics_data = [list() for _ in self.dicts_by_topic[next(iter(self.dicts_by_topic))]]
         for topic in self.dicts_by_topic:
-            for i, data_dict in enumerate(self.dicts_by_topic[topic]):
-                topics_data[i].append(data_dict['attributes'])
+            for i, data in enumerate(self.data[topic]):
+                topics_data[i].append(data)
         centroid_finder = NearestCentroid().fit(cluster_data, cluster_labels)
         for cluster in cluster_labels:
             try:
