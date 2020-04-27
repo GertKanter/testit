@@ -170,11 +170,11 @@ class ModelRefinementMoveStrategy:
             states.append(value[i][:length])
         return states
 
-    def get_distance(self, state1, state2):
-        rospy.loginfo(state1)
-        rospy.loginfo(state2)
-        state1 = flatten(self.state_values_to_states(state1))
-        state2 = flatten(self.state_values_to_states(state2))
+    def get_distance(self, state1, state2, convert=(True, True)):
+        if convert[0]:
+            state1 = flatten(self.state_values_to_states(state1))
+        if convert[1]:
+            state2 = flatten(self.state_values_to_states(state2))
         return sqrt(sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(state1, state2))))
 
     def get_closest_pairs(self):
@@ -192,7 +192,7 @@ class ModelRefinementMoveStrategy:
         return dict(lmap(lambda x: x[1], pairs_by_distance))
 
     def get_state_label(self, state):
-        return min(self.state_values, key=lambda s: self.get_distance(state, self.state_values[s]))
+        return min(self.state_values, key=lambda s: self.get_distance(state, self.state_values[s], convert=(False, True)))
 
     def state_value(self):
         states = self.state_values_to_states(self.state_values[self.state])
