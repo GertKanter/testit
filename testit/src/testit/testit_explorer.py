@@ -115,9 +115,9 @@ class ModelRefinementMoveStrategy:
         if not self.state_machine:
             rospy.logerr("stateMachine not specified in config")
             raise RuntimeError("stateMachine not specified in config")
-        self.state_values = self.state_machine['values']
-        self.edges = self.state_machine['edges']
-        self.edge_labels = self.state_machine['labels']
+        self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
+        self.edges = {int(key): self.state_machine['edges'][key] for key in self.state_machine['edges']}
+        self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
 
         self.topics = []
         self.actions = []
@@ -676,7 +676,7 @@ class Explorer:
         return statemachine
 
     def maybe_write_new_model(self, req=Bool(True)):
-        rospy.loginfo("Writing refined model? " + str(req.data))
+        rospy.loginfo("\nWriting refined model? " + str(req.data))
         if self.test_config['mode'] == 'refine-model' and req.data:
             path = self.test_config.get('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
             get_uppaal = rospy.ServiceProxy(path, StateMachineToUppaal)
