@@ -12,6 +12,7 @@ from collections import OrderedDict
 from math import sqrt
 
 import rospy
+from testit_learn.msg import StateMachine
 
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
@@ -659,6 +660,13 @@ class Explorer:
         for thread in threads:
             thread.join()
 
+    def get_statemachine_msg(self):
+        statemachine = StateMachine()
+        statemachine.edges = json.dumps(self.state_machine['edges'])
+        statemachine.labels = json.dumps(self.state_machine['labels'])
+        statemachine.values = json.dumps(self.state_machine['values'])
+        return statemachine
+
     def maybe_write_new_model(self):
         if self.test_config['mode'] == 'model refinement':
             path = self.test_config('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
@@ -670,21 +678,22 @@ class Explorer:
 
                 request = StateMachineToUppaalRequest()
                 request.test = self.test_config['tag']
-                request.stateMachine = self.state_machine
+                request.stateMachine = self.get_statemachine_msg()
                 request.inputTypes = input_types
 
                 response = get_uppaal(request)  # type: StateMachineToUppaalResponse
 
                 file_name = ''.join(
-                    map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))), input_types))
+                    map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
+                        input_types))
                 model_path = file_name + '-refined_model.xml'
-                file_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + model_path
+                file_path = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
+                            rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/') + model_path
 
                 with open(file_path, 'w') as file:
                     file.write(response.uppaalModel)
 
     def explore(self):
-
         self.move_to_last_state_in_log()
 
         for i, robot_mover in enumerate(self.robot_movers):

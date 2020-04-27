@@ -349,10 +349,9 @@ class TestIt:
             file.write(str(uppaal_automata))
         state_machine_path = file_name + '-state_machine.json'
         with open(state_machine_path, 'w') as file:
-            convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
-            file.write(json.dumps({'edges': convert(uppaal_automata.edges, lambda value: list(map(str, value))),
-                                   'labels': convert(uppaal_automata.edge_labels, str),
-                                   'values': convert(uppaal_automata.centroids_by_state, list)}, indent=2))
+            file.write(json.safe_dump({'edges': uppaal_automata.edges,
+                                       'labels': uppaal_automata.edge_labels,
+                                       'values': uppaal_automata.centroids_by_state}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
             file.write(yaml.safe_dump(dict(uppaal_automata.map), indent=2))

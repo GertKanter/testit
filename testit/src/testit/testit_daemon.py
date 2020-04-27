@@ -506,6 +506,7 @@ class TestItDaemon:
         self.resolve_configuration_value(self.tests[test], pipeline, 'resultsDirectory')
         bag_return = 1
         bag_enabled = self.tests[test].get('bagEnabled', False)
+        mode = self.tests[test].get('mode', 'test')
         if bag_enabled:
             # Delete old rosbags if present
             if not self.delete_bag_files(pipeline, test, prefix, suffix):
@@ -555,6 +556,9 @@ class TestItDaemon:
             subprocess.call(prefix + "docker exec -d " + self.pipelines[pipeline]['testItContainerName'] + " /bin/bash -c \"chown -R " + self.ground_path("$(id -u)", prefix, suffix) + ":" + self.ground_path("$(id -g)", prefix, suffix) + " " + str(self.tests[test]['sharedDirectory']) + str(self.tests[test]['resultsDirectory']) + "\"" + suffix, shell=True)
         else:
             rospy.loginfo("Logger not configured ('loggerConfiguration'), skipping logger start!")
+            if mode in ("explore", "model-refinement", "learn"):
+                rospy.logerr("In mode '" + mode + "' logger must be configured!")
+                return False
 
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         detached = ""
@@ -562,11 +566,10 @@ class TestItDaemon:
         if self.tests[test]['oracle'] != "" and not self.tests[test]['verbose']:
             # run in detached
             detached = "-d "
-        rospy.loginfo("[%s] Launching test \'%s\'" % (pipeline, test))
+        rospy.loginfo("[%s] Launching %s \'%s\'" % (pipeline, mode, test))
         rospy.loginfo("[%s] Launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
         launch = self.tests[test].get('launch', "")
         start_time = rospy.Time.now()
-        mode = self.tests[test].get('mode', 'test')
         if launch != "" or mode == 'learn':
             quote_termination = "'"
             if prefix != "":
@@ -578,7 +581,7 @@ class TestItDaemon:
                 launch_addition += "rosrun testit testit_explorer.py"
             elif mode == "model-refinement":
                 launch_addition += " && " if launch != "" else ""
-                launch_addition += "rosrun testit testit_explorer.py && rosrun testit_learn testit_learn.py _launch=False"
+                launch_addition += "(rosrun testit_learn services.py &); rosrun testit testit_explorer.py"
             elif mode == "learn":
                 launch_addition += " && " if launch != "" else ""
                 launch_addition += "(rosrun testit_learn services.py &); rosrun testit_learn launcher.py"
@@ -594,14 +597,14 @@ class TestItDaemon:
         return_value = False
         if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "" or self.tests[test]['verbose']:
             # command returned success or in verbose mode (run oracle in parallel)
-            rospy.loginfo("[%s] TEST PASS!" % pipeline)
+            rospy.loginfo("[%s] %s PASS!" % (pipeline, mode.upper()))
             return_value = True
         elif self.call_result['launch' + str(threading.current_thread().ident)] == -1:
-            rospy.logwarn("[%s] TEST TIMEOUT (%s)!" % (pipeline, self.tests[test]['timeoutVerdict']))
+            rospy.logwarn("[%s] %s TIMEOUT (%s)!" % (pipeline, mode.upper(), self.tests[test]['timeoutVerdict']))
             if self.tests[test]['timeoutVerdict']:
                 return_value = True
         else:
-            rospy.logerr("[%s] Test FAIL!" % pipeline)
+            rospy.logerr("[%s] %s FAIL!" % (pipeline, mode.upper()))
 
         return return_value
 
