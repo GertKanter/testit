@@ -111,9 +111,9 @@ class ModelRefinementMoveStrategy:
         if not self.state_machine:
             rospy.logerr("stateMachine not specified in config")
             raise RuntimeError("stateMachine not specified in config")
-        self.state_values = self.state_machine['state_values']
+        self.state_values = self.state_machine['values']
         self.edges = self.state_machine['edges']
-        self.edge_labels = self.state_machine['edge_labels']
+        self.edge_labels = self.state_machine['labels']
 
         self.topics = []
         self.actions = []
