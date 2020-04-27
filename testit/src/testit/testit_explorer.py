@@ -12,6 +12,7 @@ from collections import OrderedDict
 from math import sqrt
 
 import rospy
+from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
@@ -481,7 +482,7 @@ class Explorer:
                 return
 
     def set_move_strategy_factory(self):
-        if self.test_config['mode'] == 'model refinement':
+        if self.test_config['mode'] == 'refine-model':
             self.move_strategy_factory = ModelRefinementMoveStrategy
         else:
             self.move_strategy_factory = MoveStrategy
@@ -534,6 +535,7 @@ class Explorer:
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
+        rospy.Subscriber("/testit/timeout/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
         return self.state_machine
 
     def read_log(self):
@@ -667,8 +669,9 @@ class Explorer:
         statemachine.values = json.dumps(self.state_machine['values'])
         return statemachine
 
-    def maybe_write_new_model(self):
-        if self.test_config['mode'] == 'model refinement':
+    def maybe_write_new_model(self, req=Bool(True)):
+        rospy.loginfo("Writing refined model? " + str(req.data))
+        if self.test_config['mode'] == 'refine-model' and req.data:
             path = self.test_config('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
             get_uppaal = rospy.ServiceProxy(path, StateMachineToUppaal)
 
@@ -689,6 +692,8 @@ class Explorer:
                 model_path = file_name + '-refined_model.xml'
                 file_path = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
                             rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/') + model_path
+
+                rospy.loginfo("Writing refined model to " + file_path)
 
                 with open(file_path, 'w') as file:
                     file.write(response.uppaalModel)

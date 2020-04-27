@@ -116,7 +116,7 @@ class TestIt:
 
     def get_job(self, mode):
         def job(args):
-            rospy.loginfo("Starting testing with mode " + mode + " ...")
+            rospy.loginfo("Starting with mode " + mode + " ...")
             args.pipeline = args.scenario
             if args.keep_bags:
                 args.pipeline.insert(0, "--keep-bags")
@@ -251,11 +251,19 @@ if __name__ == '__main__':
     parser_test.add_argument("scenario", nargs="*")
     parser_test.set_defaults(func=testit_instance.get_job('test'))
     parser_explore = subparsers.add_parser("explore", help="explore help")
+    parser_explore.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
+    parser_explore.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
+    parser_explore.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
+    parser_explore.add_argument("scenario", nargs="*")
     parser_explore.set_defaults(func=testit_instance.get_job('explore'))
     parser_learn = subparsers.add_parser("learn", help="learn help")
     parser_learn.add_argument("scenario", nargs="*")
     parser_learn.set_defaults(func=testit_instance.learn)
     parser_model_refine = subparsers.add_parser("refine-model", help="refine-model help")
+    parser_model_refine.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
+    parser_model_refine.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
+    parser_model_refine.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
+    parser_model_refine.add_argument("scenario", nargs="*")
     parser_model_refine.set_defaults(func=testit_instance.get_job('refine-model'))
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
     parser_teardown.add_argument("pipeline", nargs="*")
