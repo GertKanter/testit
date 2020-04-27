@@ -586,8 +586,8 @@ class Clusterer:
 
         topics_data = [list() for _ in self.dicts_by_topic[next(iter(self.dicts_by_topic))]]
         for topic in self.dicts_by_topic:
-            for i, data in enumerate(self.data[topic]):
-                topics_data[i].append(data)
+            for i, dict_by_topic in enumerate(self.dicts_by_topic[topic]):
+                topics_data[i].append(dict_by_topic['attributes'])
         centroid_finder = NearestCentroid().fit(cluster_data, cluster_labels)
         for cluster in cluster_labels:
             try:
