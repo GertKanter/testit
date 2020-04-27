@@ -166,6 +166,8 @@ class ModelRefinementMoveStrategy:
         return states
 
     def get_distance(self, state1, state2):
+        print(state1)
+        print(state2)
         return sqrt(sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(state1, state2))))
 
     def get_closest_pairs(self):
