@@ -37,6 +37,10 @@ def flatten(array, to=list):
     return to(reduce(lambda a, b: a + b, array, to()))
 
 
+def is_numeric(value):
+    return unicode(value).isnumeric() or isinstance(value, float)
+
+
 def dynamic_import(path):
     path_list = path.split('.')
     module = '.'.join(path_list[:-1])
@@ -166,8 +170,8 @@ class ModelRefinementMoveStrategy:
         return states
 
     def get_distance(self, state1, state2):
-        print(state1)
-        print(state2)
+        state1 = list(filter(is_numeric, state1))
+        state2 = list(filter(is_numeric, state2))
         return sqrt(sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(state1, state2))))
 
     def get_closest_pairs(self):
