@@ -218,7 +218,9 @@ class ModelRefinementMoveStrategy:
 
         for state in self.edges[self.prev_state]:
             if state not in self.visited:
-                if state in self.closest_pairs and not self.closest_pairs[state] in self.inaccessible.get(state, []):
+                if state in self.closest_pairs \
+                        and not self.closest_pairs[state] in self.inaccessible.get(state, []) \
+                        and not state in self.inaccessible.get(self.state, []):
                     self.state = state
                     self.next_state = self.closest_pairs[state]
                     self.connecting = True
