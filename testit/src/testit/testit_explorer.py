@@ -15,7 +15,8 @@ import rospy
 from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 
-from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
+from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest, \
+    WriteUppaalModel, WriteUppaalModelRequest
 
 try:
     from typing import *
@@ -678,8 +679,8 @@ class Explorer:
     def maybe_write_new_model(self, req=Bool(True)):
         rospy.loginfo("\nWriting refined model? " + str(req.data))
         if self.test_config['mode'] == 'refine-model' and req.data:
-            path = self.test_config.get('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
-            get_uppaal = rospy.ServiceProxy(path, StateMachineToUppaal)
+            statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService', '/testit/learn/statemachine/uppaal')
+            get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
 
             input_types_matrix = list(map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
             for input_types in input_types_matrix:
@@ -703,7 +704,7 @@ class Explorer:
                 rospy.loginfo("Writing refined model to " + file_path)
 
                 with open(file_path, 'w') as file:
-                    file.write(response.uppaalModel)
+                    file.write(response.uppaalModel.uppaalModel)
 
     def explore(self):
         self.move_to_last_state_in_log()
