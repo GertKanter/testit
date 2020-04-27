@@ -688,6 +688,7 @@ class Explorer:
                 request = StateMachineToUppaalRequest()
                 request.test = self.test_config['tag']
                 request.stateMachine = self.get_statemachine_msg()
+                rospy.loginfo(input_types)
                 request.inputTypes = input_types
 
                 response = get_uppaal(request)  # type: StateMachineToUppaalResponse
