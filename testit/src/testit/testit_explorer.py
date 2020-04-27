@@ -163,12 +163,10 @@ class ModelRefinementMoveStrategy:
         self.action_lens.append(len(self.actions) // 2)
         self.topics.append(topic)
 
-    def state_value_to_states(self, value):
+    def state_values_to_states(self, value):
         states = []
-        last_i = 0
-        for i in self.action_lens:
-            states.append(value[last_i:i])
-            last_i = i
+        for i, length in enumerate(self.action_lens):
+            states.append(value[i][:length])
         return states
 
     def get_distance(self, state1, state2):
