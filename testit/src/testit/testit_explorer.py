@@ -542,12 +542,8 @@ class Explorer:
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
-        rospy.Subscriber("/testit/timeout/%s" % self.test_config.get('tag'), Bool, self.mwnm)
+        rospy.Subscriber("/testit/timeout/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
         return self.state_machine
-
-    def mwnm(self, req):
-        rospy.loginfo("Got testit timeout notice")
-        self.maybe_write_new_model(req)
 
     def read_log(self):
         logger_path = rospy.get_param('/testit_logger/log')
@@ -714,9 +710,15 @@ class Explorer:
     def explore(self):
         self.move_to_last_state_in_log()
 
+        threads = []
         for i, robot_mover in enumerate(self.robot_movers):
             rospy.loginfo('Exploring topics: ' + str(robot_mover.topic_identifiers))
-            threading.Thread(target=robot_mover.move).start()
+            thread = threading.Thread(target=robot_mover.move)
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
 
         self.maybe_write_new_model()
 
