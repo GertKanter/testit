@@ -137,7 +137,9 @@ class ModelRefinementMoveStrategy:
     def set_initial_state(self, state):
         self.initial_state = self.get_state_label(state)
         self.state = self.initial_state
-        self.give_feedback([True] * len(self.topics))
+        self.prev_state = self.state
+        self.visited.add(self.state)
+        self.path.append(self.state)
 
     def set_previous_states(self, states):
         pass
