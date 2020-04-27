@@ -678,7 +678,7 @@ class Explorer:
     def maybe_write_new_model(self, req=Bool(True)):
         rospy.loginfo("Writing refined model? " + str(req.data))
         if self.test_config['mode'] == 'refine-model' and req.data:
-            path = self.test_config('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
+            path = self.test_config.get('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
             get_uppaal = rospy.ServiceProxy(path, StateMachineToUppaal)
 
             input_types_matrix = list(map(lambda topics: [self.topics[i] for i in topics], self.synced_topics))
