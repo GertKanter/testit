@@ -699,7 +699,8 @@ class Explorer:
                         input_types))
                 model_path = file_name + '-refined_model.xml'
                 file_path = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
-                            rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/') + model_path
+                            rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/') + '/' + \
+                            model_path.strip('/')
 
                 rospy.loginfo("Writing refined model to " + file_path)
 
