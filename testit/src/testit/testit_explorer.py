@@ -132,6 +132,7 @@ class ModelRefinementMoveStrategy:
         self.state = None
         self.next_state = None
         self.connecting = False
+        self.success = True
 
         self.closest_pairs = self.get_closest_pairs()
 
@@ -147,6 +148,7 @@ class ModelRefinementMoveStrategy:
 
     def give_feedback(self, successes):
         if any(successes):
+            self.success = True
             if self.state not in self.edges.get(self.prev_state, []):
                 self.edges[self.prev_state].append(self.state)
                 index = successes.index(True)
@@ -155,6 +157,7 @@ class ModelRefinementMoveStrategy:
             self.visited.add(self.state)
             self.path.append(self.state)
         else:
+            self.success = False
             if self.prev_state:
                 self.inaccessible[self.prev_state] = self.state
                 self.state = self.prev_state
@@ -200,7 +203,7 @@ class ModelRefinementMoveStrategy:
         return states
 
     def get_next_states(self):
-        if self.next_state is not None:
+        if self.next_state is not None and self.success:
             self.prev_state = self.state
             self.state = self.next_state
             if self.connecting:
@@ -211,6 +214,7 @@ class ModelRefinementMoveStrategy:
                 print("Going back to path: " + str(self.state))
                 self.next_state = None
             return self.state_value()
+
 
         for state in self.edges[self.prev_state]:
             if state not in self.visited:
