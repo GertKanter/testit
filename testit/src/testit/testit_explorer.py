@@ -681,7 +681,7 @@ class Explorer:
             path = self.test_config.get('stateMachineToModelService', '/testit/learn/statemachine/uppaal')
             get_uppaal = rospy.ServiceProxy(path, StateMachineToUppaal)
 
-            input_types_matrix = list(map(lambda topics: [self.topics[i] for i in topics], self.synced_topics))
+            input_types_matrix = list(map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
             for input_types in input_types_matrix:
                 get_uppaal.wait_for_service()
 
