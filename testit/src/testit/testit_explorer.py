@@ -542,8 +542,12 @@ class Explorer:
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
-        rospy.Subscriber("/testit/timeout/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
+        rospy.Subscriber("/testit/timeout/%s" % self.test_config.get('tag'), Bool, self.mwnm)
         return self.state_machine
+
+    def mwnm(self, req):
+        rospy.loginfo("Got testit timeout notice")
+        self.maybe_write_new_model(req)
 
     def read_log(self):
         logger_path = rospy.get_param('/testit_logger/log')
