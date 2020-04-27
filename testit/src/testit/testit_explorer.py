@@ -192,7 +192,7 @@ class ModelRefinementMoveStrategy:
         return min(self.state_values, key=lambda s: self.get_distance(state, self.state_values[s]))
 
     def state_value(self):
-        states = self.state_value_to_states(self.state_values[self.state])
+        states = self.state_values_to_states(self.state_values[self.state])
         print(states)
         return states
 
