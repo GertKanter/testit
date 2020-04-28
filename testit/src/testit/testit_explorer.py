@@ -216,7 +216,7 @@ class ModelRefinementMoveStrategy:
         return states
 
     def get_next_states(self):
-        print("self.next_state = " + str(self.next_state))
+        self.going_back = False
         if self.next_state is not None and self.success:
             self.prev_state = self.state
             self.state = self.next_state
@@ -247,9 +247,8 @@ class ModelRefinementMoveStrategy:
             return None
 
         self.going_back = True
-        self.state = self.path[::-1][self.path_cursor]
+        self.state = self.path.pop()
         print("Going back in path: " + str(self.state))
-        self.path_cursor += 1
         return self.state_value()
 
 
