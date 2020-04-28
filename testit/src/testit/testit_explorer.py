@@ -153,7 +153,7 @@ class ModelRefinementMoveStrategy:
                 self.edges[self.prev_state].append(self.state)
                 print("Adding edge: " + str(self.prev_state) + " -> " + str(self.state))
                 index = successes.index(True)
-                self.edge_labels[(self.prev_state, self.state)] = self.topics[index]
+                self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
                 print("Adding edge label: " + str((self.prev_state, self.state)) + " = " + str(self.topics[index]))
             self.prev_state = self.state
             self.visited.add(self.state)
