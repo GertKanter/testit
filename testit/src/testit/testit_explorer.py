@@ -120,6 +120,10 @@ class ModelRefinementMoveStrategy:
         self.edges = {int(key): self.state_machine['edges'][key] for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
 
+        self.state_machine['values'] = self.state_values
+        self.state_machine['edges'] = self.edges
+        self.state_machine['labels'] = self.edge_labels
+
         self.topics = []
         self.actions = []
         self.action_lens = []
@@ -154,7 +158,8 @@ class ModelRefinementMoveStrategy:
                 print("Adding edge: " + str(self.prev_state) + " -> " + str(self.state))
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
-                print("Adding edge label: " + str((self.prev_state, self.state)) + " = " + str(self.topics[index]))
+                print("Adding edge label: " + str((self.prev_state, self.state)) + " = " + str(
+                    self.topics[index]['identifier']))
             self.prev_state = self.state
             self.visited.add(self.state)
             self.path.append(self.state)
