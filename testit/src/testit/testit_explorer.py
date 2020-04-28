@@ -159,7 +159,7 @@ class ModelRefinementMoveStrategy:
         else:
             self.success = False
             if self.prev_state:
-                self.inaccessible[self.prev_state] = self.state
+                self.inaccessible[self.prev_state].add(self.state)
                 self.state = self.prev_state
 
     def add(self, actions, topic):
