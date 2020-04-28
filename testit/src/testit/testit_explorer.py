@@ -23,17 +23,6 @@ try:
 except:
     pass
 
-
-def concat(*fns):
-    def f(*args, **kwargs):
-        result = fns[0](*args, **kwargs)
-        for fn in fns[1:]:
-            result = fn(*args, **kwargs)
-        return result
-
-    return f
-
-
 def flatten(array, to=list):
     return to(reduce(lambda a, b: a + b, array, to()))
 
@@ -225,6 +214,7 @@ class ModelRefinementMoveStrategy:
         return states
 
     def get_next_states(self):
+        print("self.next_state = " + str(self.next_state))
         if self.next_state is not None and self.success:
             self.prev_state = self.state
             self.state = self.next_state
