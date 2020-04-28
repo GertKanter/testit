@@ -192,7 +192,19 @@ class ModelRefinementMoveStrategy:
                 distance = self.get_distance(value1, value2)
                 pairs_by_distance.append((distance, (state1, state2)))
         pairs_by_distance.sort(key=lambda triple: triple[0])
-        return dict(lmap(lambda x: x[1], pairs_by_distance))
+
+        shortest_pairs_by_destination = {}
+        distance_by_destination = {}
+        for (distance, (x, y)) in pairs_by_distance:
+            if y in shortest_pairs_by_destination:
+                distance_ = distance_by_destination[y]
+                if distance < distance_:
+                    shortest_pairs_by_destination[y] = x
+                    distance_by_destination[y] = distance
+            else:
+                shortest_pairs_by_destination[y] = x
+                distance_by_destination[y] = distance
+        return {shortest_pairs_by_destination[key]: key for key in shortest_pairs_by_destination}
 
     def get_state_label(self, state):
         return min(self.state_values,
