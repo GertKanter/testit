@@ -709,7 +709,7 @@ class Explorer:
     def get_statemachine_msg(self):
         statemachine = StateMachine()
         statemachine.edges = json.dumps(self.state_machine['edges'])
-        statemachine.labels = json.dumps(self.state_machine['labels'])
+        statemachine.labels = json.dumps({str(key): value for key, value in self.state_machine['labels'].iteritems()})
         statemachine.values = json.dumps(self.state_machine['values'])
         return statemachine
 
