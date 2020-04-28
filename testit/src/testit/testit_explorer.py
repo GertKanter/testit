@@ -8,7 +8,7 @@ import re
 import subprocess
 import threading
 import yaml
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from math import sqrt
 
 import rospy
@@ -125,7 +125,7 @@ class ModelRefinementMoveStrategy:
         self.action_lens = []
         self.initial_state = None
         self.visited = set()
-        self.inaccessible = {}
+        self.inaccessible = defaultdict(set)
         self.path = []
         self.path_cursor = 0
         self.prev_state = None
