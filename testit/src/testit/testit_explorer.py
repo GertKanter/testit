@@ -195,7 +195,8 @@ class ModelRefinementMoveStrategy:
         return dict(lmap(lambda x: x[1], pairs_by_distance))
 
     def get_state_label(self, state):
-        return min(self.state_values, key=lambda s: self.get_distance(state, self.state_values[s], convert=(False, True)))
+        return min(self.state_values,
+                   key=lambda s: self.get_distance(state, self.state_values[s], convert=(False, True)))
 
     def state_value(self):
         states = self.state_values_to_states(self.state_values[self.state])
@@ -215,12 +216,10 @@ class ModelRefinementMoveStrategy:
                 self.next_state = None
             return self.state_value()
 
-
         for state in self.edges[self.prev_state]:
-            if state not in self.visited:
+            if state not in self.visited and not state in self.inaccessible[self.state]:
                 if state in self.closest_pairs \
-                        and not self.closest_pairs[state] in self.inaccessible.get(state, []) \
-                        and not state in self.inaccessible.get(self.state, []):
+                        and not self.closest_pairs[state] in self.inaccessible.get(state, []):
                     self.state = state
                     self.next_state = self.closest_pairs[state]
                     self.connecting = True
@@ -687,10 +686,12 @@ class Explorer:
     def maybe_write_new_model(self, req=Bool(True)):
         rospy.loginfo("\nWriting refined model? " + str(req.data))
         if self.test_config['mode'] == 'refine-model' and req.data:
-            statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService', '/testit/learn/statemachine/uppaal')
+            statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
+                                                                  '/testit/learn/statemachine/uppaal')
             get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
 
-            input_types_matrix = list(map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
+            input_types_matrix = list(
+                map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
             for input_types in input_types_matrix:
                 get_uppaal.wait_for_service()
 
