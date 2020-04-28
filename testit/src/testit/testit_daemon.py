@@ -567,7 +567,7 @@ class TestItDaemon:
         # launch test in TestIt docker in new thread (if oracle specified, run in detached mode)
         detached = ""
         self.resolve_configuration_value(self.tests[test], pipeline, 'verbose', False)
-        if self.tests[test]['oracle'] != "" and not self.tests[test]['verbose']:
+        if self.tests[test]['oracle'] != "" and not self.tests[test]['verbose'] or mode == 'refine-model':
             # run in detached
             detached = "-d "
         rospy.loginfo("[%s] Launching %s \'%s\'" % (pipeline, mode, test))
