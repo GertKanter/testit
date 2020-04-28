@@ -192,7 +192,7 @@ class ModelRefinementMoveStrategy:
                 distance = self.get_distance(value1, value2)
                 pairs_by_distance.append((distance, (state1, state2)))
         pairs_by_distance.sort(key=lambda triple: triple[0])
-
+        rospy.loginfo(pairs_by_distance)
         shortest_pairs_by_destination = {}
         distance_by_destination = {}
         for (distance, (x, y)) in pairs_by_distance:
