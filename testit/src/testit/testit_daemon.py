@@ -427,6 +427,7 @@ class TestItDaemon:
     def thread_call(self, tag, command):
         self.call_result[tag] = -1 # -1 means timeout
         self.call_result[tag] = subprocess.call(command, shell=True)
+        rospy.loginfo("Thread call finished with: " + str(self.call_result[tag]))
 
     def resolve_configuration_value(self, target_dictionary, pipeline, key, default=None):
         """
@@ -597,8 +598,10 @@ class TestItDaemon:
             thread = threading.Thread(target=self.thread_call, args=('launch' + str(threading.current_thread().ident), thread_command))
             thread.start()
             if not self.tests[test]['verbose'] or self.tests[test]['oracle'] == "": # join only if not verbose or no oracle
+                rospy.loginfo("Joining thread")
                 thread.join(self.tests[test]['timeout'])
         return_value = False
+        rospy.loginfo("Returned from thread with call_result: " + str(self.call_result['launch' + str(threading.current_thread().ident)]))
         if launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "" or self.tests[test]['verbose']:
             # command returned success or in verbose mode (run oracle in parallel)
             rospy.loginfo("[%s] %s PASS!" % (pipeline, mode.upper()))
