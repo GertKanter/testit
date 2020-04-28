@@ -187,6 +187,7 @@ class ModelRefinementMoveStrategy:
 
     def get_closest_pairs(self):
         pairs_by_distance = []
+        rospy.loginfo(self.state_values)
         for state1 in self.state_values:
             value1 = self.state_values[state1]
             for state2 in self.state_values:
