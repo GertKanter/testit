@@ -627,7 +627,7 @@ class TestItDaemon:
         launch = self.tests[test].get('launch', "")
         timeout_publisher = rospy.Publisher('/testit/timeout/%s' % test, Bool, queue_size=1)
         start_time = rospy.Time.now()
-        if launch != "" or mode == 'learn':
+        if launch != "" or mode in ('learn', 'explore', 'refine-model'):
             quote_termination = "'"
             if prefix != "":
                 quote_termination = "'\\''"
