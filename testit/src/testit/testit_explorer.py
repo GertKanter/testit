@@ -127,6 +127,7 @@ class ModelRefinementMoveStrategy:
         self.connecting = False
         self.success = True
         self.closest_pairs = None
+        self.going_back = False
 
     def set_initial_state(self, state):
         self.initial_state = self.get_state_label(state)
@@ -148,7 +149,8 @@ class ModelRefinementMoveStrategy:
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
             self.prev_state = self.state
             self.visited.add(self.state)
-            self.path.append(self.state)
+            if not self.going_back:
+                self.path.append(self.state)
         else:
             self.success = False
             if self.prev_state:
@@ -244,6 +246,7 @@ class ModelRefinementMoveStrategy:
         if self.path_cursor >= len(self.path):
             return None
 
+        self.going_back = True
         self.state = self.path[::-1][self.path_cursor]
         print("Going back in path: " + str(self.state))
         self.path_cursor += 1
