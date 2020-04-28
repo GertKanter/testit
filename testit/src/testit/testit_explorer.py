@@ -133,7 +133,6 @@ class ModelRefinementMoveStrategy:
         self.next_state = None
         self.connecting = False
         self.success = True
-
         self.closest_pairs = None
 
     def set_initial_state(self, state):
@@ -142,7 +141,7 @@ class ModelRefinementMoveStrategy:
         self.prev_state = self.state
         self.visited.add(self.state)
         self.path.append(self.state)
-        self.get_closest_pairs()
+        self.closest_pairs = self.get_closest_pairs()
 
     def set_previous_states(self, states):
         pass
