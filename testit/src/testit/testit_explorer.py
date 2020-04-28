@@ -155,11 +155,8 @@ class ModelRefinementMoveStrategy:
             self.success = True
             if self.state not in self.edges.get(self.prev_state, []) and self.prev_state != self.state:
                 self.edges[self.prev_state].append(self.state)
-                print("Adding edge: " + str(self.prev_state) + " -> " + str(self.state))
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
-                print("Adding edge label: " + str((self.prev_state, self.state)) + " = " + str(
-                    self.topics[index]['identifier']))
             self.prev_state = self.state
             self.visited.add(self.state)
             self.path.append(self.state)
@@ -167,6 +164,9 @@ class ModelRefinementMoveStrategy:
             self.success = False
             if self.prev_state:
                 self.inaccessible[self.prev_state].add(self.state)
+                if self.prev_state in self.edges and self.state in self.edges[self.prev_state]:
+                    self.edges[self.prev_state].remove(self.state)
+                    del self.edge_labels[(self.prev_state, self.state)]
                 self.state = self.prev_state
 
     def add(self, actions, topic):
@@ -185,15 +185,11 @@ class ModelRefinementMoveStrategy:
             state1 = flatten(self.state_values_to_states(state1))
         if convert[1]:
             state2 = flatten(self.state_values_to_states(state2))
-        print("Converted state1: " + str(state1))
-        print("Converted state2: " + str(state2))
         distance = sqrt(sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(state1, state2))))
-        print("Distance inside: " + str(distance))
         return distance
 
     def get_closest_pairs(self):
         pairs_by_distance = []
-        rospy.loginfo(self.state_values)
         for state1 in self.state_values:
             value1 = self.state_values[state1]
             for state2 in self.state_values:
@@ -201,16 +197,11 @@ class ModelRefinementMoveStrategy:
                                                                                                                []):
                     continue
                 value2 = self.state_values[state2]
-                print("State1: " + str(state1))
-                print("State2: " + str(state2))
-                print("Value1: " + str(value1))
-                print("Value2: " + str(value2))
-
                 distance = self.get_distance(value1, value2)
-                print("Distance: " + str(distance))
                 pairs_by_distance.append((distance, (state1, state2)))
+
         pairs_by_distance.sort(key=lambda triple: triple[0])
-        rospy.loginfo(pairs_by_distance)
+
         shortest_pairs_by_destination = {}
         distance_by_destination = {}
         for (distance, (x, y)) in pairs_by_distance:
@@ -719,7 +710,6 @@ class Explorer:
             statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
                                                                   '/testit/learn/statemachine/uppaal')
             get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
-            rospy.loginfo(self.state_machine)
             input_types_matrix = list(
                 map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
             for input_types in input_types_matrix:
