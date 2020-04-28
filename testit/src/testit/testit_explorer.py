@@ -151,8 +151,10 @@ class ModelRefinementMoveStrategy:
             self.success = True
             if self.state not in self.edges.get(self.prev_state, []) and self.prev_state != self.state:
                 self.edges[self.prev_state].append(self.state)
+                print("Adding edge: " + str(self.prev_state) + " -> " + str(self.state))
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]
+                print("Adding edge label: " + str((self.prev_state, self.state)) + " = " + str(self.topics[index]))
             self.prev_state = self.state
             self.visited.add(self.state)
             self.path.append(self.state)
