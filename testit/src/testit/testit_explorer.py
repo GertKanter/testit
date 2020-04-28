@@ -191,7 +191,13 @@ class ModelRefinementMoveStrategy:
                                                                                                                []):
                     continue
                 value2 = self.state_values[state2]
+                print("State1: " + str(state1))
+                print("State2: " + str(state2))
+                print("Value1: " + str(value1))
+                print("Value2: " + str(value2))
+
                 distance = self.get_distance(value1, value2)
+                print("Distance: " + str(distance))
                 pairs_by_distance.append((distance, (state1, state2)))
         pairs_by_distance.sort(key=lambda triple: triple[0])
         rospy.loginfo(pairs_by_distance)
