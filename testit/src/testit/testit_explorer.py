@@ -149,7 +149,7 @@ class ModelRefinementMoveStrategy:
     def give_feedback(self, successes):
         if any(successes):
             self.success = True
-            if self.state not in self.edges.get(self.prev_state, []):
+            if self.state not in self.edges.get(self.prev_state, []) and self.prev_state != self.state:
                 self.edges[self.prev_state].append(self.state)
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]
