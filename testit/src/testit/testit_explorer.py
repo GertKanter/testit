@@ -178,7 +178,10 @@ class ModelRefinementMoveStrategy:
             state1 = flatten(self.state_values_to_states(state1))
         if convert[1]:
             state2 = flatten(self.state_values_to_states(state2))
+        print("Converted state1: " + str(state1))
+        print("Converted state2: " + str(state2))
         distance = sqrt(sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(state1, state2))))
+        print("Distance inside: " + str(distance))
         return distance
 
     def get_closest_pairs(self):
