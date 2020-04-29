@@ -342,7 +342,7 @@ class TestIt:
         return lists_by_test_and_input, dicts_by_test_and_input
 
     def write_model(self, uppaal_automata, test, input_types, directory=""):
-        file_name = directory + '/' + ''.join(
+        file_name = directory + '/' + test + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))), input_types))
         model_path = file_name + '.xml'
         with open(model_path, 'w') as file:
