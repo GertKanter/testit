@@ -858,7 +858,6 @@ class UppaalAutomata:
                 label_sync.text = text
 
     def add_map_transitions(self):
-        rospy.loginfo(self.edge_labels)
         for state1 in self.edges:
             for state2 in self.edges[state1]:
                 identifier = self.edge_labels[(state1, state2)]
