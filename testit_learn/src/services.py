@@ -555,7 +555,9 @@ class Clusterer:
 
         initial_cluster = None
         for cluster in states_by_clusters:
-            states = states_by_clusters[cluster]
+            states = list(map(lambda state: self.data[state], states_by_clusters[cluster]))
+            rospy.loginfo("States: " + str(states))
+            rospy.loginfo("Initial state: " + str(initial_state))
             if initial_state in states:
                 initial_cluster = cluster
 
