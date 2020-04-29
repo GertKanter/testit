@@ -214,10 +214,10 @@ class TestItDaemon:
         start_time = rospy.Time.now()
         timeout = self.pipelines[tag][prefix + instance + 'Timeout'] if i is None or type(
             self.pipelines[tag][prefix + instance + 'Timeout']) != list else \
-        self.pipelines[tag][prefix + instance + 'Timeout'][i]
+            self.pipelines[tag][prefix + instance + 'Timeout'][i]
         trigger = self.pipelines[tag][prefix + instance + 'FinishTrigger'] if i is None or type(
             self.pipelines[tag][prefix + instance + 'FinishTrigger']) != list else \
-        self.pipelines[tag][prefix + instance + 'FinishTrigger'][i]
+            self.pipelines[tag][prefix + instance + 'FinishTrigger'][i]
         while timeout == 0 or (rospy.Time.now() - start_time).to_sec() < timeout:
             if trigger != '-':
                 if subprocess.call(trigger, shell=True) == 0:
@@ -270,7 +270,7 @@ class TestItDaemon:
         else:
             for i in range(len(self.pipelines[tag][prefix + instance])):
                 rospy.loginfo('[%s] Executing %s %s (%s of %s)...' % (
-                tag, prefix, instance, i + 1, len(self.pipelines[tag][prefix + instance])))
+                    tag, prefix, instance, i + 1, len(self.pipelines[tag][prefix + instance])))
                 if not self.single_instance_execution(tag, prefix, instance, set_result if set_result and i == len(
                         self.pipelines[tag][prefix + instance]) - 1 else False, i):
                     return False
@@ -356,7 +356,7 @@ class TestItDaemon:
         try:
             for pipeline in self.pipelines:  # dict
                 message += "[%s] %s\n" % (
-                self.pipelines[pipeline]['tag'], self.pipelines[pipeline].get('state', "OFFLINE"))
+                    self.pipelines[pipeline]['tag'], self.pipelines[pipeline].get('state', "OFFLINE"))
         except:
             result = False
         return testit.srv.CommandResponse(result, message)
@@ -387,23 +387,23 @@ class TestItDaemon:
                         return pipeline
             time.sleep(0.2)
             rospy.logwarn_throttle(30.0, 'Test \'%s\' (priority %s) waiting for a free pipeline...' % (
-            tag, self.tests[tag].get('priority', 0)))
+                tag, self.tests[tag].get('priority', 0)))
 
     def single_execute_system(self, pipeline, system, mode, command, i=None):
         rospy.loginfo("[%s] Executing \"%s\"" % (pipeline, command))
         if command is not None and subprocess.call(command, shell=True) == 0:
             delay = self.pipelines[pipeline][mode + system + 'Delay'] if i is None or type(
                 self.pipelines[pipeline][mode + system + 'Delay']) != list else \
-            self.pipelines[pipeline][mode + system + 'Delay'][i]
+                self.pipelines[pipeline][mode + system + 'Delay'][i]
             rospy.loginfo('[%s] Waiting for delay duration (%s)...' % (pipeline, delay))
             time.sleep(delay)
             start_time = rospy.Time.now()
             timeout = self.pipelines[pipeline][mode + system + 'Timeout'] if i is None or type(
                 self.pipelines[pipeline][mode + system + 'Timeout']) != list else \
-            self.pipelines[pipeline][mode + system + 'Timeout'][i]
+                self.pipelines[pipeline][mode + system + 'Timeout'][i]
             trigger = self.pipelines[pipeline][mode + system + 'FinishTrigger'] if i is None or type(
                 self.pipelines[pipeline][mode + system + 'FinishTrigger']) != list else \
-            self.pipelines[pipeline][mode + system + 'FinishTrigger'][i]
+                self.pipelines[pipeline][mode + system + 'FinishTrigger'][i]
             while self.pipelines[pipeline]['state'] not in ["TEARDOWN", "FAILED", "OFFLINE"] and (
                     timeout == 0 or (rospy.Time.now() - start_time).to_sec() < timeout):
                 if trigger != '-':
@@ -503,6 +503,18 @@ class TestItDaemon:
                 rospy.loginfo("Executing '%s'" % delete_command)
                 return True if subprocess.call(delete_command, shell=True) == 0 else False
         return False
+
+    def get_launch(self, mode, launch):
+        launch_suffix = ""
+        launch_suffix += " && " if launch != "" and mode in ("explore", "refine-model", "learn", "tron") else ""
+        if mode == "explore":
+            launch_suffix += "rosrun testit testit_explorer.py"
+        elif mode == "refine-model":
+            launch_suffix += "(rosrun testit_learn services.py &); rosrun testit testit_explorer.py"
+        elif mode == "learn":
+            launch_suffix += "(rosrun testit_learn services.py &); rosrun testit_learn launcher.py"
+
+        return launch + launch_suffix
 
     def execute_in_testit_container(self, pipeline, test, keep_bags, prefix, suffix):
         """
@@ -632,17 +644,7 @@ class TestItDaemon:
             if prefix != "":
                 quote_termination = "'\\''"
             launch = self.tests[test].get('launch', '')
-            launch_addition = ""
-            if mode == "explore":
-                launch_addition += " && " if launch != "" else ""
-                launch_addition += "rosrun testit testit_explorer.py"
-            elif mode == "refine-model":
-                launch_addition += " && " if launch != "" else ""
-                launch_addition += "(rosrun testit_learn services.py &); rosrun testit testit_explorer.py"
-            elif mode == "learn":
-                launch_addition += " && " if launch != "" else ""
-                launch_addition += "(rosrun testit_learn services.py &); rosrun testit_learn launcher.py"
-            launch += launch_addition
+            launch = self.get_launch(mode, launch)
             source = "source /catkin_ws/devel/setup.bash"
             source += " &&" if launch.strip() != "" else ""
             thread_command = prefix + "docker exec " + detached + self.pipelines[pipeline][
@@ -659,7 +661,7 @@ class TestItDaemon:
         rospy.loginfo("Returned from thread with call_result: " + str(
             self.call_result['launch' + str(threading.current_thread().ident)]))
         if (launch == "" or self.call_result['launch' + str(threading.current_thread().ident)] == 0 or detached == "" or
-                self.tests[test]['verbose']) and not mode == 'refine-model':
+            self.tests[test]['verbose']) and not mode == 'refine-model':
             # command returned success or in verbose mode (run oracle in parallel)
             rospy.loginfo("[%s] %s PASS!" % (pipeline, mode.upper()))
             return_value = True
@@ -1409,7 +1411,7 @@ class TestItDaemon:
                                                     last_timestamp = entry['timestamp']
 
                                                     rospy.logdebug("Found transition: '%s' - %s" % (
-                                                    entry['name'], str(entry['state'])))
+                                                        entry['name'], str(entry['state'])))
                                     if len(filtered) > 0:
                                         message = testit_uppaal.create_sequential_uppaal_xml(filtered)
                                         processed_scenario = test

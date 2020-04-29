@@ -23,6 +23,7 @@ try:
 except:
     pass
 
+
 def flatten(array, to=list):
     return to(reduce(lambda a, b: a + b, array, to()))
 
@@ -243,7 +244,7 @@ class ModelRefinementMoveStrategy:
                 self.state = state
                 return self.state_value()
 
-        if self.path_cursor >= len(self.path):
+        if len(self.path) == 0:
             return None
 
         self.going_back = True
@@ -715,7 +716,7 @@ class Explorer:
 
                 response = get_uppaal(request)  # type: StateMachineToUppaalResponse
 
-                file_name = ''.join(
+                file_name = self.test_config['tag'] + ''.join(
                     map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
                         input_types))
                 model_path = file_name + '-refined_model.xml'

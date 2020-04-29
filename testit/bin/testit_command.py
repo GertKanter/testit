@@ -237,64 +237,87 @@ if __name__ == '__main__':
     parser_clean.add_argument("-a", "--all", action="store_true", default=False, help="Delete results from daemon")
     parser_clean.add_argument("pipeline", nargs="*")
     parser_clean.set_defaults(func=testit_instance.clean)
+
     parser_reload = subparsers.add_parser("reload", help="reload help")
     parser_reload.add_argument("-c", "--config", action="store", default=rospack.get_path('testit')+'/cfg/config.yaml',
                     help="Configuration file location")
     parser_reload.set_defaults(func=testit_instance.reload)
+
     parser_bringup = subparsers.add_parser("bringup", help="bringup help")
     parser_bringup.add_argument("pipeline", nargs="*")
     parser_bringup.set_defaults(func=testit_instance.bringup)
+
     parser_test = subparsers.add_parser("test", help="test help")
     parser_test.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
     parser_test.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
     parser_test.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
     parser_test.add_argument("scenario", nargs="*")
     parser_test.set_defaults(func=testit_instance.get_job('test'))
+
     parser_explore = subparsers.add_parser("explore", help="explore help")
     parser_explore.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
     parser_explore.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
     parser_explore.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
     parser_explore.add_argument("scenario", nargs="*")
     parser_explore.set_defaults(func=testit_instance.get_job('explore'))
+
     parser_learn = subparsers.add_parser("learn", help="learn help")
     parser_learn.add_argument("scenario", nargs="*")
     parser_learn.set_defaults(func=testit_instance.learn)
+
     parser_model_refine = subparsers.add_parser("refine-model", help="refine-model help")
     parser_model_refine.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
     parser_model_refine.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
     parser_model_refine.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
     parser_model_refine.add_argument("scenario", nargs="*")
     parser_model_refine.set_defaults(func=testit_instance.get_job('refine-model'))
+
+    parser_tron = subparsers.add_parser("tron", help="tron help")
+    parser_tron.add_argument("-b", "--blocking", action="store_true", default=False, help="Block until finished")
+    parser_tron.add_argument("-k", "--keep-bags", action="store_true", default=False, help="Keep bag files on success")
+    parser_tron.add_argument("-n", "--no-credit-increment", action="store_true", default=False, help="Do not automatically increment test credit")
+    parser_tron.add_argument("scenario", nargs="*")
+    parser_tron.set_defaults(func=testit_instance.get_job('tron'))
+
     parser_teardown = subparsers.add_parser("teardown", help="teardown help")
     parser_teardown.add_argument("pipeline", nargs="*")
     parser_teardown.set_defaults(func=testit_instance.teardown)
+
     parser_status = subparsers.add_parser("status", help="status help")
     parser_status.set_defaults(func=testit_instance.status)
+
     parser_results = subparsers.add_parser("results", help="Output the results")
     parser_results.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
     parser_results.add_argument("-x", "--xml-sys-out", action="store_true", default=False, help="Add system-out to results")
     parser_results.set_defaults(func=testit_instance.results)
+
     parser_log = subparsers.add_parser("log", help="log help")
     parser_log.set_defaults(func=testit_instance.log)
+
     parser_bag = subparsers.add_parser("bag", help="bag help")
     parser_bag.add_argument("command", action="store", nargs="+", help="Bag subcommands")
     parser_bag.set_defaults(func=testit_instance.bag)
+
     parser_uppaal = subparsers.add_parser("uppaal", help="Uppaal TA related commands")
     parser_uppaal.add_argument("command", action="store", nargs="+", help="Uppaal subcommands")
     parser_uppaal.add_argument("-f", "--file", action="store", default="", help="Specify the file to work with")
     parser_uppaal.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
     parser_uppaal.add_argument("-a", "--add-scenario", action="store", default='', help="Add the scenario to test suite")
     parser_uppaal.set_defaults(func=testit_instance.uppaal)
+
     parser_shutdown = subparsers.add_parser("shutdown", help="Shut down the daemon")
     parser_shutdown.set_defaults(func=testit_instance.shutdown)
+
     parser_credits = subparsers.add_parser("credits", help="Display and modify test credits")
     parser_credits.add_argument("-s", "--set", action="store", default='', help="Set number of credits")
     parser_credits.add_argument("scenario", action="store", nargs="*", help="Scenarios")
     parser_credits.set_defaults(func=testit_instance.credits)
+
     parser_optimize = subparsers.add_parser("optimize", help="Optimize scenario based on logger log")
     parser_optimize.add_argument("-o", "--output", action="store", default='', help="Optional file to write results")
     parser_optimize.add_argument("scenario", action="store", nargs="+", help="Scenarios")
     parser_optimize.set_defaults(func=testit_instance.optimize)
+
     testit.opt = parser.parse_args(rospy.myargv()[1:])
     testit.opt.func(testit.opt)
 
