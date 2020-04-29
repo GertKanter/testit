@@ -167,6 +167,7 @@ class TestIt:
                 input_configs = list(map(lambda input_id: self.find_input_config(inputs, input_id), input_ids))
                 columns_to_normalise = self.get_columns_to_normalise(input_configs)
                 rospy.loginfo("Columns to normalise: " + str(columns_to_normalise))
+                rospy.loginfo(str(data[0]))
                 self.normalise_columns(data, columns_to_normalise)
 
     def normalise_columns(self, points, columns):
