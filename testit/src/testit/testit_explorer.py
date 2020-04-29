@@ -454,7 +454,27 @@ class RobotMover:
                 suffix = ' ' + str(suffixes[i])
             rospy.loginfo(topic_identifier + ' ' + msg + suffix)
 
+    def get_steps(self, additional_steps):
+        locks = [threading.Lock() for _ in additional_steps]
+        steps = []
+        for i, step in enumerate(additional_steps):
+            def wrapped_step():
+                lock = locks[i]
+                if lock.locked():
+                    rospy.loginfo("Locked")
+                    return
+                lock.acquire()
+                rospy.loginfo("Executing step")
+                step()
+                rospy.loginfo("Step executed")
+                lock.release()
+
+            steps.append(wrapped_step)
+        return steps
+
     def move(self, *additional_steps):
+        steps = self.get_steps(additional_steps)
+
         while True:
             states = self.robot_move_strategy.get_next_states()
 
@@ -467,7 +487,7 @@ class RobotMover:
             self.robot_move_strategy.give_feedback(responses)
             self.log_for_each_topic(' goal reached?: ', responses)
 
-            for step in additional_steps:
+            for step in steps:
                 threading.Thread(target=step).start()
 
 
