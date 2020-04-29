@@ -454,7 +454,7 @@ class RobotMover:
                 suffix = ' ' + str(suffixes[i])
             rospy.loginfo(topic_identifier + ' ' + msg + suffix)
 
-    def move(self):
+    def move(self, *additional_steps):
         while True:
             states = self.robot_move_strategy.get_next_states()
 
@@ -466,6 +466,9 @@ class RobotMover:
 
             self.robot_move_strategy.give_feedback(responses)
             self.log_for_each_topic(' goal reached?: ', responses)
+
+            for step in additional_steps:
+                step()
 
 
 class Explorer:
@@ -736,7 +739,7 @@ class Explorer:
         threads = []
         for i, robot_mover in enumerate(self.robot_movers):
             rospy.loginfo('Exploring topics: ' + str(robot_mover.topic_identifiers))
-            thread = threading.Thread(target=robot_mover.move)
+            thread = threading.Thread(target=robot_mover.move, args=(self.maybe_write_new_model,))
             threads.append(thread)
             thread.start()
 
