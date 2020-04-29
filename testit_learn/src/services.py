@@ -98,13 +98,14 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        edges, edge_labels, _, centroids = self.get_main().clusters_to_state_machine(req.data, req.test,
+        edges, edge_labels, _, centroids, initial_cluster = self.get_main().clusters_to_state_machine(req.data, req.test,
                                                                                      tuple(req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
         response.stateMachine.labels = json.dumps(convert(edge_labels, str))
         response.stateMachine.values = json.dumps(convert(centroids, list))
+        response.stateMachine.initialCluster = str(initial_cluster)
         return response
 
     def statemachine_to_uppaal_model_service(self, req):
