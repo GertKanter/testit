@@ -98,8 +98,10 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        edges, edge_labels, _, centroids, initial_cluster = self.get_main().clusters_to_state_machine(req.data, req.test,
-                                                                                     tuple(req.inputTypes))
+        edges, edge_labels, _, centroids, initial_cluster = self.get_main().clusters_to_state_machine(req.data,
+                                                                                                      req.test,
+                                                                                                      tuple(
+                                                                                                          req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
@@ -536,31 +538,24 @@ class Clusterer:
 
         return add_edge, remove_edge
 
-    def clusters_to_state_machine(self, clusters, initial_state, get_labels=lambda clusters: clusters.labels_):
-        if not clusters:
-            rospy.logerr("Could not cluster")
-            return
-
-        edges, reverse_edges, edge_labels = {}, {}, {}
-        states_by_clusters = defaultdict(list)
-        add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
-
-        clusters = get_labels(clusters)
-        topic = next(iter(self.dicts_by_topic))
-        for i, prev_cluster_label in enumerate(clusters[:-1]):
-            cluster_label = clusters[i + 1]
-            states_by_clusters[prev_cluster_label].append(i)
-            add_edge(prev_cluster_label, [cluster_label], topic)
-        states_by_clusters[cluster_label].append(i + 1)
-
+    def get_initial_cluster(self, initial_state, states_by_clusters):
         initial_cluster = None
         for cluster in states_by_clusters:
             states = list(map(lambda state: list(self.data[state])[:len(initial_state)], states_by_clusters[cluster]))
             rospy.loginfo("States: " + str(states))
             rospy.loginfo("Initial state: " + str(initial_state))
-            if initial_state in states:
+            dist = 0
+            min_dist = float('inf')
+            for state in states:
+                dist += math.sqrt(
+                    sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(initial_state, state))))
+            if dist < min_dist:
+                min_dist = dist
                 initial_cluster = cluster
+        return initial_cluster
 
+    def divide_sync_topic_clusters(self, clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
+                                   add_edge):
         cluster_counter = count(max(clusters) + 1)
         for topic in list(self.dicts_by_topic.keys())[1:]:
             dicts = self.dicts_by_topic[topic]
@@ -583,6 +578,27 @@ class Clusterer:
                 else:
                     states_by_clusters[cluster].remove(i)
                     states_by_clusters[new_cluster].append(i)
+
+    def clusters_to_state_machine(self, clusters, initial_state, get_labels=lambda clusters: clusters.labels_):
+        if not clusters:
+            rospy.logerr("Could not cluster")
+            return
+
+        edges, reverse_edges, edge_labels = {}, {}, {}
+        states_by_clusters = defaultdict(list)
+        add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
+
+        clusters = get_labels(clusters)
+        topic = next(iter(self.dicts_by_topic))
+        for i, prev_cluster_label in enumerate(clusters[:-1]):
+            cluster_label = clusters[i + 1]
+            states_by_clusters[prev_cluster_label].append(i)
+            add_edge(prev_cluster_label, [cluster_label], topic)
+        states_by_clusters[cluster_label].append(i + 1)
+
+        initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
+        self.divide_sync_topic_clusters(clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
+                                        add_edge)
 
         return edges, edge_labels, states_by_clusters, self.get_centroids(states_by_clusters), initial_cluster
 
