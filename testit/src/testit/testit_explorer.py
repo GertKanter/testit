@@ -563,7 +563,7 @@ class Explorer:
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
-        rospy.Subscriber("/testit/timeout/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
+        rospy.Subscriber("/testit/finished/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
         return self.state_machine
 
     def read_log(self):

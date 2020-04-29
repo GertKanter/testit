@@ -637,7 +637,7 @@ class TestItDaemon:
         rospy.loginfo("[%s] Launching %s \'%s\'" % (pipeline, mode, test))
         rospy.loginfo("[%s] Launch parameter is \'%s\'" % (pipeline, self.tests[test]['launch']))
         launch = self.tests[test].get('launch', "")
-        timeout_publisher = rospy.Publisher('/testit/timeout/%s' % test, Bool, queue_size=1)
+        finished_publisher = rospy.Publisher('/testit/finished/%s' % test, Bool, queue_size=1)
         start_time = rospy.Time.now()
         if launch != "" or mode in ('learn', 'explore', 'refine-model'):
             quote_termination = "'"
@@ -666,13 +666,13 @@ class TestItDaemon:
             rospy.loginfo("[%s] %s PASS!" % (pipeline, mode.upper()))
             return_value = True
         elif self.call_result['launch' + str(threading.current_thread().ident)] == -1:
-            timeout_publisher.publish(Bool(True))
             rospy.logwarn("[%s] %s TIMEOUT (%s)!" % (pipeline, mode.upper(), self.tests[test]['timeoutVerdict']))
             if self.tests[test]['timeoutVerdict']:
                 return_value = True
         else:
             rospy.logerr("[%s] %s FAIL!" % (pipeline, mode.upper()))
 
+        finished_publisher.publish(Bool(True))
         return return_value
 
     def get_command_wrapper(self, parameter, command, pipeline, add_quotes=True, add_space=True):
