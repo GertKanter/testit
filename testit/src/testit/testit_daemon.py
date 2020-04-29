@@ -672,6 +672,7 @@ class TestItDaemon:
         else:
             rospy.logerr("[%s] %s FAIL!" % (pipeline, mode.upper()))
 
+        rospy.loginfo("Publishing finished")
         finished_publisher.publish(Bool(True))
         return return_value
 
