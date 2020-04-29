@@ -1014,7 +1014,7 @@ class Main:
         clusterer = self.clusterer_factory(test_data, dicts_by_topic,
                                            test_config.get('cluster_reduction_factor', {}))
         clusters = clusterer.get_clusters()
-        state_machine = clusterer.clusters_to_state_machine(clusters)
+        state_machine = clusterer.clusters_to_state_machine(clusters, )
         if plot:
             clusterer.plot(state_machine)
         return state_machine
@@ -1043,7 +1043,10 @@ class Main:
 
     def clusters_to_state_machine(self, clusters, test, input_types):
         clusterer = self.get_clusterer(test, input_types)
-        return clusterer.clusters_to_state_machine(clusters, get_labels=lambda clusters: list(
+        variables = self.get_test_config(input_types, test).get('explore', {}).get('variables', [])
+        initial_state = list(map(lambda variable: variable['initial'], variables))
+
+        return clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
             map(lambda cluster: cluster.cluster, clusters)))
 
     def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
@@ -1054,7 +1057,7 @@ class Main:
         values = {int(key): values_[key] for key in values_}
         labels_ = json.loads(state_machine.labels)
         labels = {eval(key): labels_[key] for key in labels_}
-        return edges, labels, None, values
+        return edges, labels, None, values, int(state_machine.initialCluster)
 
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests
