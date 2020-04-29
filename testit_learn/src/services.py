@@ -540,12 +540,12 @@ class Clusterer:
 
     def get_initial_cluster(self, initial_state, states_by_clusters):
         initial_cluster = None
+        min_dist = float('inf')
         for cluster in states_by_clusters:
             states = list(map(lambda state: list(self.data[state])[:len(initial_state)], states_by_clusters[cluster]))
             rospy.loginfo("States: " + str(states))
             rospy.loginfo("Initial state: " + str(initial_state))
             dist = 0
-            min_dist = float('inf')
             for state in states:
                 dist += math.sqrt(
                     sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(initial_state, state))))
