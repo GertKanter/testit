@@ -487,7 +487,7 @@ class Clusterer:
                   length_includes_head=True)
 
     def plot_state_machine(self, state_machine):
-        edges, edge_labels, _, centroids_by_state = state_machine
+        edges, edge_labels, _, centroids_by_state, _ = state_machine
         centroids_by_state = deepcopy(centroids_by_state)
         for state in edges:
             for next_state in edges[state]:
@@ -507,7 +507,7 @@ class Clusterer:
                              va='center', color='black', rotation=45)
 
     def plot(self, state_machine):
-        edges, edge_labels, points_by_state, centroids_by_state = state_machine
+        edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
         self.plot_clusters(points_by_state)
         self.plot_state_machine(state_machine)
         plt.show()
@@ -533,7 +533,7 @@ class Clusterer:
 
         return add_edge, remove_edge
 
-    def clusters_to_state_machine(self, clusters, get_labels=lambda clusters: clusters.labels_):
+    def clusters_to_state_machine(self, clusters, initial_state, get_labels=lambda clusters: clusters.labels_):
         if not clusters:
             rospy.logerr("Could not cluster")
             return
@@ -549,6 +549,12 @@ class Clusterer:
             states_by_clusters[prev_cluster_label].append(i)
             add_edge(prev_cluster_label, [cluster_label], topic)
         states_by_clusters[cluster_label].append(i + 1)
+
+        initial_cluster = None
+        for cluster in states_by_clusters:
+            states = states_by_clusters[cluster]
+            if initial_state in states:
+                initial_cluster = cluster
 
         cluster_counter = count(max(clusters) + 1)
         for topic in list(self.dicts_by_topic.keys())[1:]:
@@ -573,7 +579,7 @@ class Clusterer:
                     states_by_clusters[cluster].remove(i)
                     states_by_clusters[new_cluster].append(i)
 
-        return edges, edge_labels, states_by_clusters, self.get_centroids(states_by_clusters)
+        return edges, edge_labels, states_by_clusters, self.get_centroids(states_by_clusters), initial_cluster
 
     def get_centroids(self, states_by_clusters):
         centroids_by_clusters = {}
@@ -605,7 +611,7 @@ class Clusterer:
 
 class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
-        self.edges, self.edge_labels, _, self.centroids_by_state = state_machine
+        self.edges, self.edge_labels, _, self.centroids_by_state, self.initial_state = state_machine
         if model is not None:
             self.map = json.loads(model.modelConfig)
             self.adapter_config = json.loads(model.adapterConfig)
@@ -772,7 +778,7 @@ class UppaalAutomata:
 
     def add_map_init(self):
         init = xml.SubElement(self.template_map, 'init')
-        init.set('ref', self.get_goal_id(list(self.edges.keys())[0]))
+        init.set('ref', self.get_goal_id(self.initial_state))
 
         return self
 
