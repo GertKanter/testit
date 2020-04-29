@@ -673,7 +673,6 @@ class TestItDaemon:
             rospy.logerr("[%s] %s FAIL!" % (pipeline, mode.upper()))
 
         finished_publisher.publish(Bool(True))
-        rospy.sleep(5)
         return return_value
 
     def get_command_wrapper(self, parameter, command, pipeline, add_quotes=True, add_space=True):
