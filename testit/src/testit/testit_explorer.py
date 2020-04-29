@@ -468,7 +468,7 @@ class RobotMover:
             self.log_for_each_topic(' goal reached?: ', responses)
 
             for step in additional_steps:
-                step()
+                threading.Thread(target=step).start()
 
 
 class Explorer:
