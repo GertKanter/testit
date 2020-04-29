@@ -8,6 +8,7 @@ import re
 import subprocess
 import threading
 import yaml
+import atexit
 from collections import OrderedDict, defaultdict
 from math import sqrt
 
@@ -746,4 +747,6 @@ class Explorer:
 
 
 if __name__ == '__main__':
-    Explorer().explore()
+    explorer = Explorer()
+    atexit.register(explorer.maybe_write_new_model)
+    explorer.explore()
