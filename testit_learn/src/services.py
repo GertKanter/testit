@@ -543,8 +543,6 @@ class Clusterer:
         min_dist = float('inf')
         for cluster in states_by_clusters:
             states = list(map(lambda state: list(self.data[state])[:len(initial_state)], states_by_clusters[cluster]))
-            rospy.loginfo("States: " + str(states))
-            rospy.loginfo("Initial state: " + str(initial_state))
             dist = 0
             for state in states:
                 dist += math.sqrt(
