@@ -461,14 +461,10 @@ class RobotMover:
             def wrapped_step():
                 lock = locks[i]
                 if lock.locked():
-                    rospy.loginfo("Locked")
                     return
                 lock.acquire()
-                rospy.loginfo("Executing step")
                 step()
-                rospy.loginfo("Step executed")
                 lock.release()
-
             steps.append(wrapped_step)
         return steps
 
