@@ -111,7 +111,7 @@ class ModelRefinementMoveStrategy:
         self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
         self.edges = {int(key): self.state_machine['edges'][key] for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
-        self.initial_state = self.state_machine['initialState']
+        self.initial_state = int(self.state_machine['initialState'])
 
         self.state_machine['values'] = self.state_values
         self.state_machine['edges'] = self.edges
@@ -723,7 +723,7 @@ class Explorer:
         statemachine.edges = json.dumps(state_machine['edges'])
         statemachine.labels = json.dumps(state_machine['labels'])
         statemachine.values = json.dumps(state_machine['values'])
-        statemachine.initialState = statemachine['initialState']
+        statemachine.initialState = str(state_machine['initialState'])
         return statemachine
 
     def call_uppaal_service(self, service, input_types):
