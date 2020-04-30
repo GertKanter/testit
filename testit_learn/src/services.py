@@ -107,7 +107,7 @@ class ServiceProvider:
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
         response.stateMachine.labels = json.dumps(convert(edge_labels, str))
         response.stateMachine.values = json.dumps(convert(centroids, list))
-        response.stateMachine.initialCluster = str(initial_cluster)
+        response.stateMachine.initialState = str(initial_cluster)
         return response
 
     def statemachine_to_uppaal_model_service(self, req):
@@ -1073,7 +1073,7 @@ class Main:
         values = {int(key): values_[key] for key in values_}
         labels_ = json.loads(state_machine.labels)
         labels = {eval(key): labels_[key] for key in labels_}
-        return edges, labels, None, values, int(state_machine.initialCluster)
+        return edges, labels, None, values, int(state_machine.initialState)
 
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests

@@ -10,6 +10,7 @@ import threading
 import yaml
 import atexit
 from collections import OrderedDict, defaultdict
+from copy import deepcopy
 from math import sqrt
 
 import rospy
@@ -110,6 +111,7 @@ class ModelRefinementMoveStrategy:
         self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
         self.edges = {int(key): self.state_machine['edges'][key] for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
+        self.initial_state = self.state_machine['initialState']
 
         self.state_machine['values'] = self.state_values
         self.state_machine['edges'] = self.edges
@@ -132,7 +134,6 @@ class ModelRefinementMoveStrategy:
         self.going_back = False
 
     def set_initial_state(self, state):
-        self.initial_state = self.get_state_label(state)
         self.state = self.initial_state
         self.prev_state = self.state
         self.visited.add(self.state)
@@ -465,6 +466,7 @@ class RobotMover:
                 lock.acquire()
                 step()
                 lock.release()
+
             steps.append(wrapped_step)
         return steps
 
@@ -694,7 +696,7 @@ class Explorer:
             states_matrix.append(states)
         return states_matrix
 
-    def move_to_last_state_in_log(self):
+    def maybe_move_to_last_state_in_log(self):
         if self.test_config['mode'] != 'explore':
             return
         logs_by_tests = self.get_logs_by_tests()
@@ -710,52 +712,73 @@ class Explorer:
         for thread in threads:
             thread.join()
 
+    def get_encoded_statemachine(self):
+        state_machine = deepcopy(self.state_machine)
+        state_machine['labels'] = {str(key): value for key, value in self.state_machine['labels'].iteritems()}
+        return state_machine
+
     def get_statemachine_msg(self):
+        state_machine = self.get_encoded_statemachine()
         statemachine = StateMachine()
-        statemachine.edges = json.dumps(self.state_machine['edges'])
-        statemachine.labels = json.dumps({str(key): value for key, value in self.state_machine['labels'].iteritems()})
-        statemachine.values = json.dumps(self.state_machine['values'])
+        statemachine.edges = json.dumps(state_machine['edges'])
+        statemachine.labels = json.dumps(state_machine['labels'])
+        statemachine.values = json.dumps(state_machine['values'])
+        statemachine.initialState = statemachine['initialState']
         return statemachine
 
+    def call_uppaal_service(self, service, input_types):
+        service.wait_for_service()
+
+        request = StateMachineToUppaalRequest()
+        request.test = self.test_config['tag']
+        request.stateMachine = self.get_statemachine_msg()
+        request.inputTypes = input_types
+
+        return service(request)
+
+    def write_model(self, input_types, uppaalModel):
+        file_name = self.test_config['tag'] + ''.join(
+            map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
+                input_types))
+        model_path = file_name + '-refined_model.xml'
+        statemachine_path = file_name + '-refined_statemachine.json'
+        directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
+                    rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/') + '/'
+        rospy.loginfo("Writing refined model to " + directory)
+
+        with open(directory + model_path, 'w') as file:
+            file.write(uppaalModel)
+        with open(directory + statemachine_path, 'w') as file:
+            file.write(json.dumps(self.get_encoded_statemachine()))
+
     def maybe_write_new_model(self, req=Bool(True)):
-        rospy.loginfo("\nWriting refined model? " + str(req.data))
-        if self.test_config['mode'] == 'refine-model' and req.data:
-            statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
-                                                                  '/testit/learn/statemachine/uppaal')
-            get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
-            input_types_matrix = list(
-                map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
-            for input_types in input_types_matrix:
-                get_uppaal.wait_for_service()
+        if self.test_config['mode'] != 'refine-model' or not req.data:
+            return
 
-                request = StateMachineToUppaalRequest()
-                request.test = self.test_config['tag']
-                request.stateMachine = self.get_statemachine_msg()
-                rospy.loginfo(input_types)
-                request.inputTypes = input_types
+        rospy.loginfo("\nWriting refined model")
+        statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
+                                                              '/testit/learn/statemachine/uppaal')
+        get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
 
-                response = get_uppaal(request)  # type: StateMachineToUppaalResponse
+        input_types_matrix = list(
+            map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
+        for input_types in input_types_matrix:
+            response = self.call_uppaal_service(get_uppaal, input_types)  # type: StateMachineToUppaalResponse
+            self.write_model(input_types, response.uppaalModel.uppaalModel)
 
-                file_name = self.test_config['tag'] + ''.join(
-                    map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
-                        input_types))
-                model_path = file_name + '-refined_model.xml'
-                file_path = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
-                            rospy.get_param('/testit/pipeline')['resultsDirectory'].strip('/') + '/' + \
-                            model_path.strip('/')
-
-                rospy.loginfo("Writing refined model to " + file_path)
-
-                with open(file_path, 'w') as file:
-                    file.write(response.uppaalModel.uppaalModel)
+    def get_steps(self):
+        steps = []
+        if self.test_config.get('continuousUpdate', False):
+            steps.append(self.maybe_write_new_model)
+        return tuple(steps)
 
     def explore(self):
-        self.move_to_last_state_in_log()
+        self.maybe_move_to_last_state_in_log()
 
         threads = []
         for i, robot_mover in enumerate(self.robot_movers):
             rospy.loginfo('Exploring topics: ' + str(robot_mover.topic_identifiers))
-            thread = threading.Thread(target=robot_mover.move, args=(self.maybe_write_new_model,))
+            thread = threading.Thread(target=robot_mover.move, args=self.get_steps())
             threads.append(thread)
             thread.start()
 
