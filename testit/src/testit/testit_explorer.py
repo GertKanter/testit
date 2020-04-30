@@ -109,7 +109,7 @@ class ModelRefinementMoveStrategy:
             rospy.logerr("stateMachine not specified in config")
             raise RuntimeError("stateMachine not specified in config")
         self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
-        self.edges = {int(key): self.state_machine['edges'][key] for key in self.state_machine['edges']}
+        self.edges = {int(key): lmap(int, self.state_machine['edges'][key]) for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
         self.initial_state = int(self.state_machine['initialState'])
 
