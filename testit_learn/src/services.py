@@ -357,7 +357,8 @@ class TestIt:
             file.write(json.dumps({'edges': uppaal_automata.edges,
                                    'labels': {str(key): uppaal_automata.edge_labels[key] for key in
                                               uppaal_automata.edge_labels},
-                                   'values': uppaal_automata.centroids_by_state}, indent=2))
+                                   'values': uppaal_automata.centroids_by_state,
+                                   'initialState': str(uppaal_automata.initial_state)}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
             file.write(yaml.safe_dump(dict(uppaal_automata.map), indent=2))
