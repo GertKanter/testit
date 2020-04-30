@@ -120,7 +120,6 @@ class ModelRefinementMoveStrategy:
         self.topics = []
         self.actions = []
         self.action_lens = []
-        self.initial_state = None
         self.visited = set()
         self.inaccessible = defaultdict(set)
         self.path = []
@@ -133,7 +132,7 @@ class ModelRefinementMoveStrategy:
         self.closest_pairs = None
         self.going_back = False
 
-    def set_initial_state(self, state):
+    def set_initial_state(self, _):
         self.state = self.initial_state
         self.prev_state = self.state
         self.visited.add(self.state)
