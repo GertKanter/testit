@@ -34,6 +34,7 @@
 #
 # Author: Gert Kanter
 import re
+import traceback
 import yaml
 
 import roslib
@@ -178,6 +179,7 @@ class TestItRunner:
                     return False
             except:
                 rospy.logerr("Couldn't find feedback topic from logger config")
+                traceback.print_exc()
                 return False
 
 
