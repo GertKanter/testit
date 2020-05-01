@@ -165,10 +165,13 @@ class TestItRunner:
                 feedback_class = roslib.message.get_message_class(feedback_type.replace(".msg", "").replace(".", "/"))
                 publisher = self.publishers[identifier]
                 publisher.publish(message)
+                rospy.loginfo("Published msg:" + str(message))
                 response = rospy.wait_for_message(feedback_topic, feedback_class)
+                rospy.loginfo("Response: " + str(response))
                 result = get_attribute(response, feedback_field)
                 success = response_config.get('success', result) == result or re.match(str(feedback_success),
                                                                                        str(result)) is not None
+                rospy.loginfo("Result %s, success %s" % (str(result), str(success)))
                 if success:
                     if not self.with_logger:
                         data = std_msgs.msg.UInt32(0)
