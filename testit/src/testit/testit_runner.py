@@ -102,7 +102,7 @@ class TestItRunner:
         while True:
             #rospy.loginfo("param_state = %s" % self.param_state)
             rospy.logwarn("Current state value == %s" % self.optimizer.compute_parameter_state_value(self.param_state))
-            next_step = self.optimizer.compute_step(10, next_step[0], self.param_state, self.selection_mode) # selection_mode=0 best, 1 = random, 2 = worst
+            next_step = self.optimizer.compute_step(30, next_step[0], self.param_state, self.selection_mode) # selection_mode=0 best, 1 = random, 2 = worst
             if next_step[0] is None:
                 rospy.logerr("No next step!")
                 break
