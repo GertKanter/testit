@@ -597,7 +597,7 @@ class Clusterer:
         self.divide_sync_topic_clusters(clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
                                         add_edge)
 
-        initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters, edge_labels)
+        initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
         centroids = self.get_centroids(states_by_clusters)
         return edges, edge_labels, states_by_clusters, centroids, initial_cluster
 
