@@ -33,7 +33,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # Author: Gert Kanter
+import re
+import yaml
 
+import roslib
 import rospy
 import testit_common
 import testit_optimizer
@@ -42,6 +45,12 @@ import actionlib
 import message_converter
 import testit_msgs.msg
 import std_msgs.msg
+
+def get_attribute(value, path):
+    get_value = getattr if not isinstance(value, dict) else lambda v, a: v.get(a)
+    for attribute in path.split('.'):
+        value = get_value(value, attribute)
+    return value
 
 class TestItRunner:
     def __init__(self, log_filename, weights_filename, test, with_logger, selection_mode):
@@ -56,6 +65,7 @@ class TestItRunner:
             rospy.logwarn("Could not open weights file '%s'!" % weights_filename)
         self.publishers = {} # '/channel': rospy.Publisher(...)
         self.action_clients = {} # '/channel': rospy.SimpleActionclient(...)
+        self.subscribers = {}
         self.imports = []
         self.optimizer = testit_optimizer.Optimizer(log_data, weights, test)
         #TODO support "srv" mode
@@ -66,6 +76,15 @@ class TestItRunner:
         self.coverage_subscriber = rospy.Subscriber("/testit/flush_data", testit_msgs.msg.FlushData, self.flush_subscriber)
         self.param_state = {} # {(filename, line): probability), ...}
         self.selection_mode = selection_mode
+
+        try:
+            logger_config_path = rospy.get_param('testit_logger/config')
+            with open(logger_config_path, 'r') as file:
+                self.logger_config = yaml.load(file)
+            self.inputs = self.logger_config['configuration']['inputs']
+        except:
+            rospy.logwarn("Logger not started, necessary for topic type commands")
+
 
     def flush_subscriber(self, data):
         #rospy.loginfo("received flush data")
@@ -127,6 +146,41 @@ class TestItRunner:
                     self.coverage_publisher.publish(data)
                     rospy.sleep(0.5)
                 return True
+        else:
+            try:
+                identifier = channel['identifier']
+                message_class = []
+                message = message_converter.convert_dictionary_to_ros_message(channel['type'], data, message_class_return=message_class)
+                if identifier not in self.publishers:
+                    self.publishers['identifier'] = rospy.Publisher(identifier, message_class.pop(), queue_size=1)
+                    rospy.sleep(1)
+                for input_config in self.inputs:
+                    if input_config['identifier'] == identifier:
+                        response_config = input_config['feedback']
+                feedback_topic = response_config['topic']
+                feedback_type = response_config['type']
+                feedback_field = response_config['field']
+                feedback_success = response_config['success']
+                feedback_class = roslib.message.get_message_class(feedback_type)
+                publisher = self.publishers[identifier]
+                publisher.publish(message)
+                response = rospy.wait_for_message(feedback_topic, feedback_class)
+                result = get_attribute(response, feedback_field)
+                success = response_config.get('success', result) == result or re.match(str(feedback_success),
+                                                                                       str(result)) is not None
+                if success:
+                    if not self.with_logger:
+                        data = std_msgs.msg.UInt32(0)
+                    self.coverage_publisher.publish(data)
+                    rospy.sleep(0.5)
+                    return True
+                else:
+                    return False
+            except:
+                rospy.logerr("Couldn't find feedback topic from logger config")
+                return False
+
+
 
     def do_import(self, channel_type):
         import_string = ".".join(channel_type.split(".")[:-1])
