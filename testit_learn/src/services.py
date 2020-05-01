@@ -98,10 +98,8 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        edges, edge_labels, _, centroids, initial_cluster = self.get_main().clusters_to_state_machine(req.data,
-                                                                                                      req.test,
-                                                                                                      tuple(
-                                                                                                          req.inputTypes))
+        edges, edge_labels, _, centroids, initial_cluster = self.get_main() \
+            .clusters_to_state_machine(req.data,req.test, tuple(req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
@@ -441,6 +439,7 @@ class Clusterer:
         self.reduction_min = reduction.get('min', 2)
         self.reduction_max = reduction.get('max', len(data) / 2)
         self.better = lambda x, y: x > y
+        self.clusters = None
 
     def get_clusters(self):
         best_evaluation = self.initial_score
@@ -463,7 +462,7 @@ class Clusterer:
                     break
                 except Exception as e:
                     rospy.logwarn(e)
-
+        self.clusters = clusters
         return best_clusters
 
     def plot_clusters(self, states_by_clusters):
@@ -546,10 +545,12 @@ class Clusterer:
             for state in states:
                 dist += math.sqrt(
                     sum(map(lambda coords: (float(coords[1]) - float(coords[0])) ** 2, zip(initial_state, state))))
+            dist /= len(states)
             if dist < min_dist:
                 min_dist = dist
                 initial_cluster = cluster
         return initial_cluster
+
 
     def divide_sync_topic_clusters(self, clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
                                    add_edge):
@@ -593,11 +594,12 @@ class Clusterer:
             add_edge(prev_cluster_label, [cluster_label], topic)
         states_by_clusters[cluster_label].append(i + 1)
 
-        initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
         self.divide_sync_topic_clusters(clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
                                         add_edge)
 
-        return edges, edge_labels, states_by_clusters, self.get_centroids(states_by_clusters), initial_cluster
+        initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters, edge_labels)
+        centroids = self.get_centroids(states_by_clusters)
+        return edges, edge_labels, states_by_clusters, centroids, initial_cluster
 
     def get_centroids(self, states_by_clusters):
         centroids_by_clusters = {}
@@ -1036,7 +1038,7 @@ class Main:
         clusterer = self.clusterer_factory(test_data, dicts_by_topic,
                                            test_config.get('cluster_reduction_factor', {}))
         clusters = clusterer.get_clusters()
-        state_machine = clusterer.clusters_to_state_machine(clusters, )
+        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state)
         if plot:
             clusterer.plot(state_machine)
         return state_machine
