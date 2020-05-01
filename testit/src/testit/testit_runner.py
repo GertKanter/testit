@@ -151,7 +151,7 @@ class TestItRunner:
             try:
                 identifier = channel['identifier']
                 message_class = []
-                message = message_converter.convert_dictionary_to_ros_message(channel['type'], data, message_class_return=message_class)
+                message = message_converter.convert_dictionary_to_ros_message(channel['type'].replace(".msg", "").replace(".", "/"), data, message_class_return=message_class)
                 if identifier not in self.publishers:
                     self.publishers['identifier'] = rospy.Publisher(identifier, message_class.pop(), queue_size=1)
                     rospy.sleep(1)
@@ -162,7 +162,7 @@ class TestItRunner:
                 feedback_type = response_config['type']
                 feedback_field = response_config['field']
                 feedback_success = response_config['success']
-                feedback_class = roslib.message.get_message_class(feedback_type)
+                feedback_class = roslib.message.get_message_class(feedback_type.replace(".msg", "").replace(".", "/"))
                 publisher = self.publishers[identifier]
                 publisher.publish(message)
                 response = rospy.wait_for_message(feedback_topic, feedback_class)
