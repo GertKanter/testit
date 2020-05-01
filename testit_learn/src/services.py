@@ -663,7 +663,7 @@ class UppaalAutomata:
         self.add_initial_state_to_map()
 
     def add_initial_state_to_map(self):
-        connection = self.edges[self.initial_state]
+        connection = self.edges[self.initial_state][0]
         identifier = self.edge_labels[(self.initial_state, connection)]
         centroids = self.centroids_by_state[self.initial_state]
         self.get_commands(identifier, centroids)
