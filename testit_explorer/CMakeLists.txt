@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(testit_learn)
+project(testit_explorer)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -50,21 +50,16 @@ catkin_python_setup()
 
 ## Generate messages in the 'msg' folder
 add_message_files(
-   DIRECTORY msg
    FILES
-   ClusterPoint.msg
-   StateMachine.msg
-   UppaalAutomata.msg
+   Action.msg
+   State.msg
+   MoveStrategyInit.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(
-   DIRECTORY srv
    FILES
-   LogToCluster.srv
-   ClusterToStateMachine.srv
-   StateMachineToUppaal.srv
-   WriteUppaalModel.srv
+   MoveStrategy.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -109,6 +104,12 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
+catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES testit-learn
+#  CATKIN_DEPENDS other_catkin_pkg
+#  DEPENDS system_lib
+)
 
 ###########
 ## Build ##

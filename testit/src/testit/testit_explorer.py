@@ -102,6 +102,27 @@ class Action:
         return actions
 
 
+class MoveStrategyFromService:
+    def __init__(self, **kwargs):
+        self.service_path = kwargs['service']
+        self.state_machine = kwargs['state_machine']
+
+    def set_initial_state(self, initial_state):
+        pass
+
+    def set_previous_states(self, states):
+        pass
+
+    def give_feedback(self, successes):
+        pass
+
+    def add(self, actions, topic):
+        pass
+
+    def get_next_states(self):
+        pass
+
+
 class ModelRefinementMoveStrategy:
     def __init__(self, **kwargs):
         self.state_machine = kwargs['state_machine']
