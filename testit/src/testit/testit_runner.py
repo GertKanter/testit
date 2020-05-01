@@ -153,7 +153,7 @@ class TestItRunner:
                 message_class = []
                 message = message_converter.convert_dictionary_to_ros_message(channel['type'].replace(".msg", "").replace(".", "/"), data, message_class_return=message_class)
                 if identifier not in self.publishers:
-                    self.publishers['identifier'] = rospy.Publisher(identifier, message_class.pop(), queue_size=1)
+                    self.publishers[identifier] = rospy.Publisher(identifier, message_class.pop(), queue_size=1)
                     rospy.sleep(1)
                 for input_config in self.inputs:
                     if input_config['identifier'] == identifier:
