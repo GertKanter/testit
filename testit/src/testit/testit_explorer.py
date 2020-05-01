@@ -751,7 +751,7 @@ class Explorer:
             file.write(json.dumps(self.get_encoded_statemachine()))
 
     def maybe_write_new_model(self, req=Bool(True)):
-        if self.test_config['mode'] != 'refine-model' or not req.data:
+        if self.test_config.get('mode', 'test') != 'refine-model' or not req.data:
             return
 
         rospy.loginfo("\nWriting refined model")

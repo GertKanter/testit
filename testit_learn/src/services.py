@@ -660,6 +660,13 @@ class UppaalAutomata:
 
         self.adapter_config = self.get_adapter_config()
         self.code_centroids()
+        self.add_initial_state_to_map()
+
+    def add_initial_state_to_map(self):
+        connection = self.edges[self.initial_state]
+        identifier = self.edge_labels[(self.initial_state, connection)]
+        centroids = self.centroids_by_state[self.initial_state]
+        self.get_commands(identifier, centroids)
 
     def get_adapter_config(self):
         config = {'test_adapter': {}}
