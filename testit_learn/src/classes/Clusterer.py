@@ -15,6 +15,7 @@ import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class Clusterer:
     def __init__(self, data, dicts_by_topic, reduction):
         self.data = data
@@ -66,7 +67,8 @@ class Clusterer:
 
         palette = sns.color_palette('bright', np.unique(clusters).max() + 1)
         colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in clusters]
-        plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0, figsize=(10, 10))
+        fig = plt.figure(figsize=(15, 10))
+        plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
         plt.title(self.cluster.__name__, fontsize=14)
 
     def plot_triangle_arrow(self, x, y, d):
@@ -136,7 +138,6 @@ class Clusterer:
                 min_dist = dist
                 initial_cluster = cluster
         return initial_cluster
-
 
     def divide_sync_topic_clusters(self, clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
                                    add_edge):
