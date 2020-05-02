@@ -508,9 +508,9 @@ class TestItDaemon:
         launch_suffix = ""
         launch_suffix += " && " if launch != "" and mode in ("explore", "refine-model", "learn", "tron") else ""
         if mode == "explore":
-            launch_suffix += "rosrun testit_explorer testit_explorer.py"
+            launch_suffix += "rosrun testit_explorer explorer.py"
         elif mode == "refine-model":
-            launch_suffix += "(rosrun testit_learn services.py &); rosrun testit_explorer testit_explorer.py"
+            launch_suffix += "(rosrun testit_learn services.py &); rosrun testit_explorer explorer.py"
         elif mode == "learn":
             launch_suffix += "(rosrun testit_learn services.py &); rosrun testit_learn launcher.py"
 
