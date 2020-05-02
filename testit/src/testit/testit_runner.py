@@ -125,7 +125,8 @@ class TestItRunner:
             for state_hash in state_hash_dict:
                 rospy.loginfo(state_hash_dict[state_hash])
                 state = json.loads(state_hash_dict[state_hash]
-                                   .replace("u'", '"').replace("'", '"'))
+                                   .replace("u'", '"').replace("'", '"').replace("None", "null")
+                                   .replace("True", "true").replace("False", "false"))
                 # Check if message structure is same
                 if get_all_keys_recursively(state) == get_all_keys_recursively(data):
                     break
