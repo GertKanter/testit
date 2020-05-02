@@ -102,13 +102,13 @@ class TestItRunner:
         while True:
             #rospy.loginfo("param_state = %s" % self.param_state)
             rospy.logwarn("Current state value == %s" % self.optimizer.compute_parameter_state_value(self.param_state))
-            next_step = self.optimizer.compute_step(100, next_step[0], self.param_state, self.selection_mode) # selection_mode=0 best, 1 = random, 2 = worst
+            next_step = self.optimizer.compute_step(1000, next_step[0], self.param_state, self.selection_mode) # selection_mode=0 best, 1 = random, 2 = worst
             if next_step[0] is None:
                 rospy.logerr("No next step!")
                 break
             data = self.optimizer.state_hashes[next_step[0]][1]
             channel = self.optimizer.channel_hashes[self.optimizer.state_hashes[next_step[0]][0].keys()[0]]
-            rospy.loginfo("next_step == %s  data == %s  channel == %s" % (list(next_step), data, channel))
+            # rospy.loginfo("next_step == %s  data == %s  channel == %s" % (list(next_step), data, channel))
             if not self.command(data, channel):
                 rospy.logerr("Unable to succeed with command!")
                 break
