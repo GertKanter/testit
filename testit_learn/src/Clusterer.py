@@ -95,11 +95,11 @@ class Clusterer:
                     plt.text((x1 + x2) / 2, (y1 + y2) / 2, edge_labels[(state, next_state)], size=6, ha='center',
                              va='center', color='black', rotation=45)
 
-    def plot(self, state_machine):
+    def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
         self.plot_clusters(points_by_state)
         self.plot_state_machine(state_machine)
-        plt.show()
+        plt.savefig(path)
 
     def get_edge_adder_and_remover(self, edges, reverse_edges, edge_labels):
         def add_edge(from_node, to_nodes, label):

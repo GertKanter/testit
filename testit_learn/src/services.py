@@ -29,6 +29,8 @@ from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, 
 
 from TestIt import TestIt
 from Clusterer import Clusterer
+from util import flatten
+
 
 class ServiceProvider:
     def __init__(self):
@@ -65,7 +67,7 @@ class ServiceProvider:
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
         edges, edge_labels, _, centroids, initial_cluster = self.get_main() \
-            .clusters_to_state_machine(req.data,req.test, tuple(req.inputTypes))
+            .clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
@@ -984,6 +986,10 @@ class Main:
         self.data_by_test_and_input = None
         self.dicts_by_test_and_input = None
         self.test_configs = None
+        self.test_tag = None
+        self.config = None
+
+        self.read_config()
 
     def set_test_it(self, test_it_factory):
         # type: (type(TestIt)) -> Main
@@ -1000,14 +1006,13 @@ class Main:
         self.uppaal_automata = uppaal_automata  # type: type(UppaalAutomata)
         return self
 
-    def get_state_machine(self, test_data, dicts_by_topic, test_config, plot=False):
-        clusterer = self.clusterer_factory(test_data, dicts_by_topic,
-                                           test_config.get('cluster_reduction_factor', {}))
-        clusters = clusterer.get_clusters()
-        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state)
-        if plot:
-            clusterer.plot(state_machine)
-        return state_machine
+    def read_config(self):
+        tests = rospy.get_param('testit/tests')
+        self.test_tag = rospy.get_param('testit_logger/test')
+        for test in tests:
+            if test['tag'] == self.test_tag:
+                self.config = test
+                return
 
     def get_test_config(self, input_types, test):
         return next(test_conf for test_conf in self.test_configs[test]['configuration']['inputs'] if
@@ -1036,8 +1041,12 @@ class Main:
         variables = self.get_test_config(input_types, test).get('explore', {}).get('variables', [])
         initial_state = list(map(lambda variable: variable['initial'], variables))
 
-        return clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
+        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
             map(lambda cluster: cluster.cluster, clusters)))
+        file_path = rospy.get_param('testit/pipeline/sharedDirectory') + rospy.get_param(
+            'testit/pipeline/resultsDirectory') + "/" + rospy.get_param('testit_logger/test') + "-statemachine-cluster.png"
+        clusterer.plot(state_machine, file_path)
+        return state_machine
 
     def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
         # type: (StateMachine) -> tuple
@@ -1054,25 +1063,6 @@ class Main:
         test_config = self.test_configs[test]['configuration']
         state_machine = self.convert_from_state_machine_msg_to_state_machine_tuple(state_machine)
         return self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
-
-    def get_uppaal_automatas(self, test):
-        self.data_by_test_and_input, self.dicts_by_test_and_input = self.test_it.get_np_arrays_by_test_and_input()
-
-        self.test_configs = self.test_it.logger_configs_by_tests
-
-        for test in self.data_by_test_and_input:
-            test_data_by_input = self.data_by_test_and_input[test]
-            test_config = self.test_configs[test]['configuration']
-            for input_types in test_data_by_input:
-                test_data = test_data_by_input[input_types]
-
-                dicts_by_input = OrderedDict(
-                    (input_type, self.dicts_by_test_and_input[test][input_type]) for input_type in
-                    input_types)
-                state_machine = self.get_state_machine(test_data, dicts_by_input, test_config, plot=True)
-
-                uppaal_automata = self.uppaal_automata.from_state_machine(state_machine, test_config, input_types)
-                self.test_it.write_model(uppaal_automata, test, input_types)
 
     def write_uppaal_automata(self, test, input_types, model):
         directory = rospy.get_param('/testit/pipeline')['sharedDirectory'].strip('/') + '/' + \
