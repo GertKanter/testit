@@ -109,7 +109,9 @@ class TestItRunner:
                 break
             data = self.optimizer.state_hashes[next_step[0]][1]
             for state_hash in self.optimizer.state_hashes[next_step[0]][0]:
-                state = json.loads(self.optimizer.state_hashes[next_step[0]][0][state_hash])
+                hash_ = self.optimizer.state_hashes[next_step[0]][0][state_hash]
+                rospy.loginfo(hash_)
+                state = json.loads(hash_)
                 rospy.loginfo(str(state))
                 rospy.loginfo(str(tuple(sorted(list(state.keys())))))
                 rospy.loginfo(str(tuple(sorted(list(data.keys())))))
