@@ -151,6 +151,8 @@ class TestItRunner:
             try:
                 identifier = channel['identifier']
                 message_class = []
+                rospy.loginfo(str(data))
+                rospy.loginfo(str(channel))
                 message = message_converter.convert_dictionary_to_ros_message(channel['type'].replace(".msg", "").replace(".", "/"), data, message_class_return=message_class)
                 if identifier not in self.publishers:
                     self.publishers[identifier] = rospy.Publisher(identifier, message_class.pop(), queue_size=1)
