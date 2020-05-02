@@ -14,6 +14,7 @@ import rospy
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 
 class Clusterer:
     def __init__(self, data, dicts_by_topic, reduction):
@@ -97,6 +98,7 @@ class Clusterer:
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
+        matplotlib.use('Agg')
         self.plot_clusters(points_by_state)
         self.plot_state_machine(state_machine)
         plt.savefig(path)
