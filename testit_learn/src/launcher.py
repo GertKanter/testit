@@ -88,14 +88,20 @@ class Launcher:
         request.model = uppaal.uppaalModel
         return service(request)
 
-    def write_models(self):
-        log_to_cluster_service = self.test_config.get('logToClusterService', '/testit/learn/log/cluster')
-        cluster_to_state_machine_service = self.test_config.get('clusterToStateMachineService',
-                                                                '/testit/learn/cluster/statemachine')
-        state_machine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
-                                                               '/testit/learn/statemachine/uppaal')
-        write_service = self.test_config.get('writeUppaalService', '/testit/learn/write/uppaal')
+    def get_from_test_config(self, key, default):
+        value = self.test_config.get(key, default)
+        if value.strip() == "":
+            return default
 
+    def write_models(self):
+        log_to_cluster_service = self.get_from_test_config('logToClusterService', '/testit/learn/log/cluster')
+        cluster_to_state_machine_service = self.get_from_test_config('clusterToStateMachineService',
+                                                                     '/testit/learn/cluster/statemachine')
+        state_machine_to_uppaal_service = self.get_from_test_config('stateMachineToUppaalService',
+                                                                    '/testit/learn/statemachine/uppaal')
+        write_service = self.get_from_test_config('writeUppaalService', '/testit/learn/write/uppaal')
+
+        rospy.loginfo("Using following services for creating the model: ")
         rospy.loginfo(log_to_cluster_service)
         rospy.loginfo(cluster_to_state_machine_service)
         rospy.loginfo(state_machine_to_uppaal_service)
