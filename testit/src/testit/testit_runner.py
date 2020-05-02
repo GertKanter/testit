@@ -120,8 +120,10 @@ class TestItRunner:
                 rospy.logerr("No next step!")
                 break
             data = self.optimizer.state_hashes[next_step[0]][1]
+            rospy.loginfo("Data: " + str(data))
             state_hash_dict = self.optimizer.state_hashes[next_step[0]][0]
             for state_hash in state_hash_dict:
+                rospy.loginfo(state_hash_dict[state_hash])
                 state = json.loads(state_hash_dict[state_hash]
                                    .replace("u'", '"').replace("'", '"'))
                 # Check if message structure is same
