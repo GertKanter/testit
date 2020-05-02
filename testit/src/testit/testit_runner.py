@@ -107,17 +107,18 @@ class TestItRunner:
                 rospy.logerr("No next step!")
                 break
             data = self.optimizer.state_hashes[next_step[0]][1]
-            channel = self.optimizer.channel_hashes[self.optimizer.state_hashes[next_step[0]][0].keys()[0]]
-            rospy.loginfo("-------------------------------------------")
-            rospy.loginfo(str(next_step[0]))
-            rospy.loginfo("-------------------------------------------")
-            rospy.loginfo(str(self.optimizer.channel_hashes))
-            rospy.loginfo("-------------------------------------------")
-            for i in self.optimizer.state_hashes[next_step[0]]:
-                rospy.loginfo(str(i))
-            rospy.loginfo("-------------------------------------------")
+            for state_hash in self.optimizer.state_hashes[next_step[0]][0]:
+                state = self.optimizer.state_hashes[next_step[0]][0][state_hash]
+                rospy.loginfo(str(state))
+                rospy.loginfo(str(data))
+                if str(state) == str(data):
+                    break
 
-        # rospy.loginfo("next_step == %s  data == %s  channel == %s" % (list(next_step), data, channel))
+            rospy.loginfo(str(state_hash))
+            channel = self.optimizer.channel_hashes[state_hash]
+            rospy.loginfo(str(channel))
+
+            # rospy.loginfo("next_step == %s  data == %s  channel == %s" % (list(next_step), data, channel))
             if not self.command(data, channel):
                 rospy.logerr("Unable to succeed with command!")
                 break
