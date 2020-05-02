@@ -111,7 +111,7 @@ class TestItRunner:
             rospy.loginfo("-------------------------------------------")
             rospy.loginfo(str(next_step[0]))
             rospy.loginfo("-------------------------------------------")
-            rospy.loginfo(str(self.optimizer.channel_hashes[self.optimizer.state_hashes[next_step[0]]]))
+            rospy.loginfo(str(self.optimizer.channel_hashes))
             rospy.loginfo("-------------------------------------------")
             rospy.loginfo(str(self.optimizer.state_hashes[next_step[0]]))
             rospy.loginfo("-------------------------------------------")
