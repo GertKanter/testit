@@ -109,7 +109,8 @@ class TestItRunner:
                 break
             data = self.optimizer.state_hashes[next_step[0]][1]
             for state_hash in self.optimizer.state_hashes[next_step[0]][0]:
-                state = json.loads(self.optimizer.state_hashes[next_step[0]][0][state_hash])
+                state = self.optimizer.state_hashes[next_step[0]][0][state_hash]
+                rospy.loginfo(str(state))
                 rospy.loginfo(str(tuple(sorted(state.keys()))))
                 rospy.loginfo(str(tuple(sorted(data.keys()))))
                 if tuple(sorted(state.keys())) == tuple(sorted(data.keys())):
