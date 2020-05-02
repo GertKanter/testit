@@ -139,7 +139,7 @@ class Optimizer:
                 self.channel_hashes[channel] = entry['channel']
                 if entry['event'] == "PRE":
                     pre[channel] = self.flatten_coverage(entry)
-                else:
+                elif entry['event'] == "POST":
                     # Only process after receiving "POST"
                     state_vector[channel] = str(entry['data'])
                     new_state = self.get_list_hash(state_vector.values())
