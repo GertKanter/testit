@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 import json
@@ -19,8 +20,7 @@ from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, 
 
 from Clusterer import Clusterer
 from TestIt import TestIt
-from util import flatten
-
+from util import flatten, is_numeric
 
 
 class ServiceProvider:
@@ -1035,7 +1035,8 @@ class Main:
         state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
             map(lambda cluster: cluster.cluster, clusters)))
         file_path = rospy.get_param('testit/pipeline/sharedDirectory') + rospy.get_param(
-            'testit/pipeline/resultsDirectory') + "/" + rospy.get_param('testit_logger/test') + "-statemachine-cluster.png"
+            'testit/pipeline/resultsDirectory') + "/" + rospy.get_param(
+            'testit_logger/test') + "-statemachine-cluster.png"
         clusterer.plot(state_machine, file_path)
         return state_machine
 
