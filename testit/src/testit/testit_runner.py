@@ -113,7 +113,8 @@ class TestItRunner:
             rospy.loginfo("-------------------------------------------")
             rospy.loginfo(str(self.optimizer.channel_hashes))
             rospy.loginfo("-------------------------------------------")
-            rospy.loginfo(str(self.optimizer.state_hashes[next_step[0]]))
+            for i in self.optimizer.state_hashes[next_step[0]]:
+                rospy.loginfo(str(i))
             rospy.loginfo("-------------------------------------------")
 
         # rospy.loginfo("next_step == %s  data == %s  channel == %s" % (list(next_step), data, channel))
