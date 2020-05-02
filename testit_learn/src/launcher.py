@@ -92,6 +92,7 @@ class Launcher:
         value = self.test_config.get(key, default)
         if value.strip() == "":
             return default
+        return value
 
     def write_models(self):
         log_to_cluster_service = self.get_from_test_config('logToClusterService', '/testit/learn/log/cluster')
