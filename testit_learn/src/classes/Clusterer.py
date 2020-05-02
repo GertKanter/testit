@@ -67,7 +67,6 @@ class Clusterer:
 
         palette = sns.color_palette('bright', np.unique(clusters).max() + 1)
         colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in clusters]
-        fig = plt.figure(figsize=(15, 10))
         plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
         plt.title(self.cluster.__name__, fontsize=14)
 
@@ -99,9 +98,10 @@ class Clusterer:
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
+        fig = plt.figure(figsize=(15, 10))
         self.plot_clusters(points_by_state)
         self.plot_state_machine(state_machine)
-        plt.savefig(path)
+        fig.savefig(path)
 
     def get_edge_adder_and_remover(self, edges, reverse_edges, edge_labels):
         def add_edge(from_node, to_nodes, label):
