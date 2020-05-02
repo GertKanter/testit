@@ -1,35 +1,25 @@
 #!/usr/bin/env python
 
 import json
-import math
-import re
-import seaborn as sns
-import subprocess
 import traceback
-import warnings
 import xml.etree.cElementTree as xml
-import yaml
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from itertools import count
-from sklearn.cluster import MiniBatchKMeans
-from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import silhouette_score
-from sklearn.neighbors import NearestCentroid
 
-import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib
 import rospy
 import xml.dom.minidom as xmldom
-from scipy.spatial import distance
 from testit_learn.msg import ClusterPoint, StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, StateMachineToUppaalResponse, \
     WriteUppaalModel, WriteUppaalModelRequest, WriteUppaalModelResponse, LogToCluster, ClusterToStateMachine, \
     LogToClusterResponse, LogToClusterRequest, ClusterToStateMachineResponse, ClusterToStateMachineRequest
 
-from TestIt import TestIt
 from Clusterer import Clusterer
+from TestIt import TestIt
 from util import flatten
+
+matplotlib.use('Agg')
 
 
 class ServiceProvider:
