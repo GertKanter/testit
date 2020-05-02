@@ -2,23 +2,23 @@
 
 from __future__ import print_function
 
+import atexit
 import importlib
 import json
 import re
 import subprocess
 import threading
 import yaml
-import atexit
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from math import sqrt
 
 import rospy
 from std_msgs.msg import Bool
+from testit_explorer.msg import MoveStrategyInit, Actions, Action as ActionMsg
+from testit_explorer.srv import MoveStrategy as MoveStrategySrv, MoveStrategyRequest, MoveStrategyResponse
 from testit_learn.msg import StateMachine
-
-from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest, \
-    WriteUppaalModel, WriteUppaalModelRequest
+from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
 try:
     from typing import *
@@ -106,21 +106,54 @@ class MoveStrategyFromService:
     def __init__(self, **kwargs):
         self.service_path = kwargs['service']
         self.state_machine = kwargs['state_machine']
+        self.init_publisher = None
+        if kwargs['init_topic'] != '':
+            self.init_publisher = rospy.Publisher(kwargs['init_topic'], MoveStrategyInit, queue_size=1)
+        self.service = rospy.ServiceProxy(self.service_path, MoveStrategySrv)
+        rospy.sleep(1)
+
+        self.previous_states = None
+        self.actions = None
+        self.topics = None
+        self.feedback = None
 
     def set_initial_state(self, initial_state):
-        pass
+        if self.init_publisher is None:
+            return
+
+        msg = MoveStrategyInit()
+        msg.stateMachine = ""
+        if self.state_machine is not None:
+            msg.stateMachine = json.dumps(self.state_machine)
+
+        msg.topics = list(self.topics)
+        msg.initialState = list(initial_state)
+        msg.previousStates = flatten(self.previous_states)
+
+        actions = Actions()
+        actions.actions = []
+        for act in self.actions:
+            action = ActionMsg(act.step, act.index)
+            actions.actions.append(action)
+
+        self.init_publisher.publish(msg)
 
     def set_previous_states(self, states):
-        pass
+        self.previous_states = states
 
     def give_feedback(self, successes):
-        pass
+        self.feedback = successes
 
     def add(self, actions, topic):
-        pass
+        self.actions.append(actions)
+        self.topics.append(topic)
 
     def get_next_states(self):
-        pass
+        self.service.wait_for_service()
+        request = MoveStrategyRequest()
+        request.feedback = list(self.feedback)
+        response = self.service(request)  # type: MoveStrategyResponse
+        return response.nextStates
 
 
 class ModelRefinementMoveStrategy:
@@ -235,7 +268,7 @@ class ModelRefinementMoveStrategy:
 
     def state_value(self):
         states = self.state_values_to_states(self.state_values[self.state])
-        print(states)
+        rospy.loginfo(str(states))
         return states
 
     def get_next_states(self):
@@ -244,11 +277,11 @@ class ModelRefinementMoveStrategy:
             self.prev_state = self.state
             self.state = self.next_state
             if self.connecting:
-                print("Going to closest pair state: " + str(self.state))
+                rospy.loginfo("Going to closest pair state: " + str(self.state))
                 self.next_state = self.prev_state
                 self.connecting = False
             else:
-                print("Going back to path: " + str(self.state))
+                rospy.loginfo("Going back to path: " + str(self.state))
                 self.next_state = None
             return self.state_value()
 
@@ -259,10 +292,10 @@ class ModelRefinementMoveStrategy:
                     self.state = state
                     self.next_state = self.closest_pairs[state]
                     self.connecting = True
-                    print("Found closest pair: " + str(self.state) + " -> " + str(self.next_state))
-                    print("Going to state: " + str(self.state))
+                    rospy.loginfo("Found closest pair: " + str(self.state) + " -> " + str(self.next_state))
+                    rospy.loginfo("Going to state: " + str(self.state))
                     return self.state_value()
-                print("Going to regular state: " + str(state))
+                rospy.loginfo("Going to regular state: " + str(state))
                 self.state = state
                 return self.state_value()
 
@@ -271,12 +304,12 @@ class ModelRefinementMoveStrategy:
 
         self.going_back = True
         self.state = self.path.pop()
-        print("Going back in path: " + str(self.state))
+        rospy.loginfo("Going back in path: " + str(self.state))
         return self.state_value()
 
 
-class MoveStrategy:
-    def __init__(self, **kwargs):
+class ExploreMoveStrategy:
+    def __init__(self):
         self.initial_state = tuple()
         self.state = tuple()
         self.next_state = tuple()
@@ -357,7 +390,7 @@ class MoveStrategy:
         return combined_states
 
     def find_path(self, source, state):
-        print("Finding path from " + str(source) + " to " + str(state))
+        rospy.loginfo("Finding path from " + str(source) + " to " + str(state))
         if source is None or state is None:
             return
 
@@ -371,11 +404,10 @@ class MoveStrategy:
             if s == source:
                 break
         self.current_path.append(state)
-        print("Found path: " + str(self.current_path))
+        rospy.loginfo("Found path: " + str(self.current_path))
 
     def find_new_path(self):
-        print("Finding new path")
-        print("self.state=" + str(self.state))
+        rospy.loginfo("Finding new path")
         if not self.actions:
             self.current_path = [self.state]
             return
@@ -418,7 +450,7 @@ class MoveStrategy:
 
 class RobotMover:
     def __init__(self, robot_move_strategy, topics):
-        # type: (MoveStrategy, List[dict]) -> None
+        # type: (ExploreMoveStrategy, List[dict]) -> None
         self.robot_move_strategy = robot_move_strategy
         self.topic_identifiers = lmap(lambda topic: topic['identifier'], topics)
         self.topics_values = lmap(lambda topic: topic['explore'], topics)
@@ -512,7 +544,7 @@ class RobotMover:
 class Explorer:
     def __init__(self):
         self.robot_mover_factory = RobotMover
-        self.move_strategy_factory = MoveStrategy
+        self.move_strategy_factory = ExploreMoveStrategy
 
         self.goal_type = None
         self.feedback_type = None
@@ -553,9 +585,15 @@ class Explorer:
 
     def set_move_strategy_factory(self):
         if self.test_config['mode'] == 'refine-model':
-            self.move_strategy_factory = ModelRefinementMoveStrategy
+            rospy.Subscriber("/testit/finished/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
+            self.move_strategy_factory = lambda: ModelRefinementMoveStrategy(state_machine=self.get_state_machine())
+        elif self.test_config.get('moveStrategyService', '') != '':
+            self.move_strategy_factory = lambda: MoveStrategyFromService(
+                service=self.test_config['moveStrategyService'],
+                init_topic=self.test_config.get('moveStrategyInitTopic', ''),
+                state_machine=self.get_state_machine())
         else:
-            self.move_strategy_factory = MoveStrategy
+            self.move_strategy_factory = ExploreMoveStrategy
 
     def get_actions_constants_initial_of_topic(self, topic):
         constants, variables = topic['explore'].get('constants', []), topic['explore'].get('variables', [])
@@ -568,7 +606,7 @@ class Explorer:
         for synced_topics in self.synced_topics:
             initial_state = []
             robot_move_strategy = self.move_strategy_factory(
-                state_machine=self.get_state_machine())  # type: MoveStrategy or ModelRefinementMoveStrategy
+                state_machine=self.get_state_machine())  # type: ExploreMoveStrategy or ModelRefinementMoveStrategy
             synced_topics_configs = []
             for i in synced_topics:
                 topic = self.topics[i]
@@ -585,7 +623,7 @@ class Explorer:
             if i in flattened_synced_topics:
                 continue
             actions, constants, initial_state = self.get_actions_constants_initial_of_topic(topic)
-            robot_move_strategy = self.move_strategy_factory(state_machine=self.get_state_machine())
+            robot_move_strategy = self.move_strategy_factory()
             robot_move_strategy.add(actions, topic)
             robot_move_strategy.set_initial_state(initial_state)
             self.robot_movers.append(self.robot_mover_factory(robot_move_strategy, topic))
@@ -596,7 +634,6 @@ class Explorer:
         rospy.sleep(1)
 
     def get_state_machine(self):
-        print("getting state machine")
         if self.state_machine is not None:
             return self.state_machine
         path = self.test_config.get('stateMachine', None)
@@ -605,7 +642,6 @@ class Explorer:
         state_machine_path = rospy.get_param('/testit/pipeline')['sharedDirectory'] + path
         with open(state_machine_path, 'r') as file:
             self.state_machine = yaml.load(file)
-        rospy.Subscriber("/testit/finished/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
         return self.state_machine
 
     def read_log(self):

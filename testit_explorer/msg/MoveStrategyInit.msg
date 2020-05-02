@@ -1,4 +1,4 @@
-Action[] actions
+Actions[] actions
 string[] topics
 State[] previousStates
 State initialState
