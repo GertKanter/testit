@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import matplotlib
+matplotlib.use('Agg')
+
 import json
 import traceback
 import xml.etree.cElementTree as xml
@@ -7,7 +10,6 @@ from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from itertools import count
 
-import matplotlib
 import rospy
 import xml.dom.minidom as xmldom
 from testit_learn.msg import ClusterPoint, StateMachine
@@ -19,7 +21,6 @@ from Clusterer import Clusterer
 from TestIt import TestIt
 from util import flatten
 
-matplotlib.use('Agg')
 
 
 class ServiceProvider:
