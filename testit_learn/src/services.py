@@ -28,7 +28,7 @@ from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalRequest, 
     LogToClusterResponse, LogToClusterRequest, ClusterToStateMachineResponse, ClusterToStateMachineRequest
 
 from TestIt import TestIt
-
+from Clusterer import Clusterer
 
 class ServiceProvider:
     def __init__(self):
