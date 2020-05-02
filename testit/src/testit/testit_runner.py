@@ -48,11 +48,22 @@ import message_converter
 import testit_msgs.msg
 import std_msgs.msg
 
+
 def get_attribute(value, path):
     get_value = getattr if not isinstance(value, dict) else lambda v, a: v.get(a)
     for attribute in path.split('.'):
         value = get_value(value, attribute)
     return value
+
+
+def get_all_keys_recursively(dict_):
+    if not isinstance(dict_, dict):
+        return []
+    keys = list(dict_.keys())
+    for key in dict_:
+        keys += get_all_keys_recursively(dict_[key])
+    return tuple(sorted(keys))
+
 
 class TestItRunner:
     def __init__(self, log_filename, weights_filename, test, with_logger, selection_mode):
@@ -65,18 +76,19 @@ class TestItRunner:
             weights = weights['weights']
         except:
             rospy.logwarn("Could not open weights file '%s'!" % weights_filename)
-        self.publishers = {} # '/channel': rospy.Publisher(...)
-        self.action_clients = {} # '/channel': rospy.SimpleActionclient(...)
+        self.publishers = {}  # '/channel': rospy.Publisher(...)
+        self.action_clients = {}  # '/channel': rospy.SimpleActionclient(...)
         self.subscribers = {}
         self.imports = []
         self.optimizer = testit_optimizer.Optimizer(log_data, weights, test)
-        #TODO support "srv" mode
+        # TODO support "srv" mode
         self.coverage_publisher = None
         self.with_logger = with_logger
         if not with_logger:
             self.coverage_publisher = rospy.Publisher("/testit/flush_coverage", std_msgs.msg.UInt32, queue_size=10)
-        self.coverage_subscriber = rospy.Subscriber("/testit/flush_data", testit_msgs.msg.FlushData, self.flush_subscriber)
-        self.param_state = {} # {(filename, line): probability), ...}
+        self.coverage_subscriber = rospy.Subscriber("/testit/flush_data", testit_msgs.msg.FlushData,
+                                                    self.flush_subscriber)
+        self.param_state = {}  # {(filename, line): probability), ...}
         self.selection_mode = selection_mode
 
         try:
@@ -87,9 +99,8 @@ class TestItRunner:
         except:
             rospy.logwarn("Logger not started, necessary for topic type commands")
 
-
     def flush_subscriber(self, data):
-        #rospy.loginfo("received flush data")
+        # rospy.loginfo("received flush data")
         try:
             for file_coverage in data.coverage:
                 for line in file_coverage.lines:
@@ -101,24 +112,23 @@ class TestItRunner:
     def run(self):
         next_step = ["INIT", {}, 0]
         while True:
-            #rospy.loginfo("param_state = %s" % self.param_state)
+            # rospy.loginfo("param_state = %s" % self.param_state)
             rospy.logwarn("Current state value == %s" % self.optimizer.compute_parameter_state_value(self.param_state))
-            next_step = self.optimizer.compute_step(10, next_step[0], self.param_state, self.selection_mode) # selection_mode=0 best, 1 = random, 2 = worst
+            next_step = self.optimizer.compute_step(10, next_step[0], self.param_state,
+                                                    self.selection_mode)  # selection_mode=0 best, 1 = random, 2 = worst
             if next_step[0] is None:
                 rospy.logerr("No next step!")
                 break
             data = self.optimizer.state_hashes[next_step[0]][1]
-            for state_hash in self.optimizer.state_hashes[next_step[0]][0]:
-                state = json.loads(self.optimizer.state_hashes[next_step[0]][0][state_hash].replace("u", "").replace("'", '"'))
-                rospy.loginfo(str(state))
-                rospy.loginfo(str(tuple(sorted(list(state.keys())))))
-                rospy.loginfo(str(tuple(sorted(list(data.keys())))))
-                if tuple(sorted(list(state.keys()))) == tuple(sorted(list(data.keys()))):
+            state_hash_dict = self.optimizer.state_hashes[next_step[0]][0]
+            for state_hash in state_hash_dict:
+                state = json.loads(state_hash_dict[state_hash]
+                                   .replace("u'", '"').replace("'", '"'))
+                # Check if message structure is same
+                if get_all_keys_recursively(state) == get_all_keys_recursively(data):
                     break
 
-            rospy.loginfo(str(state_hash))
             channel = self.optimizer.channel_hashes[state_hash]
-            rospy.loginfo(str(channel))
 
             # rospy.loginfo("next_step == %s  data == %s  channel == %s" % (list(next_step), data, channel))
             if not self.command(data, channel):
@@ -126,7 +136,7 @@ class TestItRunner:
                 break
 
     def command(self, data, channel):
-        #rospy.loginfo("command(%s, %s)" % (data, channel))
+        # rospy.loginfo("command(%s, %s)" % (data, channel))
         channel_type = channel.get('type', "")
         if channel_type not in self.imports:
             if self.do_import(channel_type):
@@ -135,21 +145,23 @@ class TestItRunner:
         if channel_type.endswith("Action"):
             if self.action_clients.get(channel['identifier'], None) is None:
                 # Register action server and client
-                eval("self.action_clients.update({'" + channel['identifier'] + "': actionlib.SimpleActionClient(\"" + channel['identifier'] + "\", " + channel_type + ")})", dict(globals().items() + [('self', self)]))
+                eval("self.action_clients.update({'" + channel['identifier'] + "': actionlib.SimpleActionClient(\"" +
+                     channel['identifier'] + "\", " + channel_type + ")})", dict(globals().items() + [('self', self)]))
                 rospy.loginfo("Waiting for '%s' action server..." % channel['identifier'])
                 self.action_clients[channel['identifier']].wait_for_server()
             # Send command via client
-            #self.goal = []
-            #eval("self.goal.append(" + channel_type.replace("Action", "") + "Goal())", dict(globals().items() + [('self', self)]))
+            # self.goal = []
+            # eval("self.goal.append(" + channel_type.replace("Action", "") + "Goal())", dict(globals().items() + [('self', self)]))
             message_type = channel_type.replace("Action", "").replace(".msg", "").replace(".", "/") + "Goal"
-            #rospy.loginfo(message_type)
-            #self.goal[0].goal = 
-            #rospy.loginfo(self.goal)
-            self.action_clients[channel['identifier']].send_goal(message_converter.convert_dictionary_to_ros_message(message_type, data))
+            # rospy.loginfo(message_type)
+            # self.goal[0].goal =
+            # rospy.loginfo(self.goal)
+            self.action_clients[channel['identifier']].send_goal(
+                message_converter.convert_dictionary_to_ros_message(message_type, data))
             rospy.sleep(1.0)
             result = self.action_clients[channel['identifier']].wait_for_result()
             state = self.action_clients[channel['identifier']].get_state()
-            #rospy.loginfo("Result is: %s" % state)
+            # rospy.loginfo("Result is: %s" % state)
             if state != 3:
                 rospy.sleep(1.0)
                 return self.command(data, channel)
@@ -165,7 +177,8 @@ class TestItRunner:
                 message_class = []
                 rospy.loginfo(str(data))
                 rospy.loginfo(str(channel))
-                message = message_converter.convert_dictionary_to_ros_message(channel['type'].replace(".msg", "").replace(".", "/"), data, message_class_return=message_class)
+                message = message_converter.convert_dictionary_to_ros_message(
+                    channel['type'].replace(".msg", "").replace(".", "/"), data, message_class_return=message_class)
                 if identifier not in self.publishers:
                     self.publishers[identifier] = rospy.Publisher(identifier, message_class.pop(), queue_size=1)
                     rospy.sleep(1)
@@ -199,12 +212,11 @@ class TestItRunner:
                 traceback.print_exc()
                 return False
 
-
-
     def do_import(self, channel_type):
         import_string = ".".join(channel_type.split(".")[:-1])
-        exec("import " + import_string, globals())
+        exec ("import " + import_string, globals())
         return True
+
 
 if __name__ == "__main__":
     rospy.init_node('testit_runner')
@@ -225,4 +237,3 @@ if __name__ == "__main__":
     testit_runner = TestItRunner(filename, weights, test, with_logger, selection_mode)
     rospy.loginfo("TestIt runner initialized...")
     testit_runner.run()
-
