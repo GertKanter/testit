@@ -71,16 +71,20 @@ class Clusterer:
         plt.title(self.cluster.__name__, fontsize=14)
 
     def plot_triangle_arrow(self, x, y, d, label, color):
-        plt.arrow(x, y, d, d, label=label, color=color)
-        plt.arrow(x + d, y + d, -2 * d, 0, label=label, color=color)
-        plt.arrow(x - d, y + d, d, -d, head_width=0.5, head_length=0.5, overhang=0,
-                  length_includes_head=True, label=label, color=color)
+        arrows = []
+        arrows.append(plt.arrow(x, y, d, d, label=label, color=color))
+        arrows.append(plt.arrow(x + d, y + d, -2 * d, 0, label=label, color=color))
+        arrows.append(plt.arrow(x - d, y + d, d, -d, head_width=0.5, head_length=0.5, overhang=0,
+                                length_includes_head=True, label=label, color=color))
+        return arrows
 
     def plot_state_machine(self, state_machine):
         edges, edge_labels, _, centroids_by_state, _ = state_machine
         centroids_by_state = deepcopy(centroids_by_state)
         colors = cycle(['blue', 'red', 'green', 'orange', 'purple'])
         arrow_colors = defaultdict(lambda: next(colors))
+        arrows = []
+        labels = []
         for state in edges:
             for next_state in edges[state]:
                 x1, y1 = flatten(centroids_by_state[state])[0:2]
@@ -91,16 +95,14 @@ class Clusterer:
                 color = arrow_colors[label]
 
                 if dx == 0 and dy == 0:
-                    d = 3
-                    self.plot_triangle_arrow(x1, y1, d, label, color)
-                    # plt.text(x1, y1 + d + 0.3, edge_labels[(state, next_state)], size=6, ha='center',
-                    #         va='center', color="black")
+                    triangle_arrows = self.plot_triangle_arrow(x1, y1, 3, label, color)
+                    arrows += triangle_arrows
+                    labels += [label] * len(triangle_arrows)
                 else:
-                    plt.arrow(x1, y1, dx, dy, head_width=0.5, head_length=0.5, overhang=0,
-                              length_includes_head=True, label=label, color=color)
-                    # plt.text((x1 + x2) / 2, (y1 + y2) / 2, edge_labels[(state, next_state)], size=6, ha='center',
-                    #          va='center', color="black", rotation=45)
-        plt.legend()
+                    labels.append(label)
+                    arrows.append(plt.arrow(x1, y1, dx, dy, head_width=0.5, head_length=0.5, overhang=0,
+                                            length_includes_head=True, label=label, color=color))
+        plt.legend(arrows, labels)
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
