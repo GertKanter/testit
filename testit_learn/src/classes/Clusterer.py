@@ -100,7 +100,7 @@ class Clusterer:
                               length_includes_head=True, label=label, color=color)
                     # plt.text((x1 + x2) / 2, (y1 + y2) / 2, edge_labels[(state, next_state)], size=6, ha='center',
                     #          va='center', color="black", rotation=45)
-        plt.legend(loc="upper right")
+        plt.legend()
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
