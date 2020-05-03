@@ -78,13 +78,19 @@ class Clusterer:
                                 length_includes_head=True, label=label, color=color))
         return arrows
 
+    def add_to_plot_legend(self, label, arrow, plot_legend):
+        arrows, labels = plot_legend
+        if label in labels:
+            return
+        labels.append(label)
+        arrows.append(arrow)
+
     def plot_state_machine(self, state_machine):
         edges, edge_labels, _, centroids_by_state, _ = state_machine
         centroids_by_state = deepcopy(centroids_by_state)
         colors = cycle(['blue', 'red', 'green', 'orange', 'purple'])
         arrow_colors = defaultdict(lambda: next(colors))
-        arrows = []
-        labels = []
+        plot_legend = ([], [])
         for state in edges:
             for next_state in edges[state]:
                 x1, y1 = flatten(centroids_by_state[state])[0:2]
@@ -96,13 +102,12 @@ class Clusterer:
 
                 if dx == 0 and dy == 0:
                     triangle_arrows = self.plot_triangle_arrow(x1, y1, 3, label, color)
-                    arrows += triangle_arrows
-                    labels += [label] * len(triangle_arrows)
+                    self.add_to_plot_legend(label, triangle_arrows.pop(), plot_legend)
                 else:
-                    labels.append(label)
-                    arrows.append(plt.arrow(x1, y1, dx, dy, head_width=0.5, head_length=0.5, overhang=0,
-                                            length_includes_head=True, label=label, color=color))
-        plt.legend(arrows, labels)
+                    arrow = plt.arrow(x1, y1, dx, dy, head_width=0.5, head_length=0.5, overhang=0,
+                                      length_includes_head=True, label=label, color=color)
+                    self.add_to_plot_legend(label, arrow, plot_legend)
+        plt.legend(*plot_legend)
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
