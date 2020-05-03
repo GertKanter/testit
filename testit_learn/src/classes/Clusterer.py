@@ -87,7 +87,7 @@ class Clusterer:
                 dy = y2 - y1
 
                 if dx == 0 and dy == 0:
-                    self.plot_triangle_arrow(x1, y1, 1.5)
+                    self.plot_triangle_arrow(x1, y1, 3)
                     plt.text(x1, y1 + 1.8, edge_labels[(state, next_state)], size=6, ha='center',
                              va='center', color='black')
                 else:
