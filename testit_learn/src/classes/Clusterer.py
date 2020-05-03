@@ -98,7 +98,7 @@ class Clusterer:
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
-        fig = plt.figure(figsize=(15, 10))
+        fig = plt.figure(figsize=(10, 8))
         self.plot_clusters(points_by_state)
         self.plot_state_machine(state_machine)
         fig.savefig(path)
