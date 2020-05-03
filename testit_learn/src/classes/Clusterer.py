@@ -107,7 +107,7 @@ class Clusterer:
                     arrow = plt.arrow(x1, y1, dx, dy, head_width=0.5, head_length=0.5, overhang=0,
                                       length_includes_head=True, label=label, color=color)
                     self.add_to_plot_legend(label, arrow, plot_legend)
-        plt.legend(*plot_legend, prop={'size': 6})
+        plt.legend(*plot_legend, fontsize=20)
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
