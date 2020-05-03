@@ -114,7 +114,7 @@ class Clusterer:
         fig = plt.figure(figsize=(10, 8))
         self.plot_clusters(points_by_state)
         self.plot_state_machine(state_machine)
-        fig.savefig(path)
+        fig.savefig(path, bbox_inches='tight')
 
     def get_edge_adder_and_remover(self, edges, reverse_edges, edge_labels):
         def add_edge(from_node, to_nodes, label):
