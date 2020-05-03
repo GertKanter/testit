@@ -68,7 +68,7 @@ class Clusterer:
         palette = sns.color_palette('bright', np.unique(clusters).max() + 1)
         colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in clusters]
         plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
-        plt.title(self.cluster.__name__, fontsize=14)
+        # plt.title(self.cluster.__name__, fontsize=14)
 
     def plot_triangle_arrow(self, x, y, d, label, color):
         arrows = []
