@@ -153,7 +153,9 @@ class Services:
             map(lambda cluster: cluster.cluster, clusters)))
         file_path = rospy.get_param('testit/pipeline/sharedDirectory') + rospy.get_param(
             'testit/pipeline/resultsDirectory') + "/" + rospy.get_param(
-            'testit_logger/test') + "-statemachine-cluster.png"
+            'testit_logger/test') + ''.join(
+            map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
+                input_types)) + "-statemachine-cluster.png"
         clusterer.plot(state_machine, file_path)
         return state_machine
 

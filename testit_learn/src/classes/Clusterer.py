@@ -2,7 +2,7 @@ import math
 import warnings
 from collections import defaultdict
 from copy import deepcopy
-from itertools import count
+from itertools import count, cycle
 from scipy.spatial import distance
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.exceptions import ConvergenceWarning
@@ -70,31 +70,37 @@ class Clusterer:
         plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
         plt.title(self.cluster.__name__, fontsize=14)
 
-    def plot_triangle_arrow(self, x, y, d):
-        plt.arrow(x, y, d, d)
-        plt.arrow(x + d, y + d, -2 * d, 0)
+    def plot_triangle_arrow(self, x, y, d, label, color):
+        plt.arrow(x, y, d, d, label=label, color=color)
+        plt.arrow(x + d, y + d, -2 * d, 0, label=label, color=color)
         plt.arrow(x - d, y + d, d, -d, head_width=0.5, head_length=0.5, overhang=0,
-                  length_includes_head=True)
+                  length_includes_head=True, label=label, color=color)
 
     def plot_state_machine(self, state_machine):
         edges, edge_labels, _, centroids_by_state, _ = state_machine
         centroids_by_state = deepcopy(centroids_by_state)
+        colors = cycle(['blue', 'red', 'green', 'orange', 'purple'])
+        arrow_colors = defaultdict(lambda: next(colors))
         for state in edges:
             for next_state in edges[state]:
                 x1, y1 = flatten(centroids_by_state[state])[0:2]
                 x2, y2 = flatten(centroids_by_state[next_state])[0:2]
                 dx = x2 - x1
                 dy = y2 - y1
+                label = edge_labels[(state, next_state)]
+                color = arrow_colors[label]
 
                 if dx == 0 and dy == 0:
-                    self.plot_triangle_arrow(x1, y1, 3)
-                    plt.text(x1, y1 + 1.8, edge_labels[(state, next_state)], size=6, ha='center',
-                             va='center', color='black')
+                    d = 3
+                    self.plot_triangle_arrow(x1, y1, d, label, color)
+                    # plt.text(x1, y1 + d + 0.3, edge_labels[(state, next_state)], size=6, ha='center',
+                    #         va='center', color="black")
                 else:
                     plt.arrow(x1, y1, dx, dy, head_width=0.5, head_length=0.5, overhang=0,
-                              length_includes_head=True)
-                    plt.text((x1 + x2) / 2, (y1 + y2) / 2, edge_labels[(state, next_state)], size=6, ha='center',
-                             va='center', color='black', rotation=45)
+                              length_includes_head=True, label=label, color=color)
+                    # plt.text((x1 + x2) / 2, (y1 + y2) / 2, edge_labels[(state, next_state)], size=6, ha='center',
+                    #          va='center', color="black", rotation=45)
+        plt.legend(loc="upper right")
 
     def plot(self, state_machine, path):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
