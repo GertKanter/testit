@@ -68,8 +68,7 @@ class Clusterer:
         states = np.array(states)
         n_clusters = len(set(clusters))
 
-        # palette = sns.color_palette('bright', np.unique(clusters).max() + 1)
-        colors = ['black' for x in clusters]
+        colors = [cm.nipy_spectral(float(x) / n_clusters) for x in clusters]
         plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
         # plt.title(self.cluster.__name__, fontsize=14)
 
@@ -117,7 +116,7 @@ class Clusterer:
         if plot:
             fig = plt.figure(figsize=(10, 8))
             self.plot_clusters(points_by_state)
-            # self.plot_state_machine(state_machine)
+            self.plot_state_machine(state_machine)
             fig.savefig(path + '.png', bbox_inches='tight')
 
     def get_edge_adder_and_remover(self, edges, reverse_edges, edge_labels):
