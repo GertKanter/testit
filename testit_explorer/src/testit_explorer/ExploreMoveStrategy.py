@@ -1,7 +1,7 @@
 from math import sqrt
 from . import util
 
-lmap, flatten = util.lmap, util.flatten()
+lmap, flatten = util.lmap, util.flatten
 
 import rospy
 
