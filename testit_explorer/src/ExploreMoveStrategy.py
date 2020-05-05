@@ -1,8 +1,9 @@
 from math import sqrt
+from util import flatten
+from util import lmap
 
 import rospy
 
-from util import flatten, lmap
 
 try:
     from typing import *
