@@ -1,5 +1,7 @@
 from math import sqrt
-from testit_explorer.util import flatten, lmap
+from . import util
+
+lmap, flatten = util.lmap, util.flatten()
 
 import rospy
 
@@ -7,6 +9,7 @@ try:
     from typing import *
 except:
     pass
+
 
 class ExploreMoveStrategy:
     def __init__(self):
