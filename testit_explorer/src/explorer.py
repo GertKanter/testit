@@ -15,12 +15,12 @@ from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
-from Action import Action
-from ExploreMoveStrategy import ExploreMoveStrategy
-from ModelRefinementMoveStrategy import ModelRefinementMoveStrategy
-from MoveStrategyFromService import MoveStrategyFromService
-from RobotMover import RobotMover
-from util import lmap, flatten, get_attribute, add_to_list_dict
+from classes.Action import Action
+from classes.ExploreMoveStrategy import ExploreMoveStrategy
+from classes.ModelRefinementMoveStrategy import ModelRefinementMoveStrategy
+from classes.MoveStrategyFromService import MoveStrategyFromService
+from classes.RobotMover import RobotMover
+from classes.util import lmap, flatten, get_attribute, add_to_list_dict
 
 try:
     from typing import *
