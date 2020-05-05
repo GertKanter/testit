@@ -14,7 +14,7 @@ from testit_learn.msg import StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
 
-from testit_explorer.srv import *  # This is necessary for imports to work
+import testit_explorer.srv  # This is necessary for imports to work
 from classes.Action import Action
 from classes.ExploreMoveStrategy import ExploreMoveStrategy
 from classes.ModelRefinementMoveStrategy import ModelRefinementMoveStrategy
