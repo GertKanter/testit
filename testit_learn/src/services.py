@@ -155,7 +155,6 @@ class Services:
             'testit/pipeline/resultsDirectory') + "/" + self.config['learnBy'] + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
                 input_types)) + "-statemachine-cluster"
-        rospy.loginfo(self.config)
         clusterer.plot(state_machine, file_path, self.config.get('plot', False))
         return state_machine
 
