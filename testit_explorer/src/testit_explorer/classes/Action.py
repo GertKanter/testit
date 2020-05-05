@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 class Action:
     def __init__(self, index, step):
         self.index = index
