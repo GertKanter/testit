@@ -1,7 +1,5 @@
 import subprocess
 
-print "no way"
-
 def flatten(array):
     return list(reduce(lambda x, y: x + y, array, []))
 
@@ -36,3 +34,6 @@ def execute_command(command, prefix='', suffix=''):
     out, err = process.communicate()
     out = out.replace("\n", "")
     return out
+
+def lmap(fn, xs):
+    return list(map(fn, xs))

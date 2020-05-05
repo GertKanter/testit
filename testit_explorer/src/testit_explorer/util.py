@@ -1,7 +1,6 @@
 import importlib
 import subprocess
 
-print "lmao"
 
 def flatten(array, to=list):
     return to(reduce(lambda a, b: a + b, array, to()))
@@ -38,10 +37,6 @@ def add_to_list_dict(dictionary, key, value):
         dictionary[key].append(value)
     else:
         dictionary[key] = [value]
-
-
-def lmap(fn, xs):
-    return list(map(fn, xs))
 
 
 def execute_command(command, prefix='', suffix=''):
