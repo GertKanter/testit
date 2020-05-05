@@ -15,7 +15,7 @@ from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
-from classes import Action
+from classes.Action import Action
 from classes.ExploreMoveStrategy import ExploreMoveStrategy
 from classes.ModelRefinementMoveStrategy import ModelRefinementMoveStrategy
 from classes.MoveStrategyFromService import MoveStrategyFromService
