@@ -9,10 +9,11 @@ from collections import OrderedDict
 from copy import deepcopy
 
 import rospy
+import testit_explorer
 from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
-from testit_explorer.srv import MoveStrategy
+
 
 from classes.Action import Action
 from classes.ExploreMoveStrategy import ExploreMoveStrategy
