@@ -1,6 +1,7 @@
 import importlib
 import subprocess
 
+print "lmao"
 
 def flatten(array, to=list):
     return to(reduce(lambda a, b: a + b, array, to()))

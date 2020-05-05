@@ -1,5 +1,6 @@
 import subprocess
 
+print "no way"
 
 def flatten(array):
     return list(reduce(lambda x, y: x + y, array, []))
