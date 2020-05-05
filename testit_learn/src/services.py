@@ -156,7 +156,8 @@ class Services:
             'testit_logger/test') + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
                 input_types)) + "-statemachine-cluster"
-        clusterer.plot(state_machine, clusterer.data, clusters, file_path, True)
+        rospy.loginfo(self.config)
+        clusterer.plot(state_machine, file_path, self.config.get('plot', False))
         return state_machine
 
     def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
