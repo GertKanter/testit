@@ -68,9 +68,8 @@ class Clusterer:
         states = np.array(states)
         n_clusters = len(set(clusters))
 
-        color_map = defaultdict(lambda: np.random.rand(3,))
-        colors = [color_map[x] for x in clusters]
-        plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
+        colors = [cm.nipy_spectral(float(x) / n_clusters) for x in clusters]
+        plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.7, s=80, linewidths=0)
         # plt.title(self.cluster.__name__, fontsize=14)
 
     def plot_triangle_arrow(self, x, y, d, label, color):
