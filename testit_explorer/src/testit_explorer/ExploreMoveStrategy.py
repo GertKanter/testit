@@ -1,5 +1,5 @@
 from math import sqrt
-from . import util
+import util
 
 lmap, flatten = util.lmap, util.flatten
 
