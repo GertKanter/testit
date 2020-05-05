@@ -32,4 +32,3 @@ generate_messages(
 )
 
 include_directories()
-
