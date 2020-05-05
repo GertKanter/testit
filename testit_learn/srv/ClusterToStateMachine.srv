@@ -1,0 +1,5 @@
+ClusterPoint[] data
+string test
+string[] inputTypes
+---
+StateMachine stateMachine

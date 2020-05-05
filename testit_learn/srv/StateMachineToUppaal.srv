@@ -1,0 +1,5 @@
+StateMachine stateMachine
+string test
+string[] inputTypes
+---
+UppaalAutomata uppaalModel # xml

@@ -1,0 +1,5 @@
+UppaalAutomata model
+string test
+string[] inputTypes
+---
+bool result
