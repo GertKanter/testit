@@ -152,8 +152,7 @@ class Services:
         state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
             map(lambda cluster: cluster.cluster, clusters)))
         file_path = rospy.get_param('testit/pipeline/sharedDirectory') + rospy.get_param(
-            'testit/pipeline/resultsDirectory') + "/" + rospy.get_param(
-            'testit_logger/test') + ''.join(
+            'testit/pipeline/resultsDirectory') + "/" + self.config['learnBy'] + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
                 input_types)) + "-statemachine-cluster"
         rospy.loginfo(self.config)
