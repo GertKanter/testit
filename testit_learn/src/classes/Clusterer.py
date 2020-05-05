@@ -66,9 +66,10 @@ class Clusterer:
                 clusters.append(cluster)
         clusters = np.array(clusters)
         states = np.array(states)
+        n_clusters = len(set(clusters))
 
         # palette = sns.color_palette('bright', np.unique(clusters).max() + 1)
-        colors = [cm.nipy_spectral(x) for x in clusters]
+        colors = [cm.nipy_spectral(float(x) / n_clusters) for x in clusters]
         plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
         # plt.title(self.cluster.__name__, fontsize=14)
 
