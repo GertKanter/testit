@@ -1,5 +1,5 @@
 from math import sqrt
-from util import flatten
+from .util import flatten, lmap
 
 import rospy
 
@@ -7,11 +7,6 @@ try:
     from typing import *
 except:
     pass
-
-
-def lmap(fn, xs):
-    return list(map(fn, xs))
-
 
 class ExploreMoveStrategy:
     def __init__(self):
