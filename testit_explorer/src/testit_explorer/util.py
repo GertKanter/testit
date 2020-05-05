@@ -39,6 +39,10 @@ def add_to_list_dict(dictionary, key, value):
         dictionary[key] = [value]
 
 
+def lmap(fn, xs):
+    return list(map(fn, xs))
+
+
 def execute_command(command, prefix='', suffix=''):
     """
     Process paths with bash commands.
