@@ -15,6 +15,7 @@ class Launcher:
         self.logger_config = None
         self.test_config = None
         self.test_tag = None
+        self.learn_tag = None
         self.input_types = None
 
         self.read_test_config()
@@ -32,6 +33,7 @@ class Launcher:
         for test in tests:
             if test['tag'] == self.test_tag:
                 self.test_config = test
+                self.learn_tag = test['learnBy']
                 return
 
     def get_input_types(self):
@@ -52,7 +54,7 @@ class Launcher:
         rospy.loginfo("Waiting for log to cluster service")
         service.wait_for_service()
         request = LogToClusterRequest()
-        request.test = self.test_tag
+        request.test = self.learn_tag
         rospy.loginfo(self.input_types)
         request.inputTypes = self.input_types
         request.log = log
@@ -63,7 +65,7 @@ class Launcher:
         rospy.loginfo("Waiting for cluster to state machine service")
         service.wait_for_service()
         request = ClusterToStateMachineRequest()
-        request.test = self.test_tag
+        request.test = self.learn_tag
         request.inputTypes = self.input_types
         request.data = cluster.data
         return service(request)
@@ -73,7 +75,7 @@ class Launcher:
         rospy.loginfo("Waiting for state machine to uppaal service")
         service.wait_for_service()
         request = StateMachineToUppaalRequest()
-        request.test = self.test_tag
+        request.test = self.learn_tag
         request.inputTypes = self.input_types
         request.stateMachine = state_machine.stateMachine
         return service(request)
@@ -83,7 +85,7 @@ class Launcher:
         rospy.loginfo("Waiting for write service")
         service.wait_for_service()
         request = WriteUppaalModelRequest()
-        request.test = self.test_tag
+        request.test = self.learn_tag
         request.inputTypes = self.input_types
         request.model = uppaal.uppaalModel
         return service(request)
