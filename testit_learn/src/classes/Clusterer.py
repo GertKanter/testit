@@ -3,16 +3,18 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from itertools import count, cycle
+
 from scipy.spatial import distance
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.neighbors import NearestCentroid
 from util import flatten
 
 import rospy
 import seaborn as sns
 import numpy as np
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 
@@ -109,12 +111,62 @@ class Clusterer:
                     self.add_to_plot_legend(label, arrow, plot_legend)
         plt.legend(*plot_legend, fontsize=12)
 
-    def plot(self, state_machine, path):
+    def plot_silhouette(self, data, clusters, path):
+        """
+            Taken from https://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_silhouette_analysis.html
+        """
+        cluster_labels = list(map(lambda cluster: cluster.cluster, clusters))
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        fig.set_size_inches(18, 7)
+        ax1.set_xlim([-0.1, 1])
+        n_clusters = len(set(cluster_labels))
+        ax1.set_ylim([0, len(data) + (n_clusters + 1) * 10])
+
+        silhouette_avg = silhouette_score(data, cluster_labels)
+        sample_silhouette_values = silhouette_samples(data, cluster_labels)
+
+        y_lower = 10
+        for i in range(n_clusters):
+            ith_cluster_silhouette_values = \
+                sample_silhouette_values[cluster_labels == i]
+            ith_cluster_silhouette_values.sort()
+            size_cluster_i = ith_cluster_silhouette_values.shape[0]
+            y_upper = y_lower + size_cluster_i
+            color = cm.nipy_spectral(float(i) / n_clusters)
+            ax1.fill_betweenx(np.arange(y_lower, y_upper),
+                              0, ith_cluster_silhouette_values,
+                              facecolor=color, edgecolor=color, alpha=0.7)
+            ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+            y_lower = y_upper + 10
+
+        ax1.set_title("The silhouette plot for the various clusters.")
+        ax1.set_xlabel("The silhouette coefficient values")
+        ax1.set_ylabel("Cluster label")
+        ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
+        ax1.set_yticks([])  # Clear the yaxis labels / ticks
+        ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+        colors = cm.nipy_spectral(cluster_labels.astype(float) / n_clusters)
+        ax2.scatter(data[:, 0], data[:, 1], marker='.', s=30, lw=0, alpha=0.7,
+                    c=colors, edgecolor='k')
+
+        ax2.set_title("The visualization of the clustered data.")
+        ax2.set_xlabel("Feature space for the 1st feature")
+        ax2.set_ylabel("Feature space for the 2nd feature")
+
+        plt.suptitle(("Silhouette analysis for KMeans clustering on sample data "
+                      "with n_clusters = %d" % n_clusters),
+                     fontsize=14, fontweight='bold')
+
+        plt.savefig(path + '-silhouette.png')
+
+    def plot(self, state_machine, data, clusters, path, plot=False):
         edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
-        fig = plt.figure(figsize=(10, 8))
-        self.plot_clusters(points_by_state)
-        self.plot_state_machine(state_machine)
-        fig.savefig(path, bbox_inches='tight')
+        if plot:
+            fig = plt.figure(figsize=(10, 8))
+            self.plot_clusters(points_by_state)
+            # self.plot_state_machine(state_machine)
+            fig.savefig(path + '.png', bbox_inches='tight')
+            self.plot_silhouette(data, clusters, path)
 
     def get_edge_adder_and_remover(self, edges, reverse_edges, edge_labels):
         def add_edge(from_node, to_nodes, label):
