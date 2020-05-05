@@ -1,5 +1,5 @@
 from math import sqrt
-from util import flatten, lmap
+from testit_explorer.util import flatten, lmap
 
 import rospy
 
