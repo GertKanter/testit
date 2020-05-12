@@ -136,7 +136,7 @@ class Services:
             input_types)
         test_config = self.test_configs[test]['configuration']
         return self.clusterer_factory(test_data, dicts_by_topic,
-                                      test_config.get('cluster_reduction_factor', {}))
+                                      test_config.get('clusterReductionFactor', {}))
 
     def log_to_clusters(self, test, input_types):
         clusterer = self.get_clusterer(test, input_types)
