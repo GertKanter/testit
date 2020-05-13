@@ -109,6 +109,8 @@ class ExploreMoveStrategy:
 
     def find_new_path(self):
         rospy.loginfo("Finding new path")
+        print("self.state")
+        print(self.state)
         if not self.actions:
             self.current_path = [self.state]
             return
