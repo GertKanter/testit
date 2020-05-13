@@ -5,7 +5,6 @@ class Action:
 
     def to_state(self, state):
         new_state = list(state)
-        print(new_state)
         new_state[self.index] += self.step
         return tuple(new_state)
 

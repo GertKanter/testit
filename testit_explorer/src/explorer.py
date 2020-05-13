@@ -84,6 +84,7 @@ class Explorer:
 
     def get_actions_constants_initial_of_topic(self, topic):
         constants, variables = topic['explore'].get('constants', []), topic['explore'].get('variables', [])
+        print(variables)
         steps = lmap(lambda variable: variable['step'], variables)
         constants = lmap(lambda constant: constant['value'], constants)
         initial = lmap(lambda variable: variable['initial'], variables)

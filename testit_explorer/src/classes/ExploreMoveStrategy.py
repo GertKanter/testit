@@ -115,6 +115,8 @@ class ExploreMoveStrategy:
 
         backtrace = []
 
+
+
         new_states = lmap(lambda actions: tuple(action.to_state(self.state) for action in actions), self.actions)
         combined_possible_states = self.get_combined_possible_new_states(new_states)
         for new_state in combined_possible_states:

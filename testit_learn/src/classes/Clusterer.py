@@ -192,9 +192,6 @@ class Clusterer:
             rospy.logerr("Could not cluster")
             return
 
-        if state_machine:
-
-
         edges, reverse_edges, edge_labels = {}, {}, {}
         states_by_clusters = defaultdict(list)
         add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
