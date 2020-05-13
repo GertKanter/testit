@@ -59,7 +59,8 @@ class RobotMover:
                 if self.move_to_state(i, state):
                     initial_state += state
                     break
-        self.robot_move_strategy.set_initial_state(initial_state)
+        if initial_state:
+            self.robot_move_strategy.set_initial_state(initial_state)
 
     def move_to_state(self, i, state):
         self.publish_goal(i, state)
