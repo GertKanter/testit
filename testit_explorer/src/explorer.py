@@ -101,6 +101,7 @@ class Explorer:
                 topic_actions, topic_constants, initial = self.get_actions_constants_initial_of_topic(topic)
                 initial_state += initial
                 robot_move_strategy.add(topic_actions, topic)
+            print("Initial state:")
             print(initial_state)
             robot_move_strategy.set_initial_state(initial_state)
             self.robot_movers.append(self.robot_mover_factory(robot_move_strategy, synced_topics_configs))
