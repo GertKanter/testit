@@ -9,7 +9,7 @@ from sklearn.cluster import MiniBatchKMeans
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.neighbors import NearestCentroid
-from util import flatten
+from util import flatten, lmap
 
 import rospy
 import seaborn as sns
@@ -180,10 +180,20 @@ class Clusterer:
                     states_by_clusters[cluster].remove(i)
                     states_by_clusters[new_cluster].append(i)
 
-    def clusters_to_state_machine(self, clusters, initial_state, get_labels=lambda clusters: clusters.labels_):
+    def get_state_machine(self, state_machine):
+        self.state_values = {int(key): state_machine['values'][key] for key in state_machine['values']}
+        self.edges = {int(key): lmap(int, state_machine['edges'][key]) for key in state_machine['edges']}
+        self.edge_labels = {eval(key): state_machine['labels'][key] for key in state_machine['labels']}
+        self.initial_state = int(state_machine['initialState'])
+
+    def clusters_to_state_machine(self, clusters, initial_state, state_machine=None, get_labels=lambda clusters: lambda clusters: list(
+            map(lambda cluster: cluster.cluster, clusters))):
         if not clusters:
             rospy.logerr("Could not cluster")
             return
+
+        if state_machine:
+
 
         edges, reverse_edges, edge_labels = {}, {}, {}
         states_by_clusters = defaultdict(list)

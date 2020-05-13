@@ -149,8 +149,7 @@ class Services:
         variables = self.get_test_config(input_types, test).get('explore', {}).get('variables', [])
         initial_state = list(map(lambda variable: variable['initial'], variables))
 
-        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
-            map(lambda cluster: cluster.cluster, clusters)))
+        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, self.config.get('stateMachine'))
         file_path = rospy.get_param('testit/pipeline/sharedDirectory') + rospy.get_param(
             'testit/pipeline/resultsDirectory') + "/" + self.config['learnBy'] + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
