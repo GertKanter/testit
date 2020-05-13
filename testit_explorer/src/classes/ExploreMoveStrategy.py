@@ -109,13 +109,13 @@ class ExploreMoveStrategy:
 
     def find_new_path(self):
         rospy.loginfo("Finding new path")
+        print("Actions")
+        print(self.actions)
         if not self.actions:
             self.current_path = [self.state]
             return
 
         backtrace = []
-
-
 
         new_states = lmap(lambda actions: tuple(action.to_state(self.state) for action in actions), self.actions)
         combined_possible_states = self.get_combined_possible_new_states(new_states)
