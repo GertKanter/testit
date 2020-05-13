@@ -32,7 +32,7 @@ class ExploreMoveStrategy:
         initial_state = tuple(initial_state)
         self.initial_state = initial_state
         self.state = initial_state
-        self.next_state = self.state
+        print("Setting self.state to" + str(self.state))
         self.path.append(initial_state)
 
     def set_previous_states(self, states):
@@ -147,4 +147,5 @@ class ExploreMoveStrategy:
             self.path.append(self.next_state)
             self.visited.add(self.next_state)
             self.state = self.next_state
+            print("Setting self.state to " + str(self.state))
             self.next_state = None
