@@ -101,6 +101,7 @@ class Explorer:
                 topic_actions, topic_constants, initial = self.get_actions_constants_initial_of_topic(topic)
                 initial_state += initial
                 robot_move_strategy.add(topic_actions, topic)
+            print("Synced init state: " + str(initial_state))
             robot_move_strategy.set_initial_state(initial_state)
             self.robot_movers.append(self.robot_mover_factory(robot_move_strategy, synced_topics_configs))
 
@@ -112,6 +113,7 @@ class Explorer:
             actions, constants, initial_state = self.get_actions_constants_initial_of_topic(topic)
             robot_move_strategy = self.move_strategy_factory()
             robot_move_strategy.add(actions, topic)
+            print("Not synced init state: " + str(initial_state))
             robot_move_strategy.set_initial_state(initial_state)
             self.robot_movers.append(self.robot_mover_factory(robot_move_strategy, topic))
 
