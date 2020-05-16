@@ -312,7 +312,7 @@ class UppaalAutomata:
         time_before = self.timestamps_by_state[state1]
         time_after = self.timestamps_by_state[state2]
         dt = time_after - time_before
-        return str(dt + self.get_topic_model(identifier)['timeBuffer'])
+        return str(dt + self.get_topic_model(identifier)['timeBuffer']) + ' <= time'
 
     def add_sut_template(self):
         self.template_sut = xml.SubElement(self.model_xml, 'template')
