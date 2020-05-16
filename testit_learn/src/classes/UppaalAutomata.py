@@ -59,7 +59,7 @@ class UppaalAutomata:
             self.timestamps_by_state[state] = timestamp * time_factor
 
     def get_topic_model(self, identifier):
-        return next(filter(lambda input_config: input_config['identifier'] == identifier, self.test_config['inputs'])) \
+        return next(iter(filter(lambda input_config: input_config['identifier'] == identifier, self.test_config['inputs']))) \
             .get('model', {'timed': True, 'timeBuffer': 0})
 
     def is_topic_timed(self, identifier):
