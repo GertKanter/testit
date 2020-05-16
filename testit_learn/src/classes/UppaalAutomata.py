@@ -296,7 +296,7 @@ class UppaalAutomata:
                                     ('assignment', self.get_commands(identifier, self.centroids_by_state[state2])))
                 self.add_transition(self.template_map, self.get_response_id(state1, state2),
                                     self.get_goal_id(state2),
-                                    *self.get_success_response_sync_labels(identifier))
+                                    *self.get_success_response_sync_labels(identifier, state1, state2))
                 self.add_transition(self.template_map, self.get_response_id(state1, state2),
                                     self.get_goal_id(state1),
                                     ('synchronisation', self.get_failure_response_sync(identifier)))
