@@ -1,4 +1,5 @@
-string edges  # json { node: [nodes] }
-string values # json { node: Datapoint }
-string labels # json { "(node, node)": label }
-string initialState
+string edges          # json { node: [nodes] }
+string values         # json { node: Datapoint }
+string timestamps     # json { node: timestamp }
+string labels         # json { "(node, node)": label }
+string initialState   # initial node

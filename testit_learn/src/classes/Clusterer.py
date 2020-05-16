@@ -88,7 +88,7 @@ class Clusterer:
         arrows.append(arrow)
 
     def plot_state_machine(self, state_machine):
-        edges, edge_labels, _, centroids_by_state, _ = state_machine
+        edges, edge_labels, _, centroids_by_state, _, _ = state_machine
         centroids_by_state = deepcopy(centroids_by_state)
         colors = cycle(['blue', 'red', 'green', 'orange', 'purple'])
         arrow_colors = defaultdict(lambda: next(colors))
@@ -112,7 +112,7 @@ class Clusterer:
         plt.legend(*plot_legend, fontsize=12)
 
     def plot(self, state_machine, path, plot=False):
-        edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
+        edges, edge_labels, points_by_state, centroids_by_state, _, _ = state_machine
         if plot:
             fig = plt.figure(figsize=(10, 8))
             self.plot_clusters(points_by_state)
@@ -186,8 +186,7 @@ class Clusterer:
         self.edge_labels = {eval(key): state_machine['labels'][key] for key in state_machine['labels']}
         self.initial_state = int(state_machine['initialState'])
 
-    def clusters_to_state_machine(self, clusters, initial_state, state_machine=None, get_labels=lambda clusters: lambda clusters: list(
-            map(lambda cluster: cluster.cluster, clusters))):
+    def clusters_to_state_machine(self, clusters, initial_state, state_machine=None):
         if not clusters:
             rospy.logerr("Could not cluster")
             return
@@ -196,7 +195,8 @@ class Clusterer:
         states_by_clusters = defaultdict(list)
         add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
 
-        clusters = get_labels(clusters)
+        clusters = list(
+            map(lambda cluster: cluster.cluster, clusters))
         topic = next(iter(self.dicts_by_topic))
         for i, prev_cluster_label in enumerate(clusters[:-1]):
             cluster_label = clusters[i + 1]
@@ -208,11 +208,12 @@ class Clusterer:
                                         add_edge)
 
         initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
-        centroids = self.get_centroids(states_by_clusters)
-        return edges, edge_labels, states_by_clusters, centroids, initial_cluster
+        centroids, timestamps = self.get_centroids_and_timestamps(states_by_clusters)
+        return edges, edge_labels, states_by_clusters, centroids, timestamps, initial_cluster
 
-    def get_centroids(self, states_by_clusters):
+    def get_centroids_and_timestamps(self, states_by_clusters):
         centroids_by_clusters = {}
+        timestamps_by_clusters = {}
 
         cluster_labels = []
         cluster_data = []
@@ -222,18 +223,19 @@ class Clusterer:
                 cluster_labels.append(cluster)
 
         topics_data = [list() for _ in self.dicts_by_topic[next(iter(self.dicts_by_topic))]]
+        timestamps = [None for _ in self.dicts_by_topic[next(iter(self.dicts_by_topic))]]
         for topic in self.dicts_by_topic:
             for i, dict_by_topic in enumerate(self.dicts_by_topic[topic]):
                 topics_data[i].append(dict_by_topic['attributes'])
+                timestamps[i] = dict_by_topic['timestamp']
         centroid_finder = NearestCentroid().fit(cluster_data, cluster_labels)
         for cluster in cluster_labels:
             try:
                 logical_centroid = centroid_finder.centroids_[cluster]
-                centroid = topics_data[
-                    min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
-                            states_by_clusters[cluster]), key=lambda x: x[0])[1]
-                ]
-                centroids_by_clusters[cluster] = centroid
+                min_distance_state = min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
+                             states_by_clusters[cluster]), key=lambda x: x[0])[1]
+                centroids_by_clusters[cluster] = topics_data[min_distance_state]
+                timestamps_by_clusters[cluster] = timestamps[min_distance_state]
             except Exception as e:
                 rospy.logerr(e)
-        return centroids_by_clusters
+        return centroids_by_clusters, timestamps_by_clusters

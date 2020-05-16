@@ -53,13 +53,14 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        edges, edge_labels, _, centroids, initial_cluster = self.get_services() \
+        edges, edge_labels, _, centroids, timestamps, initial_cluster = self.get_services() \
             .clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
         response.stateMachine.labels = json.dumps(convert(edge_labels, str))
         response.stateMachine.values = json.dumps(convert(centroids, list))
+        response.stateMachine.timestamps = json.dumps(convert(timestamps, float))
         response.stateMachine.initialState = str(initial_cluster)
         return response
 
@@ -165,7 +166,9 @@ class Services:
         values = {int(key): values_[key] for key in values_}
         labels_ = json.loads(state_machine.labels)
         labels = {eval(key): labels_[key] for key in labels_}
-        return edges, labels, None, values, int(state_machine.initialState)
+        timestamps_ = json.loads(state_machine.timestamps)
+        timestamps = {int(key): values_[key] for key in timestamps_}
+        return edges, labels, None, values, timestamps, int(state_machine.initialState)
 
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests

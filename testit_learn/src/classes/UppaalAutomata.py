@@ -11,7 +11,7 @@ from util import is_numeric, flatten
 
 class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
-        self.edges, self.edge_labels, _, self.centroids_by_state, self.initial_state = state_machine
+        self.edges, self.edge_labels, _, self.centroids_by_state, self.timestamps_by_state, self.initial_state = state_machine
         if model is not None:
             self.map = json.loads(model.modelConfig)
             self.adapter_config = json.loads(model.adapterConfig)
@@ -41,7 +41,9 @@ class UppaalAutomata:
             map(lambda x: x[0], variable.replace('.', '_').split('_'))))
 
         self.adapter_config = self.get_adapter_config()
+        self.is_timed = self.is_timed_enabled()
         self.code_centroids()
+        self.convert_timestamps()
         self.add_initial_state_to_map()
 
     def add_initial_state_to_map(self):
@@ -49,6 +51,22 @@ class UppaalAutomata:
         identifier = self.edge_labels[(self.initial_state, connection)]
         centroids = self.centroids_by_state[self.initial_state]
         self.get_commands(identifier, centroids)
+
+    def convert_timestamps(self):
+        time_factor = self.test_config.get('modelTimeUnitInMicrosec', 1000000) / 1000000
+        for state in self.timestamps_by_state:
+            timestamp = self.timestamps_by_state[state]
+            self.timestamps_by_state[state] = timestamp * time_factor
+
+    def get_topic_model(self, identifier):
+        return next(filter(lambda input_config: input_config['identifier'] == identifier, self.test_config['inputs'])) \
+            .get('model', {'timed': True, 'timeBuffer': 0})
+
+    def is_topic_timed(self, identifier):
+        return self.get_topic_model(identifier)['timed']
+
+    def is_timed_enabled(self):
+        return any(input_config.get('model', {}).get('timed', True) for input_config in self.test_config['inputs'])
 
     def get_adapter_config(self):
         config = {'test_adapter': {}}
@@ -144,7 +162,10 @@ class UppaalAutomata:
                 self.map['variables'][variable_string] = {'topic': topic_id}
                 variable_strings += variable_string
 
-        return declaration_format.format(channels=channels, variables=variable_strings)
+        declaration = declaration_format.format(channels=channels, variables=variable_strings)
+        if self.is_timed:
+            declaration += ' clock time;'
+        return declaration
 
     def add_declaration(self):
         declaration = xml.SubElement(self.model_xml, 'declaration')
@@ -275,11 +296,23 @@ class UppaalAutomata:
                                     ('assignment', self.get_commands(identifier, self.centroids_by_state[state2])))
                 self.add_transition(self.template_map, self.get_response_id(state1, state2),
                                     self.get_goal_id(state2),
-                                    ('synchronisation', self.get_success_response_sync(identifier)))
+                                    *self.get_success_response_sync_labels(identifier))
                 self.add_transition(self.template_map, self.get_response_id(state1, state2),
                                     self.get_goal_id(state1),
                                     ('synchronisation', self.get_failure_response_sync(identifier)))
         return self
+
+    def get_success_response_sync_labels(self, identifier, state1, state2):
+        labels = [('synchronisation', self.get_success_response_sync(identifier))]
+        if self.is_topic_timed(identifier):
+            labels.append(('guard', self.get_time_guard(identifier, state1, state2)))
+        return labels
+
+    def get_time_guard(self, identifier, state1, state2):
+        time_before = self.timestamps_by_state[state1]
+        time_after = self.timestamps_by_state[state2]
+        dt = time_after - time_before
+        return dt + self.get_topic_model(identifier)['timeBuffer']
 
     def add_sut_template(self):
         self.template_sut = xml.SubElement(self.model_xml, 'template')
@@ -325,6 +358,8 @@ class UppaalAutomata:
             nail2.set('x', '127')
             nail2.set('y', '-51')
 
+            reset_time_transitions = {self.success_response_format}
+
             for response_format in [self.success_response_format, self.failure_response_format]:
                 transition_response = xml.SubElement(self.template_sut, 'transition')
 
@@ -338,6 +373,11 @@ class UppaalAutomata:
                 label_sync.set('x', '-170')
                 label_sync.set('y', '68')
                 label_sync.text = self.identifier_transformer(response_format + '!', identifier)
+
+                if response_format in reset_time_transitions and self.is_topic_timed(identifier):
+                    label_assignment = xml.SubElement(transition_response, 'label')
+                    label_assignment.set('kind', 'assignment')
+                    label_sync.text = 'time = 0'
 
             nail1 = xml.SubElement(transition_response, 'nail')
             nail1.set('x', '8')
