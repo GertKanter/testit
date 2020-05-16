@@ -377,7 +377,7 @@ class UppaalAutomata:
                 if response_format in reset_time_transitions and self.is_topic_timed(identifier):
                     label_assignment = xml.SubElement(transition_response, 'label')
                     label_assignment.set('kind', 'assignment')
-                    label_sync.text = 'time = 0'
+                    label_assignment.text = 'time = 0'
 
             nail1 = xml.SubElement(transition_response, 'nail')
             nail1.set('x', '8')
