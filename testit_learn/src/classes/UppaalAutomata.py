@@ -59,7 +59,8 @@ class UppaalAutomata:
             self.timestamps_by_state[state] = timestamp * time_factor
 
     def get_topic_model(self, identifier):
-        return next(iter(filter(lambda input_config: input_config['identifier'] == identifier, self.test_config['inputs']))) \
+        return next(
+            iter(filter(lambda input_config: input_config['identifier'] == identifier, self.test_config['inputs']))) \
             .get('model', {'timed': True, 'timeBuffer': 0})
 
     def is_topic_timed(self, identifier):
@@ -311,8 +312,8 @@ class UppaalAutomata:
     def get_time_guard(self, identifier, state1, state2):
         time_before = self.timestamps_by_state[state1]
         time_after = self.timestamps_by_state[state2]
-        dt = time_after - time_before
-        return str(dt + self.get_topic_model(identifier)['timeBuffer']) + ' >= time'
+        dt = abs(time_after - time_before)
+        return str(int(round(dt + self.get_topic_model(identifier)['timeBuffer']))) + ' >= time'
 
     def add_sut_template(self):
         self.template_sut = xml.SubElement(self.model_xml, 'template')
