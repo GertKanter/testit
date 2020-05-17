@@ -310,7 +310,7 @@ class UppaalAutomata:
         return labels
 
     def get_time_guard(self, identifier, state1, state2):
-        time_before = max(self.timestamps_by_state[state1])
+        time_before = min(self.timestamps_by_state[state1])
         time_after = min(self.timestamps_by_state[state2])
         dt = abs(time_after - time_before)
         return str(int(round(dt + self.get_topic_model(identifier)['timeBuffer']))) + ' >= time'
