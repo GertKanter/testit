@@ -155,7 +155,7 @@ class Clusterer:
                 initial_cluster = cluster
         return initial_cluster
 
-    def divide_sync_topic_clusters(self, clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
+    def divide_sync_topic_clusters(self, clusters, edges, edge_labels, timestamps, reverse_edges, states_by_clusters, remove_edge,
                                    add_edge):
         cluster_counter = count(max(clusters) + 1)
         for topic in list(self.dicts_by_topic.keys())[1:]:
@@ -168,11 +168,15 @@ class Clusterer:
 
                 new_cluster = next(cluster_counter)
                 next_clusters = edges[cluster]
-                prev_topic = edge_labels[(reverse_edges[cluster], cluster)]
+                prev_cluster = reverse_edges[cluster]
+                prev_topic = edge_labels[(prev_cluster, cluster)]
 
                 remove_edge(cluster, next_clusters)
                 add_edge(cluster, [new_cluster], topic)
                 add_edge(new_cluster, next_clusters, prev_topic)
+                timestamps[(cluster, new_cluster)] = timestamps[(prev_cluster, cluster)]
+                for next_cluster in next_clusters:
+                    timestamps[(new_cluster, next_cluster)] = timestamps[(cluster, next_cluster)]
 
                 if all_successful:
                     states_by_clusters[new_cluster] = states_by_clusters[cluster]
