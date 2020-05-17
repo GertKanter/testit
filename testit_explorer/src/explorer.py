@@ -13,7 +13,6 @@ from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
-
 import testit_explorer.srv  # This is necessary for imports to work
 from classes.Action import Action
 from classes.ExploreMoveStrategy import ExploreMoveStrategy
@@ -272,7 +271,6 @@ class Explorer:
         return statemachine
 
     def call_uppaal_service(self, service, input_types):
-        rospy.loginfo("Waiting for service")
         service.wait_for_service()
 
         request = StateMachineToUppaalRequest()
@@ -297,21 +295,25 @@ class Explorer:
         with open(directory + statemachine_path, 'w') as file:
             file.write(json.dumps(self.get_encoded_statemachine()))
 
+    def get_service(self, name, default):
+        service = self.test_config.get(name, '')
+        if service == "":
+            return default
+        return service
+
     def maybe_write_new_model(self, req=Bool(True)):
         if self.test_config.get('mode', 'test') != 'refine-model' or not req.data:
             return
 
         rospy.loginfo("\nWriting refined model")
-        statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
-                                                              '/testit/learn/statemachine/uppaal')
+        statemachine_to_uppaal_service = self.get_service('stateMachineToUppaalService',
+                                                          '/testit/learn/statemachine/uppaal')
         get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
 
         input_types_matrix = list(
             map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
         for input_types in input_types_matrix:
-            rospy.loginfo("Calling uppaal service")
             response = self.call_uppaal_service(get_uppaal, input_types)  # type: StateMachineToUppaalResponse
-            rospy.loginfo("Received " + str(response))
             self.write_model(input_types, response.uppaalModel.uppaalModel)
 
     def get_steps(self):
