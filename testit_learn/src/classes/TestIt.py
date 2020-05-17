@@ -234,7 +234,7 @@ class TestIt:
                                    'labels': {str(key): uppaal_automata.edge_labels[key] for key in
                                               uppaal_automata.edge_labels},
                                    'values': uppaal_automata.centroids_by_state,
-                                   'timestamps': uppaal_automata.timestamps_by_edges,
+                                   'timestamps': {str(key): uppaal_automata.timestamps_by_edges[key] for key in uppaal_automata.timestamps_by_edges},
                                    'initialState': str(uppaal_automata.initial_state)}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:
