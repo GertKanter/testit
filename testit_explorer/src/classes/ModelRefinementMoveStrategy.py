@@ -57,20 +57,22 @@ class ModelRefinementMoveStrategy:
     def set_previous_states(self, states):
         pass
 
-    def get_model_conf(self):
-        return self.model_confs.get(self.edge_labels[(self.prev_state, self.state)], {})
+    def get_model_conf(self, identifier):
+        return self.model_confs.get(self.edge_labels.get((self.prev_state, self.state), identifier), {})
 
     def give_feedback(self, successes):
         if any(successes):
             self.success = True
+            index = successes.index(True)
+            identifier = self.topics[index]['identifier']
             if self.state not in self.edges.get(self.prev_state, []) and self.prev_state != self.state:
                 self.edges[self.prev_state].append(self.state)
-                index = successes.index(True)
-                self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
-            model_conf = self.get_model_conf()
-            new_time = (time.time() - self.timestamp) - (
-                        model_conf.get('timeBuffer', 0) - model_conf.get('timeBufferForRefineModel', 0))
-            self.timestamps[(self.prev_state, self.state)] = [new_time]
+                self.edge_labels[(self.prev_state, self.state)] = identifier
+            if self.prev_state != self.state:
+                model_conf = self.get_model_conf(identifier)
+                new_time = (time.time() - self.timestamp) - (
+                            model_conf.get('timeBuffer', 0) - model_conf.get('timeBufferForRefineModel', 0))
+                self.timestamps[(self.prev_state, self.state)] = [new_time]
             self.prev_state = self.state
             self.visited.add(self.state)
             if not self.going_back:
