@@ -1,6 +1,7 @@
 from collections import defaultdict
 from math import sqrt
 
+import numpy as np
 import rospy
 
 from util import flatten, lmap
@@ -20,6 +21,7 @@ class ModelRefinementMoveStrategy:
         self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
         self.edges = {int(key): lmap(int, self.state_machine['edges'][key]) for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
+        self.timestamps = {int(key): [np.mean(self.state_machine['timestamps'][key])] for key in self.state_machine['timestamps']}
         self.initial_state = int(self.state_machine['initialState'])
 
         self.state_machine['values'] = self.state_values
@@ -58,6 +60,7 @@ class ModelRefinementMoveStrategy:
                 self.edges[self.prev_state].append(self.state)
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
+            self.timestamps[self.state] = [rospy.time()]
             self.prev_state = self.state
             self.visited.add(self.state)
             if not self.going_back:
@@ -123,6 +126,7 @@ class ModelRefinementMoveStrategy:
 
     def state_value(self):
         states = self.state_values_to_states(self.state_values[self.state])
+        self.timestamp = rospy.time()
         rospy.loginfo(str(states))
         return states
 

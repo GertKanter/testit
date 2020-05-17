@@ -266,6 +266,7 @@ class Explorer:
         statemachine.edges = json.dumps(state_machine['edges'])
         statemachine.labels = json.dumps(state_machine['labels'])
         statemachine.values = json.dumps(state_machine['values'])
+        state_machine.timestamps = json.dumps(state_machine['timestamps'])
         statemachine.initialState = str(state_machine['initialState'])
         return statemachine
 

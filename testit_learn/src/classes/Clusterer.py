@@ -180,18 +180,12 @@ class Clusterer:
                     states_by_clusters[cluster].remove(i)
                     states_by_clusters[new_cluster].append(i)
 
-    def get_state_machine(self, state_machine):
-        self.state_values = {int(key): state_machine['values'][key] for key in state_machine['values']}
-        self.edges = {int(key): lmap(int, state_machine['edges'][key]) for key in state_machine['edges']}
-        self.edge_labels = {eval(key): state_machine['labels'][key] for key in state_machine['labels']}
-        self.initial_state = int(state_machine['initialState'])
-
     def clusters_to_state_machine(self, clusters, initial_state, state_machine=None):
         if not clusters:
             rospy.logerr("Could not cluster")
             return
 
-        edges, reverse_edges, edge_labels = {}, {}, {}
+        edges, reverse_edges, edge_labels, timestamps = {}, {}, {}, defaultdict(list)
         states_by_clusters = defaultdict(list)
         add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
 
@@ -202,19 +196,19 @@ class Clusterer:
             cluster_label = clusters[i + 1]
             states_by_clusters[prev_cluster_label].append(i)
             add_edge(prev_cluster_label, [cluster_label], topic)
+            timestamps[(prev_cluster_label, cluster_label)].append(
+                self.dicts_by_topic[topic][i + 1]['timestamp'] - self.dicts_by_topic[topic][i]['timestamp'])
         states_by_clusters[cluster_label].append(i + 1)
 
         self.divide_sync_topic_clusters(clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
                                         add_edge)
 
         initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
-        centroids, timestamps = self.get_centroids_and_timestamps(states_by_clusters)
+        centroids = self.get_centroids(states_by_clusters)
         return edges, edge_labels, states_by_clusters, centroids, timestamps, initial_cluster
 
-    def get_centroids_and_timestamps(self, states_by_clusters):
+    def get_centroids(self, states_by_clusters):
         centroids_by_clusters = {}
-        timestamps_by_clusters = {}
-
         cluster_labels = []
         cluster_data = []
         for cluster in states_by_clusters:
@@ -223,20 +217,17 @@ class Clusterer:
                 cluster_labels.append(cluster)
 
         topics_data = [list() for _ in self.dicts_by_topic[next(iter(self.dicts_by_topic))]]
-        timestamps = [None for _ in self.dicts_by_topic[next(iter(self.dicts_by_topic))]]
         for topic in self.dicts_by_topic:
             for i, dict_by_topic in enumerate(self.dicts_by_topic[topic]):
                 topics_data[i].append(dict_by_topic['attributes'])
-                timestamps[i] = dict_by_topic['timestamp']
         centroid_finder = NearestCentroid().fit(cluster_data, cluster_labels)
         for cluster in cluster_labels:
             try:
                 logical_centroid = centroid_finder.centroids_[cluster]
-                min_distance_state = min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
-                             states_by_clusters[cluster]), key=lambda x: x[0])[1]
-                states_timestamps = list(map(lambda state: timestamps[state], states_by_clusters[cluster]))
+                min_distance_state = \
+                min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
+                        states_by_clusters[cluster]), key=lambda x: x[0])[1]
                 centroids_by_clusters[cluster] = topics_data[min_distance_state]
-                timestamps_by_clusters[cluster] = states_timestamps
             except Exception as e:
                 rospy.logerr(e)
-        return centroids_by_clusters, timestamps_by_clusters
+        return centroids_by_clusters

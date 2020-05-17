@@ -12,7 +12,7 @@ from util import is_numeric, flatten
 
 class UppaalAutomata:
     def __init__(self, state_machine, test_config, input_types, model=None):
-        self.edges, self.edge_labels, _, self.centroids_by_state, self.timestamps_by_state, self.initial_state = state_machine
+        self.edges, self.edge_labels, _, self.centroids_by_state, self.timestamps_by_edges, self.initial_state = state_machine
         if model is not None:
             self.map = json.loads(model.modelConfig)
             self.adapter_config = json.loads(model.adapterConfig)
@@ -55,9 +55,9 @@ class UppaalAutomata:
 
     def convert_timestamps(self):
         time_factor = self.test_config.get('modelTimeUnitInMicrosec', 1000000) / 1000000
-        for state in self.timestamps_by_state:
-            timestamps = self.timestamps_by_state[state]
-            self.timestamps_by_state[state] = list(map(lambda timestamp: timestamp * time_factor, timestamps))
+        for edge in self.timestamps_by_edges:
+            timestamps = self.timestamps_by_edges[edge]
+            self.timestamps_by_edges[edge] = list(map(lambda timestamp: timestamp * time_factor, timestamps))
 
     def get_topic_model(self, identifier):
         return next(
@@ -311,9 +311,7 @@ class UppaalAutomata:
         return labels
 
     def get_time_guard(self, identifier, state1, state2):
-        time_before = np.mean(self.timestamps_by_state[state1])
-        time_after = np.mean(self.timestamps_by_state[state2])
-        dt = abs(time_after - time_before)
+        dt = np.mean(self.timestamps_by_edges[(state1, state2)])
         return str(int(round(dt + self.get_topic_model(identifier)['timeBuffer']))) + ' >= time'
 
     def add_sut_template(self):

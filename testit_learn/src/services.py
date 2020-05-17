@@ -167,7 +167,7 @@ class Services:
         labels_ = json.loads(state_machine.labels)
         labels = {eval(key): labels_[key] for key in labels_}
         timestamps_ = json.loads(state_machine.timestamps)
-        timestamps = {int(key): timestamps_[key] for key in timestamps_}
+        timestamps = {eval(key): timestamps_[key] for key in timestamps_}
         return edges, labels, None, values, timestamps, int(state_machine.initialState)
 
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
