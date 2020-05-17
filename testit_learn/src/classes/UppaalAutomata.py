@@ -55,8 +55,8 @@ class UppaalAutomata:
     def convert_timestamps(self):
         time_factor = self.test_config.get('modelTimeUnitInMicrosec', 1000000) / 1000000
         for state in self.timestamps_by_state:
-            timestamp = self.timestamps_by_state[state]
-            self.timestamps_by_state[state] = timestamp * time_factor
+            timestamps = self.timestamps_by_state[state]
+            self.timestamps_by_state[state] = list(map(lambda timestamp: timestamp * time_factor, timestamps))
 
     def get_topic_model(self, identifier):
         return next(
@@ -310,8 +310,8 @@ class UppaalAutomata:
         return labels
 
     def get_time_guard(self, identifier, state1, state2):
-        time_before = self.timestamps_by_state[state1]
-        time_after = self.timestamps_by_state[state2]
+        time_before = max(self.timestamps_by_state[state1])
+        time_after = min(self.timestamps_by_state[state2])
         dt = abs(time_after - time_before)
         return str(int(round(dt + self.get_topic_model(identifier)['timeBuffer']))) + ' >= time'
 

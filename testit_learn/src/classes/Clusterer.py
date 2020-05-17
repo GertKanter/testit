@@ -234,8 +234,9 @@ class Clusterer:
                 logical_centroid = centroid_finder.centroids_[cluster]
                 min_distance_state = min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
                              states_by_clusters[cluster]), key=lambda x: x[0])[1]
+                states_timestamps = list(map(lambda state: timestamps[state], states_by_clusters[cluster]))
                 centroids_by_clusters[cluster] = topics_data[min_distance_state]
-                timestamps_by_clusters[cluster] = timestamps[min_distance_state]
+                timestamps_by_clusters[cluster] = states_timestamps
             except Exception as e:
                 rospy.logerr(e)
         return centroids_by_clusters, timestamps_by_clusters

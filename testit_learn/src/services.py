@@ -60,7 +60,7 @@ class ServiceProvider:
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
         response.stateMachine.labels = json.dumps(convert(edge_labels, str))
         response.stateMachine.values = json.dumps(convert(centroids, list))
-        response.stateMachine.timestamps = json.dumps(convert(timestamps, float))
+        response.stateMachine.timestamps = json.dumps(convert(timestamps, list))
         response.stateMachine.initialState = str(initial_cluster)
         return response
 
