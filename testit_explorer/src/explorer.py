@@ -272,6 +272,7 @@ class Explorer:
         return statemachine
 
     def call_uppaal_service(self, service, input_types):
+        rospy.loginfo("Waiting for service")
         service.wait_for_service()
 
         request = StateMachineToUppaalRequest()
@@ -308,7 +309,9 @@ class Explorer:
         input_types_matrix = list(
             map(lambda topics: [self.topics[i]['identifier'] for i in topics], self.synced_topics))
         for input_types in input_types_matrix:
+            rospy.loginfo("Calling uppaal service")
             response = self.call_uppaal_service(get_uppaal, input_types)  # type: StateMachineToUppaalResponse
+            rospy.loginfo("Received " + str(response))
             self.write_model(input_types, response.uppaalModel.uppaalModel)
 
     def get_steps(self):
