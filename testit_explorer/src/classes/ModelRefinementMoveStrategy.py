@@ -21,12 +21,13 @@ class ModelRefinementMoveStrategy:
         self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
         self.edges = {int(key): lmap(int, self.state_machine['edges'][key]) for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
-        self.timestamps = {int(key): [np.mean(self.state_machine['timestamps'][key])] for key in self.state_machine['timestamps']}
+        self.timestamps = {eval(key): self.state_machine['timestamps'][key] for key in self.state_machine['timestamps']}
         self.initial_state = int(self.state_machine['initialState'])
 
         self.state_machine['values'] = self.state_values
         self.state_machine['edges'] = self.edges
         self.state_machine['labels'] = self.edge_labels
+        self.state_machine['timestamps'] = self.timestamps
 
         self.topics = []
         self.actions = []
@@ -60,7 +61,10 @@ class ModelRefinementMoveStrategy:
                 self.edges[self.prev_state].append(self.state)
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
-            self.timestamps[self.state] = [rospy.time()]
+            if (self.prev_state, self.state) in self.timestamps:
+                self.timestamps[(self.prev_state, self.state)].append(rospy.time())
+            else:
+                self.timestamps[(self.prev_state, self.state)] = [rospy.time()]
             self.prev_state = self.state
             self.visited.add(self.state)
             if not self.going_back:

@@ -258,6 +258,7 @@ class Explorer:
     def get_encoded_statemachine(self):
         state_machine = deepcopy(self.state_machine)
         state_machine['labels'] = {str(key): value for key, value in self.state_machine['labels'].iteritems()}
+        state_machine['timestamps'] = {str(key): value for key, value in self.state_machine['timestamps'].iteritems()}
         return state_machine
 
     def get_statemachine_msg(self):
@@ -266,7 +267,7 @@ class Explorer:
         statemachine.edges = json.dumps(state_machine['edges'])
         statemachine.labels = json.dumps(state_machine['labels'])
         statemachine.values = json.dumps(state_machine['values'])
-        state_machine.timestamps = json.dumps(state_machine['timestamps'])
+        statemachine.timestamps = json.dumps(state_machine['timestamps'])
         statemachine.initialState = str(state_machine['initialState'])
         return statemachine
 
