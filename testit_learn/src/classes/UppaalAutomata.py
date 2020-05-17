@@ -313,7 +313,7 @@ class UppaalAutomata:
         return labels
 
     def get_time_guard(self, identifier, state1, state2):
-        dt = np.mean(self.timestamps_by_edges[(state1, state2)])
+        dt = max(self.timestamps_by_edges[(state1, state2)])
         return str(int(round(dt + self.get_topic_model(identifier)['timeBuffer']))) + ' >= time'
 
     def add_sut_template(self):
