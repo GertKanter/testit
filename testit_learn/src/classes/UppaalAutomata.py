@@ -303,8 +303,14 @@ class UppaalAutomata:
                                     *self.get_success_response_sync_labels(identifier, state1, state2))
                 self.add_transition(self.template_map, self.get_response_id(state1, state2),
                                     self.get_goal_id(state1),
-                                    ('synchronisation', self.get_failure_response_sync(identifier)))
+                                    *self.get_failure_response_sync_labels(identifier, state1, state2))
         return self
+
+    def get_failure_response_sync_labels(self, identifier, state1, state2):
+        labels = [('synchronisation', self.get_failure_response_sync(identifier))]
+        if self.is_topic_timed(identifier):
+            labels.append(('guard', self.get_time_guard(identifier, state1, state2)))
+        return labels
 
     def get_success_response_sync_labels(self, identifier, state1, state2):
         labels = [('synchronisation', self.get_success_response_sync(identifier))]
