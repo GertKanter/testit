@@ -46,7 +46,6 @@ class UppaalAutomata:
         self.is_timed = self.is_timed_enabled()
         self.code_centroids()
         self.convert_timestamps()
-        rospy.loginfo(self.timestamps_by_edges)
         self.add_initial_state_to_map()
 
     def add_initial_state_to_map(self):

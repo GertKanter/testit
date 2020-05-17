@@ -1,3 +1,4 @@
+import time
 from collections import defaultdict
 from math import sqrt
 
@@ -43,6 +44,7 @@ class ModelRefinementMoveStrategy:
         self.success = True
         self.closest_pairs = None
         self.going_back = False
+        self.timestamp = None
 
     def set_initial_state(self, _):
         self.state = self.initial_state
@@ -62,9 +64,9 @@ class ModelRefinementMoveStrategy:
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
             if (self.prev_state, self.state) in self.timestamps:
-                self.timestamps[(self.prev_state, self.state)].append(rospy.time())
+                self.timestamps[(self.prev_state, self.state)].append(time.time() - self.timestamp)
             else:
-                self.timestamps[(self.prev_state, self.state)] = [rospy.time()]
+                self.timestamps[(self.prev_state, self.state)] = [time.time() - self.timestamp]
             self.prev_state = self.state
             self.visited.add(self.state)
             if not self.going_back:
@@ -130,7 +132,7 @@ class ModelRefinementMoveStrategy:
 
     def state_value(self):
         states = self.state_values_to_states(self.state_values[self.state])
-        self.timestamp = rospy.time()
+        self.timestamp = time.time()
         rospy.loginfo(str(states))
         return states
 
