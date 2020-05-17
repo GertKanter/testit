@@ -3,8 +3,8 @@ import xml.etree.cElementTree as xml
 from collections import defaultdict
 from copy import deepcopy
 from itertools import count
-from statistics import mean
 
+import numpy as np
 import xml.dom.minidom as xmldom
 
 from util import is_numeric, flatten
@@ -311,8 +311,8 @@ class UppaalAutomata:
         return labels
 
     def get_time_guard(self, identifier, state1, state2):
-        time_before = mean(self.timestamps_by_state[state1])
-        time_after = mean(self.timestamps_by_state[state2])
+        time_before = np.mean(self.timestamps_by_state[state1])
+        time_after = np.mean(self.timestamps_by_state[state2])
         dt = abs(time_after - time_before)
         return str(int(round(dt + self.get_topic_model(identifier)['timeBuffer']))) + ' >= time'
 
