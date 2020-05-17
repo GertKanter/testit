@@ -72,7 +72,8 @@ class Explorer:
     def set_move_strategy_factory(self):
         if self.test_config['mode'] == 'refine-model':
             rospy.Subscriber("/testit/finished/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
-            self.move_strategy_factory = lambda: ModelRefinementMoveStrategy(state_machine=self.get_state_machine())
+            model_confs = {topic['identifier']: topic.get('model', {}) for topic in self.topics}
+            self.move_strategy_factory = lambda: ModelRefinementMoveStrategy(state_machine=self.get_state_machine(), model_confs=model_confs)
         elif self.test_config.get('moveStrategyService', '') != '':
             self.move_strategy_factory = lambda: MoveStrategyFromService(
                 service=self.test_config['moveStrategyService'],

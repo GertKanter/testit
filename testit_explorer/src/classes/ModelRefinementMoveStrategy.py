@@ -16,6 +16,7 @@ except:
 class ModelRefinementMoveStrategy:
     def __init__(self, **kwargs):
         self.state_machine = kwargs['state_machine']
+        self.model_confs = kwargs['model_confs']
         if not self.state_machine:
             rospy.logerr("stateMachine not specified in config")
             raise RuntimeError("stateMachine not specified in config")
@@ -56,6 +57,9 @@ class ModelRefinementMoveStrategy:
     def set_previous_states(self, states):
         pass
 
+    def get_model_conf(self):
+        return self.model_confs.get(self.edge_labels[(self.prev_state, self.state)], {})
+
     def give_feedback(self, successes):
         if any(successes):
             self.success = True
@@ -63,10 +67,10 @@ class ModelRefinementMoveStrategy:
                 self.edges[self.prev_state].append(self.state)
                 index = successes.index(True)
                 self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
-            if (self.prev_state, self.state) in self.timestamps:
-                self.timestamps[(self.prev_state, self.state)].append(time.time() - self.timestamp)
-            else:
-                self.timestamps[(self.prev_state, self.state)] = [time.time() - self.timestamp]
+            model_conf = self.get_model_conf()
+            new_time = (time.time() - self.timestamp) - (
+                        model_conf.get('timeBuffer', 0) - model_conf.get('timeBufferForRefineModel', 0))
+            self.timestamps[(self.prev_state, self.state)] = [new_time]
             self.prev_state = self.state
             self.visited.add(self.state)
             if not self.going_back:
