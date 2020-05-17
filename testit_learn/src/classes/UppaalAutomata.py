@@ -5,6 +5,7 @@ from copy import deepcopy
 from itertools import count
 
 import numpy as np
+import rospy
 import xml.dom.minidom as xmldom
 
 from util import is_numeric, flatten
@@ -45,6 +46,7 @@ class UppaalAutomata:
         self.is_timed = self.is_timed_enabled()
         self.code_centroids()
         self.convert_timestamps()
+        rospy.loginfo(self.timestamps_by_edges)
         self.add_initial_state_to_map()
 
     def add_initial_state_to_map(self):
