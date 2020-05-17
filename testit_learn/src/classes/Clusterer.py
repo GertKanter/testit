@@ -204,7 +204,7 @@ class Clusterer:
                 self.dicts_by_topic[topic][i + 1]['timestamp'] - self.dicts_by_topic[topic][i]['timestamp'])
         states_by_clusters[cluster_label].append(i + 1)
 
-        self.divide_sync_topic_clusters(clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
+        self.divide_sync_topic_clusters(clusters, edges, edge_labels, timestamps, reverse_edges, states_by_clusters, remove_edge,
                                         add_edge)
 
         initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
