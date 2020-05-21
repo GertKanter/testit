@@ -53,13 +53,14 @@ class ServiceProvider:
 
     def cluster_to_statemachine_service(self, req):
         # type: (ClusterToStateMachineRequest) -> ClusterToStateMachineResponse
-        edges, edge_labels, _, centroids, initial_cluster = self.get_services() \
+        edges, edge_labels, _, centroids, timestamps, initial_cluster = self.get_services() \
             .clusters_to_state_machine(req.data, req.test, tuple(req.inputTypes))
         convert = lambda d, value_to: {str(key): value_to(d[key]) for key in d}
         response = ClusterToStateMachineResponse()
         response.stateMachine.edges = json.dumps(convert(edges, lambda value: list(map(str, value))))
         response.stateMachine.labels = json.dumps(convert(edge_labels, str))
         response.stateMachine.values = json.dumps(convert(centroids, list))
+        response.stateMachine.timestamps = json.dumps(convert(timestamps, list))
         response.stateMachine.initialState = str(initial_cluster)
         return response
 
@@ -136,7 +137,7 @@ class Services:
             input_types)
         test_config = self.test_configs[test]['configuration']
         return self.clusterer_factory(test_data, dicts_by_topic,
-                                      test_config.get('cluster_reduction_factor', {}))
+                                      test_config.get('clusterReductionFactor', {}))
 
     def log_to_clusters(self, test, input_types):
         clusterer = self.get_clusterer(test, input_types)
@@ -149,14 +150,12 @@ class Services:
         variables = self.get_test_config(input_types, test).get('explore', {}).get('variables', [])
         initial_state = list(map(lambda variable: variable['initial'], variables))
 
-        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, get_labels=lambda clusters: list(
-            map(lambda cluster: cluster.cluster, clusters)))
+        state_machine = clusterer.clusters_to_state_machine(clusters, initial_state, self.config.get('stateMachine'))
         file_path = rospy.get_param('testit/pipeline/sharedDirectory') + rospy.get_param(
-            'testit/pipeline/resultsDirectory') + "/" + rospy.get_param(
-            'testit_logger/test') + ''.join(
+            'testit/pipeline/resultsDirectory') + "/" + self.config['learnBy'] + ''.join(
             map(lambda id: ''.join(map(lambda x: x[0], id.strip('/').replace('/', '_').split('_'))),
-                input_types)) + "-statemachine-cluster.png"
-        clusterer.plot(state_machine, file_path)
+                input_types)) + "-statemachine-cluster"
+        clusterer.plot(state_machine, file_path, self.config.get('plot', False))
         return state_machine
 
     def convert_from_state_machine_msg_to_state_machine_tuple(self, state_machine):
@@ -167,7 +166,9 @@ class Services:
         values = {int(key): values_[key] for key in values_}
         labels_ = json.loads(state_machine.labels)
         labels = {eval(key): labels_[key] for key in labels_}
-        return edges, labels, None, values, int(state_machine.initialState)
+        timestamps_ = json.loads(state_machine.timestamps)
+        timestamps = {eval(key): timestamps_[key] for key in timestamps_}
+        return edges, labels, None, values, timestamps, int(state_machine.initialState)
 
     def uppaal_automata_from_state_machine(self, state_machine, test, input_types):
         self.test_configs = self.test_it.logger_configs_by_tests

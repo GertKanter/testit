@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
 import atexit
 import json
 import re
@@ -15,6 +13,7 @@ from std_msgs.msg import Bool
 from testit_learn.msg import StateMachine
 from testit_learn.srv import StateMachineToUppaal, StateMachineToUppaalResponse, StateMachineToUppaalRequest
 
+import testit_explorer.srv  # This is necessary for imports to work
 from classes.Action import Action
 from classes.ExploreMoveStrategy import ExploreMoveStrategy
 from classes.ModelRefinementMoveStrategy import ModelRefinementMoveStrategy
@@ -73,7 +72,8 @@ class Explorer:
     def set_move_strategy_factory(self):
         if self.test_config['mode'] == 'refine-model':
             rospy.Subscriber("/testit/finished/%s" % self.test_config.get('tag'), Bool, self.maybe_write_new_model)
-            self.move_strategy_factory = lambda: ModelRefinementMoveStrategy(state_machine=self.get_state_machine())
+            model_confs = {topic['identifier']: topic.get('model', {}) for topic in self.topics}
+            self.move_strategy_factory = lambda: ModelRefinementMoveStrategy(state_machine=self.get_state_machine(), model_confs=model_confs)
         elif self.test_config.get('moveStrategyService', '') != '':
             self.move_strategy_factory = lambda: MoveStrategyFromService(
                 service=self.test_config['moveStrategyService'],
@@ -258,6 +258,7 @@ class Explorer:
     def get_encoded_statemachine(self):
         state_machine = deepcopy(self.state_machine)
         state_machine['labels'] = {str(key): value for key, value in self.state_machine['labels'].iteritems()}
+        state_machine['timestamps'] = {str(key): value for key, value in self.state_machine['timestamps'].iteritems()}
         return state_machine
 
     def get_statemachine_msg(self):
@@ -266,6 +267,7 @@ class Explorer:
         statemachine.edges = json.dumps(state_machine['edges'])
         statemachine.labels = json.dumps(state_machine['labels'])
         statemachine.values = json.dumps(state_machine['values'])
+        statemachine.timestamps = json.dumps(state_machine['timestamps'])
         statemachine.initialState = str(state_machine['initialState'])
         return statemachine
 
@@ -294,13 +296,19 @@ class Explorer:
         with open(directory + statemachine_path, 'w') as file:
             file.write(json.dumps(self.get_encoded_statemachine()))
 
+    def get_service(self, name, default):
+        service = self.test_config.get(name, '')
+        if service == "":
+            return default
+        return service
+
     def maybe_write_new_model(self, req=Bool(True)):
         if self.test_config.get('mode', 'test') != 'refine-model' or not req.data:
             return
 
         rospy.loginfo("\nWriting refined model")
-        statemachine_to_uppaal_service = self.test_config.get('stateMachineToUppaalService',
-                                                              '/testit/learn/statemachine/uppaal')
+        statemachine_to_uppaal_service = self.get_service('stateMachineToUppaalService',
+                                                          '/testit/learn/statemachine/uppaal')
         get_uppaal = rospy.ServiceProxy(statemachine_to_uppaal_service, StateMachineToUppaal)
 
         input_types_matrix = list(

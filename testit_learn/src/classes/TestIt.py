@@ -95,7 +95,8 @@ class TestIt:
                 attributes.append(log_line['success']['timestamp'])
             elif timestamp == 'input':
                 attributes.append(log_line['timestamp'])
-        return attributes_by_explore, attributes
+
+        return log_line['timestamp'], attributes_by_explore, attributes
 
     def find_input_config(self, inputs, input_id):
         for input_config in inputs:
@@ -204,9 +205,9 @@ class TestIt:
                 inputs = test_configurations[test]['configuration']['inputs']
                 input_id = line['channel']['identifier']
                 input_config = self.find_input_config(inputs, input_id)
-                attributes_by_explore, attributes = self.get_attributes_from_input_config(input_config, line)
+                timestamp, attributes_by_explore, attributes = self.get_attributes_from_input_config(input_config, line)
                 add_to_list_dict(dicts_by_input, input_id,
-                                 {'success': line['success']['value'], 'attributes': attributes_by_explore})
+                                 {'success': line['success']['value'], 'timestamp': timestamp, 'attributes': attributes_by_explore})
                 add_to_list_dict(lists_by_input, input_id, attributes)
 
             for input_id in lists_by_input:
@@ -233,6 +234,7 @@ class TestIt:
                                    'labels': {str(key): uppaal_automata.edge_labels[key] for key in
                                               uppaal_automata.edge_labels},
                                    'values': uppaal_automata.centroids_by_state,
+                                   'timestamps': {str(key): uppaal_automata.timestamps_by_edges[key] for key in uppaal_automata.timestamps_by_edges},
                                    'initialState': str(uppaal_automata.initial_state)}, indent=2))
         model_config_path = file_name + '.yaml'
         with open(model_config_path, 'w') as file:

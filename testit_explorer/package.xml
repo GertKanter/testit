@@ -51,6 +51,7 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>rospy</exec_depend>
+  <exec_depend>python</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -3,16 +3,18 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from itertools import count, cycle
+
 from scipy.spatial import distance
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.neighbors import NearestCentroid
-from util import flatten
+from util import flatten, lmap
 
 import rospy
 import seaborn as sns
 import numpy as np
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
 
@@ -64,10 +66,10 @@ class Clusterer:
                 clusters.append(cluster)
         clusters = np.array(clusters)
         states = np.array(states)
+        n_clusters = len(set(clusters))
 
-        palette = sns.color_palette('bright', np.unique(clusters).max() + 1)
-        colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in clusters]
-        plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.25, s=80, linewidths=0)
+        colors = [cm.nipy_spectral(float(x) / n_clusters) for x in clusters]
+        plt.scatter(states.T[0], states.T[1], c=colors, alpha=0.3, s=80, linewidths=0)
         # plt.title(self.cluster.__name__, fontsize=14)
 
     def plot_triangle_arrow(self, x, y, d, label, color):
@@ -86,7 +88,7 @@ class Clusterer:
         arrows.append(arrow)
 
     def plot_state_machine(self, state_machine):
-        edges, edge_labels, _, centroids_by_state, _ = state_machine
+        edges, edge_labels, _, centroids_by_state, _, _ = state_machine
         centroids_by_state = deepcopy(centroids_by_state)
         colors = cycle(['blue', 'red', 'green', 'orange', 'purple'])
         arrow_colors = defaultdict(lambda: next(colors))
@@ -109,12 +111,13 @@ class Clusterer:
                     self.add_to_plot_legend(label, arrow, plot_legend)
         plt.legend(*plot_legend, fontsize=12)
 
-    def plot(self, state_machine, path):
-        edges, edge_labels, points_by_state, centroids_by_state, _ = state_machine
-        fig = plt.figure(figsize=(10, 8))
-        self.plot_clusters(points_by_state)
-        self.plot_state_machine(state_machine)
-        fig.savefig(path, bbox_inches='tight')
+    def plot(self, state_machine, path, plot=False):
+        edges, edge_labels, points_by_state, centroids_by_state, _, _ = state_machine
+        if plot:
+            fig = plt.figure(figsize=(10, 8))
+            self.plot_clusters(points_by_state)
+            self.plot_state_machine(state_machine)
+            fig.savefig(path + '.png', bbox_inches='tight')
 
     def get_edge_adder_and_remover(self, edges, reverse_edges, edge_labels):
         def add_edge(from_node, to_nodes, label):
@@ -152,7 +155,7 @@ class Clusterer:
                 initial_cluster = cluster
         return initial_cluster
 
-    def divide_sync_topic_clusters(self, clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
+    def divide_sync_topic_clusters(self, clusters, edges, edge_labels, timestamps, reverse_edges, states_by_clusters, remove_edge,
                                    add_edge):
         cluster_counter = count(max(clusters) + 1)
         for topic in list(self.dicts_by_topic.keys())[1:]:
@@ -165,11 +168,15 @@ class Clusterer:
 
                 new_cluster = next(cluster_counter)
                 next_clusters = edges[cluster]
-                prev_topic = edge_labels[(reverse_edges[cluster], cluster)]
+                prev_cluster = reverse_edges[cluster]
+                prev_topic = edge_labels[(prev_cluster, cluster)]
 
                 remove_edge(cluster, next_clusters)
                 add_edge(cluster, [new_cluster], topic)
                 add_edge(new_cluster, next_clusters, prev_topic)
+                timestamps[(cluster, new_cluster)] = timestamps[(prev_cluster, cluster)]
+                for next_cluster in next_clusters:
+                    timestamps[(new_cluster, next_cluster)] = timestamps[(cluster, next_cluster)]
 
                 if all_successful:
                     states_by_clusters[new_cluster] = states_by_clusters[cluster]
@@ -177,33 +184,35 @@ class Clusterer:
                     states_by_clusters[cluster].remove(i)
                     states_by_clusters[new_cluster].append(i)
 
-    def clusters_to_state_machine(self, clusters, initial_state, get_labels=lambda clusters: clusters.labels_):
+    def clusters_to_state_machine(self, clusters, initial_state, state_machine=None):
         if not clusters:
             rospy.logerr("Could not cluster")
             return
 
-        edges, reverse_edges, edge_labels = {}, {}, {}
+        edges, reverse_edges, edge_labels, timestamps = {}, {}, {}, defaultdict(list)
         states_by_clusters = defaultdict(list)
         add_edge, remove_edge = self.get_edge_adder_and_remover(edges, reverse_edges, edge_labels)
 
-        clusters = get_labels(clusters)
+        clusters = list(
+            map(lambda cluster: cluster.cluster, clusters))
         topic = next(iter(self.dicts_by_topic))
         for i, prev_cluster_label in enumerate(clusters[:-1]):
             cluster_label = clusters[i + 1]
             states_by_clusters[prev_cluster_label].append(i)
             add_edge(prev_cluster_label, [cluster_label], topic)
+            timestamps[(prev_cluster_label, cluster_label)].append(
+                self.dicts_by_topic[topic][i + 1]['timestamp'] - self.dicts_by_topic[topic][i]['timestamp'])
         states_by_clusters[cluster_label].append(i + 1)
 
-        self.divide_sync_topic_clusters(clusters, edges, edge_labels, reverse_edges, states_by_clusters, remove_edge,
+        self.divide_sync_topic_clusters(clusters, edges, edge_labels, timestamps, reverse_edges, states_by_clusters, remove_edge,
                                         add_edge)
 
         initial_cluster = self.get_initial_cluster(initial_state, states_by_clusters)
         centroids = self.get_centroids(states_by_clusters)
-        return edges, edge_labels, states_by_clusters, centroids, initial_cluster
+        return edges, edge_labels, states_by_clusters, centroids, timestamps, initial_cluster
 
     def get_centroids(self, states_by_clusters):
         centroids_by_clusters = {}
-
         cluster_labels = []
         cluster_data = []
         for cluster in states_by_clusters:
@@ -219,11 +228,10 @@ class Clusterer:
         for cluster in cluster_labels:
             try:
                 logical_centroid = centroid_finder.centroids_[cluster]
-                centroid = topics_data[
-                    min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
-                            states_by_clusters[cluster]), key=lambda x: x[0])[1]
-                ]
-                centroids_by_clusters[cluster] = centroid
+                min_distance_state = \
+                min(map(lambda state: (distance.euclidean(self.data[state], logical_centroid), state),
+                        states_by_clusters[cluster]), key=lambda x: x[0])[1]
+                centroids_by_clusters[cluster] = topics_data[min_distance_state]
             except Exception as e:
                 rospy.logerr(e)
         return centroids_by_clusters

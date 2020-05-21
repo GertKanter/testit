@@ -1,8 +1,7 @@
 from math import sqrt
+from util import flatten, lmap
 
 import rospy
-
-from util import flatten, lmap
 
 try:
     from typing import *
@@ -147,4 +146,5 @@ class ExploreMoveStrategy:
             self.path.append(self.next_state)
             self.visited.add(self.next_state)
             self.state = self.next_state
+            print("give_feedback: Setting self.state to " + str(self.state))
             self.next_state = None

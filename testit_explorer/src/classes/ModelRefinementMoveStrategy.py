@@ -1,6 +1,8 @@
+import time
 from collections import defaultdict
 from math import sqrt
 
+import numpy as np
 import rospy
 
 from util import flatten, lmap
@@ -14,17 +16,20 @@ except:
 class ModelRefinementMoveStrategy:
     def __init__(self, **kwargs):
         self.state_machine = kwargs['state_machine']
+        self.model_confs = kwargs['model_confs']
         if not self.state_machine:
             rospy.logerr("stateMachine not specified in config")
             raise RuntimeError("stateMachine not specified in config")
         self.state_values = {int(key): self.state_machine['values'][key] for key in self.state_machine['values']}
         self.edges = {int(key): lmap(int, self.state_machine['edges'][key]) for key in self.state_machine['edges']}
         self.edge_labels = {eval(key): self.state_machine['labels'][key] for key in self.state_machine['labels']}
+        self.timestamps = {eval(key): self.state_machine['timestamps'][key] for key in self.state_machine['timestamps']}
         self.initial_state = int(self.state_machine['initialState'])
 
         self.state_machine['values'] = self.state_values
         self.state_machine['edges'] = self.edges
         self.state_machine['labels'] = self.edge_labels
+        self.state_machine['timestamps'] = self.timestamps
 
         self.topics = []
         self.actions = []
@@ -40,6 +45,7 @@ class ModelRefinementMoveStrategy:
         self.success = True
         self.closest_pairs = None
         self.going_back = False
+        self.timestamp = None
 
     def set_initial_state(self, _):
         self.state = self.initial_state
@@ -51,13 +57,22 @@ class ModelRefinementMoveStrategy:
     def set_previous_states(self, states):
         pass
 
+    def get_model_conf(self, identifier):
+        return self.model_confs.get(self.edge_labels.get((self.prev_state, self.state), identifier), {})
+
     def give_feedback(self, successes):
         if any(successes):
             self.success = True
+            index = successes.index(True)
+            identifier = self.topics[index]['identifier']
             if self.state not in self.edges.get(self.prev_state, []) and self.prev_state != self.state:
                 self.edges[self.prev_state].append(self.state)
-                index = successes.index(True)
-                self.edge_labels[(self.prev_state, self.state)] = self.topics[index]['identifier']
+                self.edge_labels[(self.prev_state, self.state)] = identifier
+            if self.prev_state != self.state:
+                model_conf = self.get_model_conf(identifier)
+                new_time = (time.time() - self.timestamp) - (
+                            model_conf.get('timeBuffer', 0) - model_conf.get('timeBufferForRefineModel', 0))
+                self.timestamps[(self.prev_state, self.state)] = [new_time]
             self.prev_state = self.state
             self.visited.add(self.state)
             if not self.going_back:
@@ -123,6 +138,7 @@ class ModelRefinementMoveStrategy:
 
     def state_value(self):
         states = self.state_values_to_states(self.state_values[self.state])
+        self.timestamp = time.time()
         rospy.loginfo(str(states))
         return states
 
