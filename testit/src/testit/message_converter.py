@@ -62,7 +62,7 @@ ros_binary_types_regexp = re.compile(r'(uint8|char)\[[^\]]*\]')
 
 list_brackets = re.compile(r'\[[^\]]*\]')
 
-def convert_dictionary_to_ros_message(message_type, dictionary, kind='message'):
+def convert_dictionary_to_ros_message(message_type, dictionary, kind='message', message_class_return=[]):
     """
     Takes in the message type and a Python dictionary and returns a ROS message.
 
@@ -78,12 +78,15 @@ def convert_dictionary_to_ros_message(message_type, dictionary, kind='message'):
     """
     if kind == 'message':
         message_class = roslib.message.get_message_class(message_type)
+        message_class_return.append(message_class)
         message = message_class()
     elif kind == 'request':
         service_class = roslib.message.get_service_class(message_type)
+        message_class_return.append(service_class)
         message = service_class._request_class()
     elif kind == 'response':
         service_class = roslib.message.get_service_class(message_type)
+        message_class_return.append(service_class)
         message = service_class._response_class()
     else:
         raise ValueError('Unknown kind "%s".' % kind)
