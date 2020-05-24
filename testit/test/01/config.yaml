@@ -64,7 +64,7 @@ configuration:
   bringupSUTDelay: 0 # duration to wait after command
   bringupSUTTimeout: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
   bringupSUTFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
-  runSUT: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --name [[masterHost]] --network host --env ROS_HOSTNAME=[[masterHost]] -dt testitros/testit_patrol_sut:spinning /bin/bash -c \"tail -f /dev/null\"" # run SUT
+  runSUT: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --name [[masterHost]] --network host --env ROS_HOSTNAME=[[masterHost]] -dt testitros/patrol_sut:latest /bin/bash -c \"tail -f /dev/null\"" # run SUT
   runSUTDelay: 5 # duration to wait for SUT to come up (roscore initialization)
   runSUTTimeout: 60
   runSUTFinishTrigger: "-"
@@ -80,7 +80,7 @@ configuration:
   bringupTestItDelay: 0 # duration to wait after command
   bringupTestItTimeout: 1
   bringupTestItFinishTrigger: "-"
-  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --name [[testItContainerName]] --network host --env ROS_HOSTNAME=[[testItHost]] -dt testitros/testit_patrol_testit:learn /bin/bash -c \"(roscore &); tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing
+  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --name [[testItContainerName]] --network host --env ROS_HOSTNAME=[[testItHost]] -dt testitros/testit_patrol:latest /bin/bash -c \"(roscore &); tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing
   runTestItDelay: 5 # duration to wait after command
   runTestItTimeout: 60
   runTestItFinishTrigger: "-"
@@ -102,8 +102,8 @@ pipelines:
   - tag: "Pipeline #1" # identifier for reporting
     sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
     testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
-    masterHost: "ingmar"
-    testItHost: "ingmar"
+    masterHost: "master_host"
+    testItHost: "testit_host"
     testItContainerName: 'testit_container'
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testItHost is not defined) ("-" means none)

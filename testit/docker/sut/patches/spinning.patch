@@ -1,0 +1,70 @@
+--- /catkin_ws/src/robots_stage/param/dwa_local_planner_params.yaml
++++ /catkin_ws/src/robots_stage/param/dwa_local_planner_params.yaml
+@@ -7,6 +7,10 @@ DWAPlannerROS:
+   max_vel_y: 0.0  # diff drive robot
+   min_vel_y: 0.0  # diff drive robot
+ 
++  max_rot_vel: 2.0  # choose slightly less than the base's capability
++  min_rot_vel: 0.1  # this is the min angular velocity when there is negligible translational velocity
++  rot_stopped_vel: 0.1
++
+   max_vel_trans: 0.3 # choose slightly less than the base's capability
+   min_vel_trans: 0.1  # this is the min trans velocity when there is negligible rotational velocity
+   trans_stopped_vel: 0.1
+@@ -20,12 +24,12 @@ DWAPlannerROS:
+   theta_stopped_vel: 0.4
+ 
+   acc_lim_x: 1.0 # maximum is theoretically 2.0, but we 
+-  acc_lim_theta: 2.0
++  acc_lim_theta: 4.5
+   acc_lim_y: 0.0      # diff drive robot
+ 
+ # Goal Tolerance Parameters
+-  yaw_goal_tolerance: 0.2  # 0.05
+-  xy_goal_tolerance: 0.1  # 0.10
++  yaw_goal_tolerance: 2  # 0.05
++  xy_goal_tolerance: 0.2  # 0.10
+   # latch_xy_goal_tolerance: false
+ 
+ # Forward Simulation Parameters
+@@ -37,14 +41,18 @@ DWAPlannerROS:
+ # Trajectory Scoring Parameters
+   path_distance_bias: 64.0      # 32.0   - weighting for how much it should stick to the global path plan
+   goal_distance_bias: 24.0      # 24.0   - wighting for how much it should attempt to reach its goal
+-  occdist_scale: 0.5            # 0.01   - weighting for how much the controller should avoid obstacles
++  occdist_scale: 0.1            # 0.01   - weighting for how much the controller should avoid obstacles
+   forward_point_distance: 0.325 # 0.325  - how far along to place an additional scoring point
+   stop_time_buffer: 0.2         # 0.2    - amount of time a robot must stop in before colliding for a valid traj.
+   scaling_speed: 0.25           # 0.25   - absolute velocity at which to start scaling the robot's footprint
+   max_scaling_factor: 0.2       # 0.2    - how much to scale the robot's footprint when at speed.
++  pdist_scale: 0.005
++  gdist_scale: 0.005
++
+ 
+ # Oscillation Prevention Parameters
+   oscillation_reset_dist: 0.05  # 0.05   - how far to travel before resetting oscillation flags
++  oscillation_timeout: 5.0
+ 
+ # Debugging
+   publish_traj_pc : true
+--- /catkin_ws/src/robots_stage/param/move_base_params.yaml
++++ /catkin_ws/src/robots_stage/param/move_base_params.yaml
+@@ -9,7 +9,8 @@ controller_patience: 3.0
+ 
+ 
+ planner_frequency: 1.0
+-planner_patience: 5.0
++planner_patience: 2.0
++max_planning_retries: 10
+ 
+ oscillation_timeout: 10.0
+ oscillation_distance: 0.0
+@@ -22,7 +23,7 @@ base_global_planner: "navfn/NavfnROS" #alternatives: global_planner/GlobalPlanne
+ 
+ #We plan to integrate recovery behaviors for turtlebot but currently those belong to gopher and still have to be adapted.
+ ## recovery behaviors; we avoid spinning, but we need a fall-back replanning
+-#recovery_behavior_enabled: true
++recovery_behavior_enabled: false
+ 
+ #recovery_behaviors:
+   #- name: 'super_conservative_reset1'
