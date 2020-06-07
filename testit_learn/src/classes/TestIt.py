@@ -3,7 +3,7 @@ import math
 import re
 import yaml
 from collections import OrderedDict
-from util import get_attribute, add_to_list_dict
+from testit.testit_util import get_attribute, add_to_list_dict
 
 import rospy
 import numpy as np
