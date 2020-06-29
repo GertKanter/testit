@@ -39,11 +39,11 @@ def convert_optimizer_sequence_to_uppaal_synchronizations(sequence):
     Args:
       sequence - optimized sequence as a list of tuples (channel, data), e.g., ([({"identifier": "/robot_0/move_base", "type": "move_base_msgs.msg.MoveBaseAction", "proxy": "/robot_0/move_base/proxy"}, {"target_pose": {"header": {"stamp": {"secs": 0, "nsecs": 0}, "frame_id": "map", "seq": 0}, "pose": {"position": {"y": 36.49, "x": 5.95, "z": 0.0}, "orientation": {"y": 0.0, "x": 0.0, "z": 0.0, "w": 1.0}}}}), ... ])
     Returns:
-    list of synchronization tuples (sync name, {arguments}) in temporal order, for example: [("robot_0_goto", {'mode': 2, 'waypoint': 3}), ...]
+    list of synchronization tuples (sync name, {arguments}, lower_bound, upper_bound) in temporal order, for example: [("robot_0_goto", {'mode': 2, 'waypoint': 3}, 0.9, 2.0), ...]
     """
     synchronizations = []
     for step in sequence:
-        synchronizations.append((step[0]['identifier'][1:].split("/")[0] +"_moveto", {'x': int(step[1]['target_pose']['pose']['position']['x']*10), 'y': int(step[1]['target_pose']['pose']['position']['y']*10)}))
+        synchronizations.append((step[0]['identifier'][1:].split("/")[0] +"_moveto", {'x': int(step[1]['target_pose']['pose']['position']['x']*10), 'y': int(step[1]['target_pose']['pose']['position']['y']*10)}, 1, 10))
     return synchronizations
 
 def create_sequential_uppaal_xml(synchronizations):
