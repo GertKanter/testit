@@ -53,6 +53,7 @@ pipelines:
     testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
     masterHost: "" # ROS master hostname
     testItHost: "" # TestIt hostname
+    testItContainerName: "" # TestIt Container name
     testItVolume: "" # where TestIt volume is located (test scenarios + bags are stored there) at the [[testItConnection]] host.
     sharedDirectory: "" # shared volume for TestIt docker container (shared files with host, e.g. "/testit/")
     resultsDirectory: "" # where to store results inside TestIt docker w.r.t. sharedDirectory and testItVolume (i.e., sharedDirectory="/testit/" and resultsDirectory="testit_tests/results/" => results will be stored in "/testit/testit_tests/results")

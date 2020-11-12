@@ -344,7 +344,7 @@ class Optimizer:
             value += state[key]
         return value
 
-    def compute_sequence(self, state="INIT", gain_limit=0.0, step_limit=sys.maxint, time_limit=-1, max_depth=1):
+    def compute_sequence(self, state="INIT", gain_limit=0.0, step_limit=sys.maxsize, time_limit=-1, max_depth=1):
         """
         Compute the optimal sequence from the given state (note that initial state is "undefined" since we do not know in what state the simulation started).
 

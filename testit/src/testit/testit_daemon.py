@@ -45,7 +45,7 @@ import sys
 import re
 import subprocess
 import testit.junit
-import cStringIO
+import io
 import xml.etree.ElementTree
 import os
 import rosbag
@@ -1057,7 +1057,7 @@ class TestItDaemon:
         message = ""
         result = True
         testsuite = testit.junit.testsuite(tests=len(self.tests))
-        output = cStringIO.StringIO()
+        output = io.cStringIO.StringIO()
         for test in self.tests:
             testcase = testit.junit.testcase(classname=test)
             start_timestamp = self.tests[test].get('test_start_timestamp', None)
@@ -1166,10 +1166,10 @@ class TestItDaemon:
         E.g., '$(rospack find testit)/data/' to '/home/user/catkin_ws/src/testit/testit/data/'
         """
         if prefix == "":
-            process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command], stdout=subprocess.PIPE)
+            process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command], stdout=subprocess.PIPE, encoding='utf-8')
         else:
             cmd = prefix + "/bin/bash -c '\\''echo " + command + "'\\''" + suffix
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, encoding='utf-8')
         out, err = process.communicate()
         out = out.replace("\n", "")
         return out

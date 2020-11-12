@@ -3,7 +3,7 @@ tests:
     pipeline: "" # empty for any
     launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
     oracle: "/testit/testit_tests/01/oracle/oracle.py" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
-    timeout: 120 # time in seconds for timeout (0 for no timeout)
+    timeout: 240 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
     bagEnabled: False # True=rosbag record, False=don't bag
     bagMaxSplits: "" # empty = use default
@@ -14,7 +14,7 @@ tests:
     pipeline: "" # empty for any
     launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
     oracle: "/testit/testit_tests/02/oracle/oracle.py" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
-    timeout: 180 # time in seconds for timeout (0 for no timeout)
+    timeout: 240 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
     bagEnabled: True # True=rosbag record, False=don't bag
     bagMaxSplits: "" # empty = use default
@@ -68,6 +68,7 @@ pipelines:
     testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
     masterHost: "sut1"
     testItHost: "testit1"
+    testItContainerName: "testit1"
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testItHost is not defined) ("-" means none)
     testItVolume: "$(rospack find testit_tutorials)/tutorials/turtlebot/" # where TestIt volume is located in the pipeline (test scenarios + bags are stored there)

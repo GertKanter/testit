@@ -85,7 +85,7 @@ class TestIt:
                 rospy.logerr(response)
             if callback is not None and response.result:
                 callback(response, args)
-        except rospy.ServiceException, e:
+        except rospy.ServiceException as e:
             rospy.logerr("Calling service failed: %s" % e)
 
     def shutdown(self, args):
@@ -148,13 +148,13 @@ class TestIt:
     def results_callback(self, response, args):
         if "output" in args and args.output != "":
             # "--output" specified
-	    try:
-		rospy.loginfo("Writing results to '%s'" % args.output)
-		with open(args.output, 'w') as outfile:
-		    outfile.write(response.message)
-	    except Exception as e:
-		import traceback
-		traceback.print_exc()
+            try:
+                rospy.loginfo("Writing results to '%s'" % args.output)
+                with open(args.output, 'w') as outfile:
+                    outfile.write(response.message)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
 
     def bag(self, args):
         def unrecognized(args):
