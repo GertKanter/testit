@@ -117,6 +117,11 @@ You need to have both SUT (System Under Test) and TestIt Turtlebot docker images
 ```
 rosrun testit_tutorials build_turtlebot_docker_containers.sh
 ```
+#### Docker network for ROS
+You need to have a Docker network named `rosnetwork` for this tutorial. You can create a network using this command
+```
+docker network create rosnetwork
+```
 ### Execution
 #### Daemon
 To run the the tutorial use
