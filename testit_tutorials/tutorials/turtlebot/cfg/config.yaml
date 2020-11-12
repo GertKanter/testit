@@ -28,7 +28,7 @@ configuration:
   bringupSUTDelay: 0 # duration to wait after command
   bringupSUTTimeout: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
   bringupSUTFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
-  runSUT: "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=[[masterHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[masterHost]] -dt testit_tb_sut:latest /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosrun mission_control run_example_in_docker.sh && tail -f /dev/null\"" # run SUT 
+  runSUT: "docker run --rm --net=rosnetwork --env ROS_HOSTNAME=[[masterHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[masterHost]] -dt testitros/testit_tb_sut:latest /bin/bash -c \"source /catkin_ws/devel/setup.bash && rosrun mission_control run_example_in_docker.sh && tail -f /dev/null\"" # run SUT 
   runSUTDelay: 10 # duration to wait for SUT to come up (roscore initialization)
   runSUTTimeout: 150
   runSUTFinishTrigger: "-"
@@ -44,7 +44,7 @@ configuration:
   bringupTestItDelay: 0 # duration to wait after command
   bringupTestItTimeout: 1
   bringupTestItFinishTrigger: "-"
-  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --net=rosnetwork --env ROS_HOSTNAME=[[testItHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testItHost]] -dt testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
+  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --net=rosnetwork --env ROS_HOSTNAME=[[testItHost]] --env ROS_MASTER_URI=http://[[masterHost]]:11311 --name [[testItHost]] -dt testitros/testit_tb_testit /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
   runTestItDelay: 0 # duration to wait after command
   runTestItTimeout: 5
   runTestItFinishTrigger: "-"
