@@ -113,7 +113,7 @@ The `configuration` section defines the default values for pipelines and tests a
 #### Dependencies
 You need to have [Docker](https://www.docker.com/) installed for this tutorial.
 #### Turtlebot docker image
-You need to have both SUT (System Under Test) and TestIt Turtlebot docker images installed on your machine. To do that we use
+You need to have both SUT (System Under Test) and TestIt Turtlebot docker images installed on your machine. These can be pulled from Docker Hub but also can be built locally. To build the images locally we can use a script
 ```
 rosrun testit_tutorials build_turtlebot_docker_containers.sh
 ```
