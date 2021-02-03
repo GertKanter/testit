@@ -1,0 +1,11 @@
+--- /catkin_ws/src/testit-patrol-sut/patrol_planner/launch/single_robot.launch
++++ /catkin_ws/src/testit-patrol-sut/patrol_planner/launch/single_robot.launch
+@@ -1,7 +1,7 @@
+ <launch>
+   <arg name="name"/>
+   <arg name="suffix" default=""/>
+-  <node name="$(anon patrol_planner)" pkg="patrol_planner" type="patrol_planner.py" output="screen">
++  <node name="$(anon patrol_planner)" pkg="patrol_planner" type="patrol_planner_patched.py" output="log">
+     <param name="name" value="$(arg name)"/>
+     <param name="suffix" value="$(arg suffix)"/>
+   </node>

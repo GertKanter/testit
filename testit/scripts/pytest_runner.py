@@ -21,6 +21,7 @@ if __name__ == '__main__':
     runner_path = os.path.dirname(os.path.realpath(__file__))
     module_path = os.path.join(runner_path, test_module)
 
+    pytest.main()
     sys.exit(
         pytest.main([module_path, '--junitxml={}'.format(output_file)])
     )

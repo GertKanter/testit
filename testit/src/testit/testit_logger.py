@@ -112,6 +112,7 @@ class TestItLogger(object):
                 self.mapping[i] = channel[0]
                 channel[0]['unique_id'] = i
                 identifier = channel[0].get('identifier', "")
+                feedback = channel[0].get('feedback', "")
                 rospy.loginfo("Processing channel: %s" % str(channel))
                 if identifier != "":
                     channel_type = channel[0].get('type', "")
@@ -122,7 +123,10 @@ class TestItLogger(object):
                         proxy = channel[0].get('proxy', "")
                         if proxy == "":
                             channel[0]['channel'] = channel[1]
-                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=" + str(i) + ")")
+                            eval("rospy.Subscriber(\"" + identifier + "\", " + channel_type + ", self.topic_callback, callback_args=" + str(i)+")")
+                            if feedback != "":
+                                self.do_import(feedback['type'])
+                                eval("rospy.Subscriber(\"" + feedback['topic'] + "\", " + feedback['type'] + ", self.response_callback, callback_args=" + str(i)+")")
                             rospy.loginfo("Logger subscribed to %s" % identifier)
                         else:
                             if channel_type.endswith("Action"):
@@ -165,6 +169,34 @@ class TestItLogger(object):
                 return self.seq
         return None
 
+    def write_response_log_entry(self, identifier, event, data):
+        """
+        Write a log entry to the log file.
+
+        Args:
+        identifier - the index of the mapping dictionary
+        event - triggering event (i.e., "PRE" before sending the command to the
+                service or "POST" after receiving the response from the service)
+        data - the request data that is sent to the proxied service
+        """
+        #rospy.loginfo("writing log entry...")
+        #channel = self.mapping[identifier]
+        #rospy.loginfo("data is: %s" % str(data))
+        #rospy.loginfo("type is %s" % type(data))
+        channel = {'identifier': self.mapping[identifier]['feedback']['topic'], 'proxy': "", 'type': self.mapping[identifier]['feedback']['type']}
+        json_str = str(yaml.load(str(data))).replace("'", "\"").replace("None", "null").replace("True", "true").replace("False", "false")
+        entry = {'run_id': self.run_id, 'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(json_str), 'test': self.test}
+        seq = self.flush_coverage()
+        if seq is not None:
+            self.seq = seq
+            if self.seq > 0:
+                t = threading.Timer(self.reporting_time_limit, self.add_coverage_entry, args=[entry, seq])
+                t.start()
+                return True
+            else:
+                return self.add_coverage_entry(entry, seq)
+
+
     def write_log_entry(self, identifier, event, data):
         """
         Write a log entry to the log file.
@@ -180,7 +212,8 @@ class TestItLogger(object):
         #rospy.loginfo("data is: %s" % str(data))
         #rospy.loginfo("type is %s" % type(data))
         channel = {'identifier': self.mapping[identifier]['identifier'], 'proxy': self.mapping[identifier]['proxy'], 'type': self.mapping[identifier]['type']}
-        entry = {'run_id': self.run_id, 'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(str(yaml.load(str(data))).replace("'", "\"").replace("None", "null")), 'test': self.test}
+        json_str = str(yaml.load(str(data))).replace("'", "\"").replace("None", "null").replace("True", "true").replace("False", "false")
+        entry = {'run_id': self.run_id, 'timestamp': rospy.Time.now().to_sec(), 'channel': channel, 'event': event, 'data': json.loads(json_str), 'test': self.test}
         seq = self.flush_coverage()
         if seq is not None:
             self.seq = seq
@@ -237,6 +270,10 @@ class TestItLogger(object):
             if service_proxy[0].resolved_name == identifier:
                 return service_proxy
         return None
+
+    def response_callback(self, data, identifier):
+        if not self.write_response_log_entry(identifier, "RESPONSE", data):
+            rospy.logerr("Failed to write response log entry!")
 
     def topic_callback(self, data, identifier):
         if self.mapping[identifier]['channel'] == 'output':

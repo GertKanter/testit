@@ -139,13 +139,14 @@ class Optimizer:
                 self.channel_hashes[channel] = entry['channel']
                 if entry['event'] == "PRE":
                     pre[channel] = self.flatten_coverage(entry)
-                else:
+                elif entry['event'] == "POST":
                     # Only process after receiving "POST"
                     state_vector[channel] = str(entry['data'])
                     new_state = self.get_list_hash(state_vector.values())
                     self.state_hashes[new_state] = (state_vector, entry['data'])
                     edges = graph.get(current_state, [])
                     entry = self.flatten_coverage(entry)
+                    pre[channel] = pre.get(channel, {'coverage': {}})
                     pre[channel]['coverage'].update(entry['coverage'])
                     edges.append([new_state, 1, self.create_parameter_dictionary(pre[channel]['coverage'], weights), self.create_parameter_dictionary(pre[channel]['coverage'], weights, weighted=True)])
                     graph[current_state] = edges
