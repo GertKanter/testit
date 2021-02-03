@@ -1,8 +1,55 @@
 tests:
-  - tag: "Scenario #1" # identifier for reporting
+  - tag: "Test" # identifier for reporting
+    mode: "test"
     pipeline: "" # empty for any
+    preLaunchCommand: "(roscore &)"
+    launch: "echo" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
+    oracle: "" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    timeout: 10 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
+    bagEnabled: False # True=rosbag record, False=don't bag
+    bagMaxSplits: "" # empty = use default
+    bagDuration: "" # empty = use default
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)
+
+  - tag: "Explore"
+    mode: "explore"
+    pipeline: "" # empty for any
+    loggerConfiguration: "01/logger.yaml"
+    preLaunchCommand: "(roscore &)"
     launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
-    oracle: "ls" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    oracle: "" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    timeout: 10 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
+    bagEnabled: False # True=rosbag record, False=don't bag
+    bagMaxSplits: "" # empty = use default
+    bagDuration: "" # empty = use default
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)
+
+  - tag: "Learn"
+    mode: "learn"
+    pipeline: "" # empty for any
+    preLaunchCommand: "(roscore &)"
+    loggerConfiguration: "01/logger.yaml"
+    launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
+    oracle: "" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
+    timeout: 10 # time in seconds for timeout (0 for no timeout)
+    timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
+    bagEnabled: False # True=rosbag record, False=don't bag
+    bagMaxSplits: "" # empty = use default
+    bagDuration: "" # empty = use default
+    bagTopicRegex: "" # empty = use default (specified in configuration)
+    bagTopicExcludeRegex: "" # empty = use default (specified in configuration)
+
+  - tag: "Refine"
+    mode: "refine-model"
+    pipeline: "" # empty for any
+    loggerConfiguration: "01/logger.yaml"
+    preLaunchCommand: "(roscore &)"
+    launch: "" # how to execute this test (run command) in TestIt container, if empty, then assumed that test is not explicitly executed (already started at runSUT and oracle is used to determine pass/fail)
+    oracle: "" # determining whether pass/fail, if empty = "launch" execution result will be used to determine pass/fail
     timeout: 10 # time in seconds for timeout (0 for no timeout)
     timeoutVerdict: False # if timeout occurs, declare the test as this (False = fail, True = success)
     bagEnabled: False # True=rosbag record, False=don't bag
@@ -17,7 +64,7 @@ configuration:
   bringupSUTDelay: 0 # duration to wait after command
   bringupSUTTimeout: 1 # seconds (0 for no timeout, but you have to specify bringup_finish_trigger then or tests will not be run)
   bringupSUTFinishTrigger: "-" # command to test whether startup is finished, "-" = no trigger
-  runSUT: "docker run --rm --name [[masterHost]] --env ROS_HOSTNAME=[[masterHost]] -dt ros:latest /bin/bash -c \"tail -f /dev/null\"" # run SUT 
+  runSUT: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --name [[masterHost]] --network host --env ROS_HOSTNAME=[[masterHost]] -dt testitros/patrol_sut:latest /bin/bash -c \"tail -f /dev/null\"" # run SUT
   runSUTDelay: 5 # duration to wait for SUT to come up (roscore initialization)
   runSUTTimeout: 60
   runSUTFinishTrigger: "-"
@@ -33,11 +80,11 @@ configuration:
   bringupTestItDelay: 0 # duration to wait after command
   bringupTestItTimeout: 1
   bringupTestItFinishTrigger: "-"
-  runTestIt: "docker run --rm --name [[testItHost]] -dt testitros/testit:base /bin/bash -c \"tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing 
-  runTestItDelay: 0 # duration to wait after command
-  runTestItTimeout: 5
+  runTestIt: "docker run --rm --volume=[[testItVolume]]:[[sharedDirectory]] --name [[testItContainerName]] --network host --env ROS_HOSTNAME=[[testItHost]] -dt testitros/testit_patrol:latest /bin/bash -c \"(roscore &); tail -f /dev/null\"" # how to bring up a pipeline TestIt (general case), you can use "[[]]" for replacing
+  runTestItDelay: 5 # duration to wait after command
+  runTestItTimeout: 60
   runTestItFinishTrigger: "-"
-  stopTestIt: "docker kill [[testItHost]]" # general case pipeline stopping
+  stopTestIt: "docker kill [[testItContainerName]]" # general case pipeline stopping
   stopTestItDelay: 0 # duration to wait after command
   stopTestItTimeout: 5
   stopTestItFinishTrigger: "-"
@@ -55,13 +102,14 @@ pipelines:
   - tag: "Pipeline #1" # identifier for reporting
     sutConnection: "-" # (e.g., "user@pipe1.domain.com"). "-" means no command (ssh, scp) wrapping, execute docker and other commands on localhost. Note that bringup/teardown are not wrapped. Run/stop + test commands are wrapped
     testItConnection: "-" # see above; "-" means testIt runs at the pipeline itself (i.e., localhost); commonly sutConnection==testItConnection with both containers running in the same server
-    masterHost: "test_sut1"
-    testItHost: "test_testit1"
+    masterHost: "master_host"
+    testItHost: "testit_host"
+    testItContainerName: 'testit_container'
     masterIP: "-" # where SUT roscore is running (used if masterHost is not defined) ("-" means none)
     testitIP: "-" # where TestIt docker container is running (used if testItHost is not defined) ("-" means none)
     testItVolume: "$(rospack find testit)/test/" # where TestIt volume is located in the pipeline (test scenarios + bags are stored there)
     sharedDirectory: "/testit/" # shared directory in testit docker
-    resultsDirectory: "results/"
+    resultsDirectory: "/results/"
     bringupSUT: "" # empty string = use default
     bringupSUTDelay: ""
     bringupSUTTimeout: "" # empty string = use default
