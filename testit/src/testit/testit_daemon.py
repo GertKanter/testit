@@ -75,6 +75,7 @@ class TestItDaemon:
         rospy.Service('testit/credits', testit.srv.Command, self.handle_credits)
         rospy.Service('testit/optimize', testit.srv.Command, self.handle_optimize_log_scenario)
         rospy.Service('testit/online', testit.srv.Command, self.handle_online_test)
+        rospy.Service('testit/log', testit.srv.Command, self.handle_log)
 
         self.initialize()
 
@@ -105,6 +106,8 @@ class TestItDaemon:
         self.pipelines = self.substitute_replacement_values(
             self.set_defaults(self.pipelines,
                               self.configuration))
+        self.output_log = [] # [(timestamp, message), ...]
+        self.output_timestamp = rospy.Time.now()
 
     def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
         """
@@ -338,6 +341,26 @@ class TestItDaemon:
 
     def remove_bags(self, tag):
         rospy.loginfo("removing bags from tag = %s" % tag)
+
+    def handle_log(self, req):
+        rospy.logdebug("Log requested")
+        all_entries = False
+        message = ""
+        if len(req.args) > 0:
+            if "--all" in req.args:
+                all_entries = True
+                req.args = req.args.replace("--all", "", 1)
+        result = True
+        timestamp = rospy.Time.now()
+        try:
+            for entry in self.output_log:
+                if entry[0] > timestamp or all_entries:
+                    message += "[" + str(entry[0]) + "] " + str(entry[1]) + "\r\n"
+        except:
+            result = False
+        if result:
+            self.output_timestamp = timestamp
+        return testit.srv.CommandResponse(result, message)
 
     def handle_bringup(self, req):
         result = self.multithreaded_command("Start", req, "bringup", "BRINGUP", {'True': "READY", 'False': "FAILED"})
@@ -1346,6 +1369,7 @@ class TestItDaemon:
             rospy.loginfo(message)
         else:
             rospy.logdebug(message)
+        self.output_log.append((rospy.Time.now(), message))
         if return_condition:
             return message + "\n"
         else:

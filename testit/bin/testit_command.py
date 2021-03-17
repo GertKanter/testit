@@ -2,7 +2,7 @@
 
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2019 Gert Kanter.
+# Copyright (c) Gert Kanter.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -68,6 +68,7 @@ class TestIt:
         self.shutdown_service = rospy.ServiceProxy('testit/shutdown', testit.srv.Command)
         self.credits_service = rospy.ServiceProxy('testit/credits', testit.srv.Command)
         self.optimize_service = rospy.ServiceProxy('testit/optimize', testit.srv.Command)
+        self.log_service = rospy.ServiceProxy('testit/log', testit.srv.Command)
 
     def call_service(self, service, args, callback=None):
         try:
@@ -141,7 +142,12 @@ class TestIt:
         self.call_service(self.credits_service, args)
 
     def log(self, args):
-        rospy.loginfo("Log")
+        if args.all:
+            args.pipeline = ['--all']
+        self.call_service(self.log_service, args, self.log_callback)
+
+    def log_callback(self, response, args):
+        rospy.loginfo(response.message)
 
     def optimize(self, args):
         args.pipeline = args.scenario
@@ -292,6 +298,7 @@ if __name__ == '__main__':
     parser_results.set_defaults(func=testit_instance.results)
 
     parser_log = subparsers.add_parser("log", help="log help")
+    parser_log.add_argument("-a", "--all", action="store", default='', help="Get all output since start")
     parser_log.set_defaults(func=testit_instance.log)
 
     parser_bag = subparsers.add_parser("bag", help="bag help")
