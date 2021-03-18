@@ -12,9 +12,8 @@ RUN apt-get update && \
     sh -c 'echo "deb http://packages.ros.org/ros/ubuntu bionic main" > /etc/apt/sources.list.d/ros-latest.list' && \
     sh -c 'apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654' && \
     apt-get update && \
-    apt-get install -y ros-melodic-desktop-full && \
-    rosdep init && \
-    rosdep update && \
+    apt-get install -y ros-melodic-desktop-full python-rosdep && \
+    /bin/bash -c "source /opt/ros/melodic/setup.bash && rosdep init && rosdep update" && \
     mkdir -p /catkin_ws/src && \
     /bin/bash -c "source /opt/ros/melodic/setup.bash && cd /catkin_ws/src && catkin_init_workspace" && \
     cd /catkin_ws/src && \
