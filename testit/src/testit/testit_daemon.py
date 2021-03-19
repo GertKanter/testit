@@ -350,7 +350,7 @@ class TestItDaemon:
         timestamp = rospy.Time.now()
         try:
             for entry in self.output_log:
-                if entry[0] > timestamp or all_entries:
+                if entry[0] > self.output_timestamp or all_entries:
                     message += "[" + str(entry[0]) + "] " + str(entry[1]) + "\r\n"
         except:
             result = False

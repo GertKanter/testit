@@ -299,7 +299,7 @@ if __name__ == '__main__':
     parser_results.set_defaults(func=testit_instance.results)
 
     parser_log = subparsers.add_parser("log", help="log help")
-    parser_log.add_argument("-a", "--all", action="store", default='', help="Get all output since start")
+    parser_log.add_argument("-a", "--all", action="store_true", default=False, help="Get all output since start")
     parser_log.set_defaults(func=testit_instance.log)
 
     parser_bag = subparsers.add_parser("bag", help="bag help")
