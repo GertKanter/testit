@@ -70,7 +70,7 @@ class TestIt:
         self.optimize_service = rospy.ServiceProxy('testit/optimize', testit.srv.Command)
         self.log_service = rospy.ServiceProxy('testit/log', testit.srv.Command)
 
-    def call_service(self, service, args, callback=None):
+    def call_service(self, service, args, callback=None, suppress=False):
         try:
             if "pipeline" not in args:
                 args.pipeline = []
@@ -80,12 +80,13 @@ class TestIt:
                     args.pipeline[i] = "\"" + pipeline + "\""
             response = service(" ".join(args.pipeline))
             verbose = 0
-            if args.verbose is not None:
-                verbose = args.verbose
-            if (response.result and verbose > 0) and response.result:
-                rospy.loginfo(response)
-            elif not response.result:
-                rospy.logerr(response)
+            if not suppress:
+                if args.verbose is not None:
+                    verbose = args.verbose
+                if (response.result and verbose > 0) and response.result:
+                    rospy.loginfo(response)
+                elif not response.result:
+                    rospy.logerr(response)
             if callback is not None and response.result:
                 callback(response, args)
         except rospy.ServiceException as e:
@@ -144,7 +145,7 @@ class TestIt:
     def log(self, args):
         if args.all:
             args.pipeline = ['--all']
-        self.call_service(self.log_service, args, self.log_callback)
+        self.call_service(self.log_service, args, self.log_callback, suppress=True)
 
     def log_callback(self, response, args):
         rospy.loginfo(response.message)
