@@ -60,6 +60,7 @@ import uuid
 
 class TestItDaemon:
     def __init__(self):
+        self.output_log = [] # [(timestamp, message), ...]
         rospy.Service('testit/bringup', testit.srv.Command, self.handle_bringup)
         rospy.Service('testit/teardown', testit.srv.Command, self.handle_teardown)
         rospy.Service('testit/status', testit.srv.Command, self.handle_status)
@@ -106,7 +107,6 @@ class TestItDaemon:
         self.pipelines = self.substitute_replacement_values(
             self.set_defaults(self.pipelines,
                               self.configuration))
-        self.output_log = [] # [(timestamp, message), ...]
         self.output_timestamp = rospy.Time.now()
 
     def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
@@ -1368,7 +1368,7 @@ class TestItDaemon:
         else:
             prefix = "[DEBUG]"
             rospy.logdebug(message)
-        self.output_log.append((rospy.Time.now(), "[" + str(round(rospy.Time.now(), 3)).rjust(8) + "] " + prefix.rjust(7) + " " + message))
+        self.output_log.append((rospy.Time.now(), "[" + str(round(rospy.get_time(), 3)).rjust(8) + "] " + prefix.rjust(7) + " " + message))
         if return_condition:
             return message + "\n"
         else:
@@ -1621,6 +1621,6 @@ class TestItDaemon:
 if __name__ == "__main__":
     rospy.init_node('testit_daemon')
     testit_daemon = TestItDaemon()
-    self.log("TestIt daemon started...", False, "info")
+    testit_daemon.log("TestIt daemon started...", False, "info")
     rospy.spin()
-    self.log("Shut down everything!", False, "info")
+    testit_daemon.log("Shut down everything!", False, "info")
