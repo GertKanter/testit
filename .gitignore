@@ -1,0 +1,8 @@
+*.pyc
+*.swp
+*.bag
+*.bag.active
+**/devel
+**/build
+**/logs
+**/.catkin_tools
