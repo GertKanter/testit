@@ -1,5 +1,6 @@
 <launch>
   <arg name="config" default="$(find testit)/cfg/config.yaml" />
+  <arg name="docker" default="false" />
   <node pkg="testit" type="testit_daemon.py" name="testit_daemon" output="screen">
     <param name="config" value="$(arg config)"/>
   </node>
