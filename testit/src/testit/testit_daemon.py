@@ -111,6 +111,11 @@ class TestItDaemon:
         self.docker = rospy.get_param('~docker', False)
         self.log("docker is %s" % self.docker, False, "info")
 
+        pipeline = "Pipeline #1" #self.tests[test].get('executor_pipeline', None)
+        testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
+        path = self.ground_path(self.pipelines[pipeline]['testItVolume'], testit_prefix, testit_suffix)
+        self.log("dockerVolume is %s" % path, False, "info")
+
     def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
         """
         Substitute the values wrapped with '[[]]' with the key value inside the brackets.
