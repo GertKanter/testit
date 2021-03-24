@@ -51,7 +51,6 @@ import testit.junit
 import io
 import xml.etree.ElementTree
 import os
-import rosbag
 import testit_uppaal
 import tempfile
 import testit_optimizer
