@@ -3,5 +3,6 @@
   <arg name="docker" default="false" />
   <node pkg="testit" type="testit_daemon.py" name="testit_daemon" output="screen">
     <param name="config" value="$(arg config)"/>
+    <param name="docker" value="$(arg docker)"/>
   </node>
 </launch>
