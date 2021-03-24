@@ -109,7 +109,7 @@ class TestItDaemon:
                               self.configuration))
         self.output_timestamp = rospy.Time.now()
         self.docker = rospy.get_param('~docker', False)
-        self.log("docker is %s" % docker, False, "info")
+        self.log("docker is %s" % self.docker, False, "info")
 
     def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
         """
