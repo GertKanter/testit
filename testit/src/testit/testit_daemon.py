@@ -2,7 +2,7 @@
 
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2019 Gert Kanter.
+# Copyright (c) Gert Kanter.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -108,6 +108,8 @@ class TestItDaemon:
             self.set_defaults(self.pipelines,
                               self.configuration))
         self.output_timestamp = rospy.Time.now()
+        self.docker = rospy.get_param('~docker', False)
+        self.log("docker is %s" % docker, False, "info")
 
     def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
         """
