@@ -113,7 +113,8 @@ class TestItDaemon:
 
         pipeline = "Pipeline #1" #self.tests[test].get('executor_pipeline', None)
         testit_prefix, testit_suffix = self.get_command_wrapper("testItConnection", "ssh", pipeline)
-        path = self.ground_path(self.pipelines[pipeline]['testItVolume'], testit_prefix, testit_suffix)
+        self.log("raw is %s" % self.pipelines[pipeline]['dockerVolume'], False, "info")
+        path = self.ground_path(self.pipelines[pipeline]['dockerVolume'], testit_prefix, testit_suffix)
         self.log("dockerVolume is %s" % path, False, "info")
 
     def substitute_replacement_values(self, params, auxiliary={}, regex='(\[\[.*?\]\])', replacement_index=2):
