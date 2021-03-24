@@ -1289,7 +1289,9 @@ class TestItDaemon:
         E.g., '$(rospack find testit)/data/' to '/home/user/catkin_ws/src/testit/testit/data/'
         """
         if prefix == "":
-            process = subprocess.Popen(['/bin/bash', '-c', 'echo ' + command], stdout=subprocess.PIPE, encoding='utf-8')
+            cmd = ['/bin/bash', '-c', 'echo ' + command]
+            self.log("cmd is %s" % cmd, False, "info")
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, encoding='utf-8')
         else:
             cmd = prefix + "/bin/bash -c '\\''echo " + command + "'\\''" + suffix
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True, encoding='utf-8')
